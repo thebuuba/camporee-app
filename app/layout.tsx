@@ -6,6 +6,7 @@ import "./nav.css";
 import "./polish.css";
 import ZoomLock from "./zoom-lock";
 import PwaRegister from "./components/pwa-register";
+import ConnectionStatus from "./components/connection-status";
 
 export const metadata: Metadata = {
   title: "Camporee",
@@ -26,5 +27,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><body><ZoomLock /><PwaRegister />{children}</body></html>;
+  return <html lang="es"><body><ZoomLock /><PwaRegister /><ConnectionStatus />{children}</body></html>;
 }
