@@ -6,7 +6,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   return <main className="auth-shell auth-shell-clean">
     <section className="auth-wrap">
-      <div className="auth-brand-row"><div className="brand-badge brand-image"><img src="/camporee-home-icon-v2.png" alt="Camporee" width="54" height="54" /></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
+      <div className="auth-brand-row"><div className="brand-badge brand-image"><img src="/camporee-logo-v8.png" alt="Camporee" width="54" height="54" /></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
       <section className="auth-card auth-card-ios">
         <div className="auth-heading"><span className="auth-kicker">ÚNETE AL EQUIPO</span><h1>Solicita acceso al camporee.</h1><p className="auth-copy">Crea tu cuenta y un administrador revisará la solicitud. La información del equipo permanecerá protegida hasta que active tu acceso.</p></div>
         {params.error ? <div className="auth-alert error">{params.error}</div> : null}
