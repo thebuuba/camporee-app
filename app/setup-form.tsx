@@ -35,6 +35,20 @@ export default function SetupForm() {
       const { data: member, error: memberError } = await supabase.from('app_members').select('role,is_active').eq('user_id', userId).maybeSingle();
       if (memberError) throw memberError;
       if (!member?.is_active || member.role !== 'admin') throw new Error('Solo un administrador puede crear el camporee.');
+
+      // Camporee is shared globally. Never create a second event just because a
+      // transient session/RLS read made the setup screen appear.
+      const { data: existingCamporees, error: existingError } = await supabase
+        .from('camporees')
+        .select('id,status')
+        .order('starts_on', { ascending: true });
+      if (existingError) throw existingError;
+      if ((existingCamporees ?? []).some(c => c.status !== 'archived') || (existingCamporees?.length ?? 0) > 0) {
+        router.replace('/');
+        router.refresh();
+        return;
+      }
+
       const { data: camporee, error: camporeeError } = await supabase.from('camporees').insert({ owner_id:userId, name, location:location||null, starts_on:startsOn, ends_on:endsOn }).select('id').single();
       if (camporeeError || !camporee) throw camporeeError ?? new Error('No se pudo crear el camporee.');
       const { error: memberInsertError } = await supabase.from('camporee_members').insert({ camporee_id:camporee.id, user_id:userId, role:'admin' });
