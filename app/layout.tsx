@@ -3,6 +3,7 @@ import "./globals.css";
 import "./mobile-fixes.css";
 import "./hero-card.css";
 import "./nav.css";
+import "./polish.css";
 import ZoomLock from "./zoom-lock";
 import PwaRegister from "./components/pwa-register";
 
