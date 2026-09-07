@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function loadHomeData() {
   const supabase = await createClient();
   const auth = await supabase.auth.getClaims();
-  const userId = auth.data.claims?.sub;
+  const userId = auth.data?.claims?.sub;
   if (!userId) return null;
   const [{ data: profile }, { data: member }, { data: camporees }] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
