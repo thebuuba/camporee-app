@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest?v=5",
   icons: {
     icon: [{ url: "/camporee-home-icon-v2.png?v=5", type: "image/png", sizes: "512x512" }],
-    apple: [{ url: "/apple-touch-icon.png?v=5", type: "image/png", sizes: "180x180" }],
+    apple: [{ url: "/apple-touch-icon.png?v=5", type: "image/png", sizes: "512x512" }],
   },
   appleWebApp: { capable: true, title: "Camporee", statusBarStyle: "default" },
 };
