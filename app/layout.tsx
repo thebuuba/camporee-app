@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./mobile-fixes.css";
 
 export const metadata: Metadata = {
   title: "Camporee",
@@ -8,7 +9,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Camporee", statusBarStyle: "default" },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#F6F2E8" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#F3F2EE" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="es"><body>{children}</body></html>;
