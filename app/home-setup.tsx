@@ -1,0 +1,8 @@
+import SetupForm from "./setup-form";
+
+export default function HomeSetup({ firstName, isAdmin, role }: { firstName: string; isAdmin: boolean; role?: string }) {
+  return <main className="app setup-app">
+    <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="icon-btn" aria-label="Cerrar sesión">↗</button></form></header>
+    {!isAdmin ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon">⛺</div><div><span className="auth-kicker">ACCESO LISTO</span><h2>Tu cuenta ya está dentro.</h2></div><p>Un administrador todavía debe crear el camporee. Cuando lo haga, aparecerá aquí automáticamente.</p><div className="auth-alert success">Acceso activo como {role === "editor" ? "editor" : "solo lectura"}.</div></section> : <><section className="setup-intro ios-card"><div className="setup-icon">⛺</div><div><span className="auth-kicker">EMPECEMOS</span><h2>Prepara tu camporee en minutos.</h2><p>Primero crea el evento. Después podrás organizar tareas, programa, participantes, comidas, compras y presupuesto.</p></div><div className="setup-steps"><span className="active">1</span><i/><span>2</span><i/><span>3</span></div><div className="setup-step-labels"><span>Evento</span><span>Organización</span><span>Listo</span></div></section><section className="setup-card ios-card"><div className="section-head inside"><div><div className="eyebrow">PASO 1 DE 3</div><h3>Datos del camporee</h3></div><span>Luego podrás editarlos</span></div><SetupForm /></section></>}
+  </main>;
+}
