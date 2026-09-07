@@ -13,7 +13,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <form className="auth-form auth-form-ios">
           <label>Nombre completo<div className="field-card"><span><UserRound size={17}/></span><input name="fullName" type="text" autoComplete="name" placeholder="Tu nombre" required /></div></label>
           <label>Correo<div className="field-card"><span><Mail size={17}/></span><input name="email" type="email" inputMode="email" autoComplete="email" placeholder="tu@correo.com" required /></div></label>
-          <label>Contraseña<div className="field-card"><span><LockKeyhole size={17}/></span><input name="password" type="password" autoComplete="new-password" placeholder="Mínimo 6 caracteres" minLength={6} required /></div></label>
+          <label>Contraseña<div className="field-card"><span><LockKeyhole size={17}/></span><input name="password" type="password" autoComplete="new-password" placeholder="8+ caracteres, letra y número" minLength={8} required /></div></label>
           <button className="primary-btn auth-primary" formAction={signup}>Crear mi acceso</button>
         </form>
         <div className="auth-divider"><span>¿Ya tienes cuenta?</span></div><Link className="secondary-btn auth-link-btn" href="/login">Volver a iniciar sesión</Link>
