@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { CloudOff, RefreshCw, Wifi } from 'lucide-react';
 import { flushOfflineWrites, getOfflineQueueCount } from '@/lib/offline-fetch';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ConnectionStatus(){
+  const pathname=usePathname();
   const [online,setOnline]=useState(true);
   const [queued,setQueued]=useState(0);
   const [recovered,setRecovered]=useState(false);
@@ -16,7 +18,7 @@ export default function ConnectionStatus(){
     if(!navigator.onLine)return;
     const {data}=await createClient().auth.getSession();
     const token=data.session?.access_token;
-    if(!token){setSyncError(true);return;}
+    if(!token){setSyncError(false);return;}
     const result=await flushOfflineWrites(`Bearer ${token}`);
     setQueued(result.remaining);
     setSyncError(result.failed);
@@ -55,6 +57,7 @@ export default function ConnectionStatus(){
     return()=>{window.removeEventListener('online',syncConnection);window.removeEventListener('offline',syncConnection);window.removeEventListener('camporee:queue-state',queueState as EventListener);window.removeEventListener('camporee:queue-flushed',refreshQueue as EventListener);window.removeEventListener('camporee:sync-error',queueError);window.removeEventListener('camporee:request-error',dataError);window.clearTimeout(timer)};
   },[syncNow]);
 
+  if(pathname==='/login'||pathname==='/signup'||pathname.startsWith('/auth/'))return null;
   if(online && queued===0 && !recovered && !syncError && !requestError)return null;
   const text = !online
     ? queued > 0 ? `Sin internet · ${queued} ${queued===1?'cambio guardado':'cambios guardados'} para sincronizar` : 'Sin internet · puedes seguir usando las pantallas ya visitadas'
