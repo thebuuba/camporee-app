@@ -1,5 +1,5 @@
-const CACHE='camporee-shell-v8';
-const STATIC=['/offline','/manifest.webmanifest?v=8','/camporee-logo-v8.png','/apple-touch-icon.png?v=8'];
+const CACHE='camporee-shell-v9';
+const STATIC=['/offline','/manifest.webmanifest?v=9'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
@@ -15,13 +15,13 @@ self.addEventListener('fetch',event=>{
         const cacheable=response.ok&&!url.pathname.startsWith('/login')&&!url.pathname.startsWith('/signup')&&!url.pathname.startsWith('/auth/');
         if(cacheable&&PRIVATE_NAV_PREFIXES.some(prefix=>url.pathname===prefix||url.pathname.startsWith(prefix+'/'))){const cache=await caches.open(CACHE);await cache.put(req,response.clone())}
         return response;
-      }catch{
-        return (await caches.match(req))||(await caches.match('/offline'));
-      }
-    })());
-    return;
+      }catch{return (await caches.match(req))||(await caches.match('/offline'))}
+    })());return;
   }
-  if(url.pathname.startsWith('/_next/static/')||url.pathname.endsWith('.css')||url.pathname.endsWith('.js')||url.pathname.endsWith('.svg')||url.pathname.endsWith('.png')){
+  if(url.pathname.endsWith('.png')||url.pathname.includes('manifest.webmanifest')){
+    event.respondWith(fetch(req,{cache:'reload'}).then(res=>{if(res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy))}return res}).catch(()=>caches.match(req)));return;
+  }
+  if(url.pathname.startsWith('/_next/static/')||url.pathname.endsWith('.css')||url.pathname.endsWith('.js')||url.pathname.endsWith('.svg')){
     event.respondWith(caches.match(req).then(cached=>cached||fetch(req).then(res=>{if(res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy))}return res})));return;
   }
 });
