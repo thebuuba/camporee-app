@@ -8,9 +8,12 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#F3F2EE",
-    theme_color: "#315B4A",
+    background_color: "#F4E7C9",
+    theme_color: "#1D7180",
     orientation: "portrait",
-    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
+    icons: [
+      { src: "/camporee-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/camporee-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
   };
 }
