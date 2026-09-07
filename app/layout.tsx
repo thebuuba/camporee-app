@@ -10,6 +10,7 @@ import "./fun-panels.css";
 import "./outdoor-style.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
+import AppSplash from "./components/app-splash";
 
 export const metadata: Metadata = {
   title: "Camporee",
@@ -30,5 +31,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><head><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5" /><link rel="icon" type="image/png" href="/camporee-home-icon-v2.png?v=5" /></head><body><PwaRegister /><ConnectionStatus />{children}</body></html>;
+  return <html lang="es"><head><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=5" /><link rel="icon" type="image/png" href="/camporee-home-icon-v2.png?v=5" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus />{children}</body></html>;
 }
