@@ -19,15 +19,18 @@ export default async function BudgetPage() {
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.finances);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: expenses }, { data: areas }] = camporee ? await Promise.all([
-    supabase.from("expenses").select("id,description,amount,spent_on,category,paid_by,notes,area_id").eq("camporee_id", camporee.id).order("spent_on", { ascending: false }),
+  const [{ data: expenses }, { data: income }, { data: areas }] = camporee ? await Promise.all([
+    supabase.from("expenses").select("id,description,amount,spent_on,category,paid_by,notes,area_id,created_at").eq("camporee_id", camporee.id).order("spent_on", { ascending: false }),
+    supabase.from("income_entries").select("id,description,amount,received_on,category,received_from,notes,created_at").eq("camporee_id", camporee.id).order("received_on", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order"),
-  ]) : [{ data: [] }, { data: [] }];
-  const total = (expenses ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  ]) : [{ data: [] }, { data: [] }, { data: [] }];
+  const totalExpenses = (expenses ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalIncome = (income ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const available = totalIncome - totalExpenses;
 
   return <main className="app panel-page">
     <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1></div><span className="avatar"><WalletCards size={22}/></span></header>
-    <div className="panel-intro"><div><strong>RD${total.toLocaleString("es-DO", { maximumFractionDigits: 0 })}</strong><small>Gastos registrados del camporee.</small></div></div>
-    {camporee ? <BudgetManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialExpenses={expenses ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    <div className="panel-intro"><div><strong>RD${available.toLocaleString("es-DO", { maximumFractionDigits: 0 })} disponibles</strong><small>Cuotas y aportes menos los gastos registrados.</small></div></div>
+    {camporee ? <BudgetManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialExpenses={expenses ?? []} initialIncome={income ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;
 }
