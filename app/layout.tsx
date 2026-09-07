@@ -8,6 +8,7 @@ import "./budget.css";
 import "./error.css";
 import "./fun-panels.css";
 import "./outdoor-style.css";
+import "./logo-fixes.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import AppSplash from "./components/app-splash";
