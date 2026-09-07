@@ -31,7 +31,8 @@ async function putQueued(item: QueuedRequest) {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
-  window.dispatchEvent(new CustomEvent('camporee:queued-write'));
+  const count = await getOfflineQueueCount();
+  window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
 }
 
 async function getQueued(): Promise<QueuedRequest[]> {
@@ -43,6 +44,18 @@ async function getQueued(): Promise<QueuedRequest[]> {
   });
   db.close();
   return rows.sort((a,b) => a.createdAt - b.createdAt);
+}
+
+export async function getOfflineQueueCount(): Promise<number> {
+  if (typeof indexedDB === 'undefined') return 0;
+  const db = await openDb();
+  const count = await new Promise<number>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readonly').objectStore(STORE).count();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return count;
 }
 
 async function deleteQueued(id: string) {
@@ -69,9 +82,12 @@ export async function flushOfflineWrites(authOverride?: string) {
         const response = await fetch(item.url, { method:item.method, headers, body:item.body });
         if (response.ok) await deleteQueued(item.id);
         else if (response.status !== 401 && response.status !== 403 && response.status < 500) await deleteQueued(item.id);
+        else break;
       } catch { break; }
     }
-    window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
+    const count = await getOfflineQueueCount();
+    window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
+    if (count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
   } finally { flushing = false; }
 }
 
@@ -87,7 +103,7 @@ function extractEqId(url: URL) {
 }
 
 function syntheticResponse(request: Request, payload: any, method: string, id?: string) {
-  if (method === 'DELETE') return new Response(null, { status: 204 });
+  if (method === 'DELETE') return new Response(null, { status: 204, headers: { 'x-camporee-offline':'queued' } });
   const result = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload, ...(id ? { id } : {}) } : payload;
   const wantsObject = request.headers.get('accept')?.includes('application/vnd.pgrst.object+json');
   return new Response(JSON.stringify(wantsObject ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
@@ -122,7 +138,7 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
     const response = await fetch(request);
     void flushOfflineWrites(auth);
     return response;
-  } catch (error) {
+  } catch {
     const queued: QueuedRequest = { id: crypto.randomUUID(), url: request.url, method, headers: Array.from(request.headers.entries()), body, createdAt: Date.now() };
     await putQueued(queued);
     return syntheticResponse(request, payload, method, optimisticId);
