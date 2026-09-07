@@ -14,9 +14,9 @@ export default function HomeDashboard({ firstName, camporee, days, progress, pen
 }) {
   const active = phase === "during";
   const after = phase === "after";
-  const phaseLabels = phase === "before" ? ["Preparación","Salida","Camporee","Regreso"] : phase === "during" ? ["Preparación","Salida","Camporee","Regreso"] : ["Preparación","Salida","Camporee","Regreso"];
+  const phaseLabels = ["Preparación","Salida","Camporee","Regreso"];
   return <main className="app">
-    <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="avatar" aria-label="Cerrar sesión">{firstName.slice(0,1).toUpperCase()}</button></form></header>
+    <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><Link href="/more" className="avatar" aria-label="Abrir perfil y opciones">{firstName.slice(0,1).toUpperCase()}</Link></header>
     <form className="search-card" action="/search"><Search size={22}/><input name="q" placeholder="Buscar en el camporee" aria-label="Buscar en el camporee"/><button type="submit" aria-label="Buscar">→</button></form>
 
     <section className="hero hero-v3">
