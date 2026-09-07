@@ -3,21 +3,26 @@ import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
 
 export async function loadHomeData() {
   const supabase = await createClient();
-  const auth = await supabase.auth.getClaims();
-  const userId = auth.data?.claims?.sub;
-  if (!userId) return null;
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const userId = authData.user?.id;
+  if (authError || !userId) return null;
+
   const [profileResult, memberResult, camporeeResult] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
     supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }),
   ]);
-  const initialError = profileResult.error ?? memberResult.error ?? camporeeResult.error;
-  if (initialError) throw initialError;
+
   const profile = profileResult.data;
   const member = memberResult.data;
-  const camporees = camporeeResult.data;
-  const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
-  const firstName = profile?.full_name?.split(" ")[0] || "Conquistador";
+  const camporees = camporeeResult.data ?? [];
+  const firstName = profile?.full_name?.split(" ")[0] || authData.user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
+
+  if (profileResult.error || memberResult.error || camporeeResult.error) {
+    return { firstName, member, camporee: null };
+  }
+
+  const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
   if (!camporee) return { firstName, member, camporee: null };
 
   const now = new Date();
@@ -35,8 +40,7 @@ export async function loadHomeData() {
     supabase.from("expenses").select("amount").eq("camporee_id", camporee.id),
     supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }),
   ]);
-  const contentError = taskResult.error ?? participantResult.error ?? expenseResult.error ?? eventResult.error;
-  if (contentError) throw contentError;
+
   const tasks = taskResult.data ?? [];
   const events = eventResult.data ?? [];
   const pendingTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length;
