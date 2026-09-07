@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-fixes.css";
+import "./hero-card.css";
 import ZoomLock from "./zoom-lock";
 
 export const metadata: Metadata = {
