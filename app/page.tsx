@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createCamporee } from "./actions";
+import SetupForm from "./setup-form";
 
 function daysUntil(date: string) {
   const today = new Date();
@@ -10,19 +10,35 @@ function daysUntil(date: string) {
   return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const params = await searchParams;
+export default async function Home() {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
-  const { data: camporees } = await supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true });
+  const [{ data: profile }, { data: appMember }, { data: camporees }] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(),
+    supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }),
+  ]);
+
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
   const firstName = profile?.full_name?.split(" ")[0] || "Conquistador";
+  const isAdmin = appMember?.is_active && appMember.role === "admin";
 
   if (!camporee) {
+    if (!isAdmin) {
+      return <main className="app setup-app">
+        <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="icon-btn" aria-label="Cerrar sesión">↗</button></form></header>
+        <section className="setup-intro ios-card waiting-card">
+          <div className="setup-icon">⛺</div>
+          <div><span className="auth-kicker">ACCESO LISTO</span><h2>Tu cuenta ya está dentro.</h2></div>
+          <p>Un administrador todavía debe crear el camporee. Cuando lo haga, aparecerá aquí automáticamente y podrás ver la información según tus permisos.</p>
+          <div className="auth-alert success">Tu acceso está activo como {appMember?.role === "editor" ? "editor" : "solo lectura"}.</div>
+        </section>
+      </main>;
+    }
+
     return <main className="app setup-app">
       <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="icon-btn" aria-label="Cerrar sesión">↗</button></form></header>
 
@@ -39,13 +55,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
 
       <section className="setup-card ios-card">
         <div className="section-head inside"><div><div className="eyebrow">PASO 1 DE 3</div><h3>Datos del camporee</h3></div><span>Luego podrás editarlos</span></div>
-        {params.error ? <div className="auth-alert error">{params.error}</div> : null}
-        <form action={createCamporee} className="setup-form">
-          <label>Nombre del camporee<div className="field-card"><span>✦</span><input name="name" placeholder="Ej. Firmes y Adelante 2026" required /></div></label>
-          <label>Lugar<div className="field-card"><span>⌖</span><input name="location" placeholder="Lugar del evento" /></div></label>
-          <div className="date-row"><label>Inicio<input name="startsOn" type="date" required /></label><label>Final<input name="endsOn" type="date" required /></label></div>
-          <button className="primary-btn setup-primary">Crear camporee y continuar</button>
-        </form>
+        <SetupForm />
       </section>
     </main>;
   }
