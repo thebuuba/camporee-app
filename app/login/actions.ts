@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,9 +9,12 @@ export async function login(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (!email || !password) redirect(`/login?error=${encodeURIComponent("Completa tu correo y contraseña")}`);
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) redirect(`/login?error=${encodeURIComponent("Correo o contraseña incorrectos")}`);
-  redirect("/");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) redirect(`/login?error=${encodeURIComponent("Correo o contraseña incorrectos")}`);
+  const { data: verified } = await supabase.auth.getUser();
+  if (!verified.user) redirect(`/login?error=${encodeURIComponent("No se pudo iniciar la sesión. Inténtalo otra vez.")}`);
+  revalidatePath("/", "layout");
+  redirect("/?login=ok");
 }
 
 export async function signup(formData: FormData) {
@@ -29,5 +33,6 @@ export async function signup(formData: FormData) {
     redirect(`/signup?error=${encodeURIComponent(message)}`);
   }
   if (!data.session) redirect(`/login?message=${encodeURIComponent("Cuenta creada. Revisa tu correo si te pide confirmarlo; luego inicia sesión y espera la aprobación del administrador.")}`);
+  revalidatePath("/", "layout");
   redirect("/");
 }
