@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect(`/login?error=${encodeURIComponent("Completa tu correo y contraseña")}`);
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect(`/login?error=${encodeURIComponent("Correo o contraseña incorrectos")}`);
@@ -14,10 +16,30 @@ export async function login(formData: FormData) {
 
 export async function signup(formData: FormData) {
   const fullName = String(formData.get("fullName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+
+  if (fullName.length < 2) redirect(`/signup?error=${encodeURIComponent("Escribe tu nombre")}`);
+  if (!email) redirect(`/signup?error=${encodeURIComponent("Escribe un correo válido")}`);
+  if (password.length < 6) redirect(`/signup?error=${encodeURIComponent("La contraseña debe tener al menos 6 caracteres")}`);
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
-  if (error) redirect(`/login?error=${encodeURIComponent(error.message)}`);
-  redirect(`/login?message=${encodeURIComponent("Cuenta creada. Revisa tu correo si Supabase solicita confirmación.")}`);
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName } },
+  });
+
+  if (error) {
+    const message = error.message.toLowerCase().includes("already")
+      ? "Ya existe una cuenta con ese correo"
+      : error.message;
+    redirect(`/signup?error=${encodeURIComponent(message)}`);
+  }
+
+  if (!data.session) {
+    redirect(`/login?message=${encodeURIComponent("Cuenta creada. Ya puedes iniciar sesión.")}`);
+  }
+
+  redirect("/");
 }
