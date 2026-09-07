@@ -7,7 +7,7 @@ import TaskManager from "./task-manager";
 export default async function TasksPage() {
   const supabase = await createClient();
   const auth = await supabase.auth.getClaims();
-  const userId = auth.data.claims?.sub;
+  const userId = auth.data?.claims?.sub;
   if (!userId) redirect("/login");
 
   const [{ data: membership }, { data: camporees }] = await Promise.all([
