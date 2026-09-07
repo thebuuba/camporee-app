@@ -6,6 +6,7 @@ import "./nav.css";
 import "./polish.css";
 import "./budget.css";
 import "./error.css";
+import "./fun-panels.css";
 import ZoomLock from "./zoom-lock";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
