@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, FileText, HeartPulse, ListChecks, Settings, ShieldCheck, Soup, Users, WalletCards } from "lucide-react";
+import { BookOpenText, FileText, HeartPulse, ListChecks, PackageCheck, Settings, ShieldCheck, Soup, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
 
@@ -16,6 +16,7 @@ export default async function MorePage() {
     [Soup,"Comidas","Menús, ingredientes y responsables","/more/meals"],
     [Users,"Participantes","Listado general y asistencia","/more/participants"],
     [ListChecks,"Listas","Qué llevar, compras y materiales","/more/lists"],
+    [PackageCheck,"Inventario","Qué sale, qué vuelve y cantidades","/more/inventory"],
     [WalletCards,"Presupuesto","Gastos, compras e ingresos","/more/budget"],
     [FileText,"Documentos","Reglamentos, permisos y archivos","/more/documents"],
     [HeartPulse,"Emergencia","Contactos, salud y protocolos","/more/emergency"],
