@@ -20,7 +20,7 @@ export default async function TasksPage() {
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
   const [{ data: tasks }, { data: areas }] = camporee ? await Promise.all([
-    supabase.from("tasks").select("id,title,description,status,priority,due_at,area_id").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
+    supabase.from("tasks").select("id,title,description,status,priority,due_at,area_id,phase,task_checklist_items(id,label,is_done,sort_order)").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
   ]) : [{ data: [] }, { data: [] }];
 
