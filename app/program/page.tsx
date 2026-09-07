@@ -1,14 +1,33 @@
 import { redirect } from "next/navigation";
-import { CalendarDays, Clock3, MapPin } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
+import ProgramManager from "./program-manager";
 
 export default async function ProgramPage() {
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
-  if (!claims?.claims?.sub) redirect("/login");
-  const { data: camporees } = await supabase.from("camporees").select("id,name,status").order("starts_on", { ascending: true });
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const [{ data: membership }, { data: camporees }] = await Promise.all([
+    supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
+    supabase.from("camporees").select("id,name,status").order("starts_on", { ascending: true }),
+  ]);
+  if (!membership?.is_active) redirect("/login");
+  const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
+  const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.schedule);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
-  const { data: events } = camporee ? await supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }) : { data: [] };
-  return <main className="app"><header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Programa</h1></div><span className="avatar"><CalendarDays size={22}/></span></header><section className="section-card ios-card"><div className="section-head inside"><h3>Agenda del camporee</h3><span>{events?.length ?? 0} actividades</span></div>{events?.length ? events.map((event) => <article className="task" key={event.id}><span className="stat-icon stat-gold"><Clock3 size={18}/></span><div><b>{event.title}</b><small>{event.starts_at ? new Date(event.starts_at).toLocaleString("es-DO", { dateStyle: "medium", timeStyle: "short" }) : "Sin hora"}</small>{event.location ? <small><MapPin size={12}/> {event.location}</small> : null}</div></article>) : <div className="empty compact">Todavía no hay actividades en el programa.</div>}</section><BottomNav /></main>;
+
+  const [{ data: events }, { data: areas }] = camporee ? await Promise.all([
+    supabase.from("schedule_events").select("id,title,description,starts_at,ends_at,location,responsible_name,area_id").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }),
+    supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
+  ]) : [{ data: [] }, { data: [] }];
+
+  return <main className="app panel-page">
+    <header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Programa</h1></div><span className="avatar"><CalendarDays size={22}/></span></header>
+    <div className="panel-intro"><div><strong>{events?.length ?? 0} actividades</strong><small>Todo el itinerario del camporee ordenado por fecha y hora.</small></div></div>
+    {camporee ? <ProgramManager camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    <BottomNav />
+  </main>;
 }
