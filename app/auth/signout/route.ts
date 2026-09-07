@@ -4,5 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/login", request.url), { status: 302 });
+  const response = NextResponse.redirect(new URL("/login", request.url), { status: 302 });
+  response.headers.set("Clear-Site-Data", '"cache", "storage"');
+  return response;
 }
