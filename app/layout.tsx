@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description: "Organiza cada detalle antes, durante y después del camporee.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/camporee-home-icon-v2.png", type: "image/png", sizes: "512x512" }],
-    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "512x512" }],
+    icon: [{ url: "/camporee-icon-512.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/camporee-icon-512.png", type: "image/png", sizes: "512x512" }],
   },
   appleWebApp: { capable: true, title: "Camporee", statusBarStyle: "default" },
 };
@@ -32,5 +32,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><head><link rel="apple-touch-icon" sizes="512x512" href="/apple-touch-icon.png" /><link rel="icon" type="image/png" href="/camporee-home-icon-v2.png" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus />{children}</body></html>;
+  return <html lang="es"><head><link rel="apple-touch-icon" sizes="512x512" href="/camporee-icon-512.png" /><link rel="apple-touch-icon-precomposed" href="/camporee-icon-512.png" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-icon-512.png" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus />{children}</body></html>;
 }
