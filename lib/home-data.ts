@@ -13,18 +13,43 @@ export async function loadHomeData() {
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
   const firstName = profile?.full_name?.split(" ")[0] || "Conquistador";
   if (!camporee) return { firstName, member, camporee: null };
-  const [taskResult, participantResult, expenseResult] = await Promise.all([
-    supabase.from("tasks").select("id,status").eq("camporee_id", camporee.id),
+
+  const now = new Date();
+  const start = new Date(`${camporee.starts_on}T00:00:00`);
+  const end = new Date(`${camporee.ends_on}T23:59:59`);
+  const isDuring = now >= start && now <= end;
+  const isAfter = now > end || camporee.status === "finished";
+  const phase = isAfter ? "after" : isDuring || camporee.status === "active" ? "during" : "before";
+  const dayNumber = phase === "during" ? Math.max(1, Math.floor((now.getTime() - start.getTime()) / 86400000) + 1) : null;
+  const totalDays = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+  const days = phase === "before" ? Math.max(0, Math.ceil((start.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000)) : Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
+
+  const [taskResult, participantResult, expenseResult, eventResult] = await Promise.all([
+    supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id),
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("camporee_id", camporee.id),
     supabase.from("expenses").select("amount").eq("camporee_id", camporee.id),
+    supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }),
   ]);
   const tasks = taskResult.data ?? [];
+  const events = eventResult.data ?? [];
   const pendingTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length;
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
   const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const target = new Date(`${camporee.starts_on}T00:00:00`);
-  const days = Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
-  return { firstName, member, camporee, pendingTasks, progress, totalExpenses, participants: participantResult.count ?? 0, days };
+  const todayKey = now.toISOString().slice(0,10);
+  const todayTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled" && task.due_at?.slice(0,10) === todayKey).sort((a,b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0)).slice(0,3);
+  const nowMs = now.getTime();
+  const currentEvent = events.find((event) => {
+    const eventStart = new Date(event.starts_at).getTime();
+    const eventEnd = event.ends_at ? new Date(event.ends_at).getTime() : eventStart + 60 * 60 * 1000;
+    return nowMs >= eventStart && nowMs <= eventEnd;
+  }) ?? null;
+  const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
+
+  return {
+    firstName, member, camporee, pendingTasks, progress, totalExpenses,
+    participants: participantResult.count ?? 0,
+    days, phase, dayNumber, totalDays, programCount: events.length,
+    currentEvent, nextEvent, todayTasks,
+  };
 }
