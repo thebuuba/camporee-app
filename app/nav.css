@@ -1,1 +1,1 @@
-.nav{grid-template-columns:repeat(4,1fr)!important}.nav .plus{display:none!important}.nav svg{display:block}
+.nav{grid-template-columns:repeat(4,1fr)!important}.nav .plus{display:none!important}.nav svg{display:block}.nav a,.stat,.action,.more-card,.settings-row{text-decoration:none!important}.stat:visited,.action:visited,.more-card:visited,.settings-row:visited,.nav a:visited{color:inherit}
