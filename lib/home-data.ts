@@ -1,27 +1,35 @@
 import { createClient } from "@/lib/supabase/server";
 import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
 
+const wait = (ms:number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function loadHomeData() {
   const supabase = await createClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const userId = authData.user?.id;
   if (authError || !userId) return null;
 
-  const [profileResult, memberResult, camporeeResult] = await Promise.all([
+  const [profileResult, memberResult] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
     supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(),
-    supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }),
   ]);
 
-  const profile = profileResult.data;
+  const firstName = profileResult.data?.full_name?.split(" ")[0] || authData.user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
+  if (profileResult.error) throw profileResult.error;
+  if (memberResult.error) throw memberResult.error;
   const member = memberResult.data;
-  const camporees = camporeeResult.data ?? [];
-  const firstName = profile?.full_name?.split(" ")[0] || authData.user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
 
-  if (profileResult.error || memberResult.error || camporeeResult.error) {
-    return { firstName, member, camporee: null };
+  // Right after sign-in, the first RLS-backed request can occasionally arrive
+  // before the refreshed session is fully visible at the edge. Retry once so
+  // a transient read failure is never interpreted as "there is no camporee".
+  let camporeeResult = await supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true });
+  if (camporeeResult.error) {
+    await wait(180);
+    camporeeResult = await supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true });
   }
+  if (camporeeResult.error) throw camporeeResult.error;
 
+  const camporees = camporeeResult.data ?? [];
   const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
   if (!camporee) return { firstName, member, camporee: null };
 
@@ -41,6 +49,8 @@ export async function loadHomeData() {
     supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }),
   ]);
 
+  // Secondary dashboard cards must not block access to the app. If one panel
+  // has a temporary read problem, render the dashboard with the data that did arrive.
   const tasks = taskResult.data ?? [];
   const events = eventResult.data ?? [];
   const pendingTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length;
