@@ -38,9 +38,15 @@ export default function SetupForm() {
       const { data: camporee, error: camporeeError } = await supabase.from('camporees').insert({ owner_id:userId, name, location:location||null, starts_on:startsOn, ends_on:endsOn }).select('id').single();
       if (camporeeError || !camporee) throw camporeeError ?? new Error('No se pudo crear el camporee.');
       const { error: memberInsertError } = await supabase.from('camporee_members').insert({ camporee_id:camporee.id, user_id:userId, role:'admin' });
-      if (memberInsertError) console.warn('camporee_members:', memberInsertError.message);
+      if (memberInsertError) {
+        await supabase.from('camporees').delete().eq('id',camporee.id);
+        throw new Error('No se pudo completar el equipo inicial. Inténtalo otra vez.');
+      }
       const { error: areasError } = await supabase.from('areas').insert(DEFAULT_AREAS.map(([areaName,icon],index)=>({camporee_id:camporee.id,name:areaName,icon,sort_order:index})));
-      if (areasError) console.warn('areas:', areasError.message);
+      if (areasError) {
+        await supabase.from('camporees').delete().eq('id',camporee.id);
+        throw new Error('No se pudieron crear las áreas iniciales. Inténtalo otra vez.');
+      }
       router.replace('/'); router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ocurrió un error al crear el camporee.'); setLoading(false);

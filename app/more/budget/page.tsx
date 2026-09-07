@@ -10,23 +10,27 @@ export default async function BudgetPage() {
   const userId = auth?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,status").order("starts_on", { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect("/login");
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect("/");
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.finances);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: expenses }, { data: income }, { data: areas }] = camporee ? await Promise.all([
+  const [{ data: expenses, error: expensesError }, { data: income, error: incomeError }, { data: areas, error: areasError }] = camporee ? await Promise.all([
     supabase.from("expenses").select("id,description,amount,spent_on,category,paid_by,notes,area_id,created_at").eq("camporee_id", camporee.id).order("spent_on", { ascending: false }),
     supabase.from("income_entries").select("id,description,amount,received_on,category,received_from,notes,created_at").eq("camporee_id", camporee.id).order("received_on", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order"),
-  ]) : [{ data: [] }, { data: [] }, { data: [] }];
+  ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   const totalExpenses = (expenses ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const totalIncome = (income ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const available = totalIncome - totalExpenses;
+
+  const contentError = expensesError ?? incomeError ?? areasError;
+  if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1></div><span className="avatar"><WalletCards size={22}/></span></header>

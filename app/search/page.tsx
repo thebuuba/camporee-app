@@ -10,11 +10,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const { data: auth } = await supabase.auth.getClaims();
   const userId = auth?.claims?.sub;
   if (!userId) redirect('/login');
-  const [{ data: member }, { data: camporees }] = await Promise.all([
+  const [{ data: member, error: memberError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from('app_members').select('is_active').eq('user_id', userId).maybeSingle(),
     supabase.from('camporees').select('id,status').order('starts_on', { ascending: true }),
   ]);
-  if (!member?.is_active) redirect('/login');
+  if (memberError || camporeesError) throw memberError ?? camporeesError;
+  if (!member?.is_active) redirect('/');
   const camporee = camporees?.find((c) => c.status !== 'archived') ?? camporees?.[0];
   const empty = { tasks: [], participants: [], events: [], meals: [], lists: [], notes: [], documents: [], expenses: [], income: [], inventory: [], emergency: [] } as any;
   let results = empty;
@@ -34,6 +35,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       supabase.from('inventory_items').select('id,name,notes').eq('camporee_id', camporee.id).or(`name.ilike.${pattern},notes.ilike.${pattern}`).limit(8),
       supabase.from('emergency_contacts').select('id,name,role,phone').eq('camporee_id', camporee.id).or(`name.ilike.${pattern},role.ilike.${pattern},phone.ilike.${pattern}`).limit(8),
     ]);
+    const searchError = [tasks, participants, events, meals, lists, notes, documents, expenses, income, inventory, emergency].find((result) => result.error)?.error;
+    if (searchError) throw searchError;
     results = { tasks: tasks.data ?? [], participants: participants.data ?? [], events: events.data ?? [], meals: meals.data ?? [], lists: lists.data ?? [], notes: notes.data ?? [], documents: documents.data ?? [], expenses: expenses.data ?? [], income: income.data ?? [], inventory: inventory.data ?? [], emergency: emergency.data ?? [] };
   }
   const financeRows = [...results.income.map((x:any)=>({...x,_kind:'Ingreso'})), ...results.expenses.map((x:any)=>({...x,_kind:'Gasto'}))];

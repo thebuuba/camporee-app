@@ -10,20 +10,24 @@ export default async function TasksPage() {
   const userId = auth.data?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,status").order("starts_on", { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect("/login");
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect("/");
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.tasks);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: tasks }, { data: areas }, { data: profiles }] = camporee ? await Promise.all([
+  const [{ data: tasks, error: tasksError }, { data: areas, error: areasError }, { data: profiles, error: profilesError }] = camporee ? await Promise.all([
     supabase.from("tasks").select("id,title,description,status,priority,due_at,area_id,phase,assigned_to,task_checklist_items(id,label,is_done,sort_order)").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
     supabase.from("profiles").select("id,full_name,email").order("full_name", { ascending: true }),
-  ]) : [{ data: [] }, { data: [] }, { data: [] }];
+  ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+
+  const contentError = tasksError ?? areasError ?? profilesError;
+  if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Tareas</h1></div><span className="avatar"><CheckCircle2 size={22}/></span></header>

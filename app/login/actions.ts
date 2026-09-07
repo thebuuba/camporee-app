@@ -28,6 +28,6 @@ export async function signup(formData: FormData) {
     const message = error.message.toLowerCase().includes("already") ? "Ya existe una cuenta con ese correo" : error.message;
     redirect(`/signup?error=${encodeURIComponent(message)}`);
   }
-  if (!data.session) redirect(`/login?message=${encodeURIComponent("Cuenta creada. Ya puedes iniciar sesión.")}`);
+  if (!data.session) redirect(`/login?message=${encodeURIComponent("Cuenta creada. Revisa tu correo si te pide confirmarlo; luego inicia sesión y espera la aprobación del administrador.")}`);
   redirect("/");
 }

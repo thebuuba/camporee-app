@@ -9,17 +9,21 @@ export default async function NotesPage() {
   const { data: auth } = await supabase.auth.getClaims();
   const userId = auth?.claims?.sub;
   if (!userId) redirect("/login");
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,status").order("starts_on", { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect("/login");
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect("/");
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.notes);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
-  const [{ data: notes }, { data: areas }] = camporee ? await Promise.all([
+  const [{ data: notes, error: notesError }, { data: areas, error: areasError }] = camporee ? await Promise.all([
     supabase.from("notes").select("id,title,body,note_date,area_id,created_at").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order"),
-  ]) : [{ data: [] }, { data: [] }];
+  ]) : [{ data: [], error: null }, { data: [], error: null }];
+  const contentError = notesError ?? areasError;
+  if (contentError) throw contentError;
+
   return <main className="app panel-page"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">REGISTRO</div><h1>Apuntes</h1></div><span className="avatar"><StickyNote size={22}/></span></header><div className="panel-intro"><div><strong>{notes?.length ?? 0} apuntes</strong><small>Ideas, observaciones y cosas que no se pueden olvidar.</small></div></div>{camporee ? <NotesManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialNotes={notes ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
 }

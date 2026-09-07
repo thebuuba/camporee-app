@@ -1,7 +1,5 @@
--- Compatibility layer for rebuilding the project from repository migrations.
--- These helpers/policies existed in the original production baseline and are
--- replaced by the private-schema versions in the later hardening migration.
-
+-- Restores the helper functions that existed in the original production baseline.
+-- Keeping them here lets a fresh database follow the same migration versions as production.
 create or replace function public.is_camporee_member(target_camporee uuid)
 returns boolean language sql stable security definer set search_path=public,auth as $$
   select exists(
@@ -29,19 +27,13 @@ returns boolean language sql stable security definer set search_path=public,auth
   );
 $$;
 
-revoke all on function public.is_camporee_member(uuid) from public, anon;
-revoke all on function public.can_manage_camporee(uuid) from public, anon;
-grant execute on function public.is_camporee_member(uuid) to authenticated;
-grant execute on function public.can_manage_camporee(uuid) to authenticated;
+revoke execute on function public.is_camporee_member(uuid) from public, anon, authenticated;
+revoke execute on function public.can_manage_camporee(uuid) from public, anon, authenticated;
+revoke execute on function public.handle_new_user_profile() from public, anon, authenticated;
 
-drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles for update to authenticated
 using (id=(select auth.uid())) with check (id=(select auth.uid()));
 
-drop policy if exists camporee_files_select on storage.objects;
-drop policy if exists camporee_files_insert on storage.objects;
-drop policy if exists camporee_files_update on storage.objects;
-drop policy if exists camporee_files_delete on storage.objects;
 create policy camporee_files_select on storage.objects for select to authenticated
 using (bucket_id='camporee-files' and public.is_camporee_member(((storage.foldername(name))[1])::uuid));
 create policy camporee_files_insert on storage.objects for insert to authenticated

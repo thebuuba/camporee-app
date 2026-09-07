@@ -10,19 +10,23 @@ export default async function ParticipantsPage() {
   const userId = auth?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,status").order("starts_on", { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect("/login");
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect("/");
 
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.participants);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const { data: participants } = camporee
+  const { data: participants, error: participantsError } = camporee
     ? await supabase.from("participants").select("id,full_name,participant_type,unit_name,phone,emergency_contact,emergency_phone,attendance_status,notes").eq("camporee_id", camporee.id).order("full_name")
-    : { data: [] };
+    : { data: [], error: null };
+
+  const contentError = participantsError;
+  if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Participantes</h1></div><span className="avatar"><Users size={22}/></span></header>

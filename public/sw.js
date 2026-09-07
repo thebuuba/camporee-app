@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v2';
+const CACHE='camporee-shell-v3';
 const STATIC=['/offline','/manifest.webmanifest','/icon.svg'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()))});

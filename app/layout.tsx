@@ -7,7 +7,6 @@ import "./polish.css";
 import "./budget.css";
 import "./error.css";
 import "./fun-panels.css";
-import ZoomLock from "./zoom-lock";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 
@@ -22,13 +21,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  minimumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#F3F2EE",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><body><ZoomLock /><PwaRegister /><ConnectionStatus />{children}</body></html>;
+  return <html lang="es"><body><PwaRegister /><ConnectionStatus />{children}</body></html>;
 }

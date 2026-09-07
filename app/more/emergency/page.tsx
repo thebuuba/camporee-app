@@ -10,15 +10,19 @@ export default async function EmergencyPage() {
   const userId = auth?.claims?.sub;
   if (!userId) redirect('/login');
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from('app_members').select('role,is_active,permissions').eq('user_id', userId).maybeSingle(),
     supabase.from('camporees').select('id,status').order('starts_on', { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect('/login');
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect('/');
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === 'admin' || membership.role === 'editor' || Boolean(permissions.participants);
   const camporee = camporees?.find((item) => item.status !== 'archived') ?? camporees?.[0];
-  const { data: contacts } = camporee ? await supabase.from('emergency_contacts').select('*').eq('camporee_id', camporee.id).order('priority', { ascending: true }).order('created_at', { ascending: true }) : { data: [] };
+  const { data: contacts, error: contactsError } = camporee ? await supabase.from('emergency_contacts').select('*').eq('camporee_id', camporee.id).order('priority', { ascending: true }).order('created_at', { ascending: true }) : { data: [], error: null };
+
+  const contentError = contactsError;
+  if (contentError) throw contentError;
 
   return <main className='app panel-page'>
     <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>SEGURIDAD</div><h1>Emergencia</h1></div><span className='avatar'><HeartPulse size={22}/></span></header>

@@ -13,6 +13,10 @@ const REST_TABLES_WITH_UUID_ID = new Set(['camporees','areas','tasks','task_chec
 let lastAuthorization = '';
 let flushing = false;
 
+export function queuedResponseIsComplete(method: string, status: number) {
+  return status >= 200 && status < 300 || method === 'POST' && status === 409 || method === 'DELETE' && status === 404;
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -69,25 +73,28 @@ async function deleteQueued(id: string) {
   db.close();
 }
 
-export async function flushOfflineWrites(authOverride?: string) {
-  if (typeof window === 'undefined' || !navigator.onLine || flushing) return;
+export async function flushOfflineWrites(authOverride?: string): Promise<{ remaining:number; failed:boolean }> {
+  if (typeof window === 'undefined' || !navigator.onLine || flushing) return { remaining: await getOfflineQueueCount(), failed:false };
   flushing = true;
+  let failed = false;
   try {
     const queued = await getQueued();
     for (const item of queued) {
       const headers = new Headers(item.headers);
       const auth = authOverride || lastAuthorization;
+      if (!auth) { failed = true; break; }
       if (auth) headers.set('authorization', auth);
       try {
         const response = await fetch(item.url, { method:item.method, headers, body:item.body });
-        if (response.ok) await deleteQueued(item.id);
-        else if (response.status !== 401 && response.status !== 403 && response.status < 500) await deleteQueued(item.id);
-        else break;
-      } catch { break; }
+        if (queuedResponseIsComplete(item.method, response.status)) await deleteQueued(item.id);
+        else { failed = true; break; }
+      } catch { failed = true; break; }
     }
     const count = await getOfflineQueueCount();
     window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
     if (count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
+    if (failed) window.dispatchEvent(new CustomEvent('camporee:sync-error', { detail: { count } }));
+    return { remaining:count, failed };
   } finally { flushing = false; }
 }
 
@@ -119,7 +126,10 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
   if (auth) lastAuthorization = auth;
   if (!isRestMutation) {
     if (navigator.onLine) void flushOfflineWrites(auth);
-    return fetch(request);
+    const response = await fetch(request);
+    const isDataRequest = url.origin.includes('.supabase.co') && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
+    if (isDataRequest && !response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
+    return response;
   }
 
   let body = method === 'DELETE' ? null : await request.clone().text();
@@ -136,10 +146,12 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
   try {
     if (!navigator.onLine) throw new TypeError('offline');
     const response = await fetch(request);
+    if (!response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
     void flushOfflineWrites(auth);
     return response;
   } catch {
-    const queued: QueuedRequest = { id: crypto.randomUUID(), url: request.url, method, headers: Array.from(request.headers.entries()), body, createdAt: Date.now() };
+    const safeHeaders = Array.from(request.headers.entries()).filter(([name]) => name.toLowerCase() !== 'authorization');
+    const queued: QueuedRequest = { id: crypto.randomUUID(), url: request.url, method, headers: safeHeaders, body, createdAt: Date.now() };
     await putQueued(queued);
     return syntheticResponse(request, payload, method, optimisticId);
   }

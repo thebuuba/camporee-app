@@ -8,7 +8,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
     <section className="auth-wrap">
       <div className="auth-brand-row"><div className="brand-badge"><TentTree size={24}/></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
       <section className="auth-card auth-card-ios">
-        <div className="auth-heading"><span className="auth-kicker">ÚNETE AL EQUIPO</span><h1>Crea tu acceso al camporee.</h1><p className="auth-copy">Todas las cuentas trabajan sobre la misma organización. Al registrarte entrarás con acceso de solo lectura hasta que un administrador cambie tu rol o permisos.</p></div>
+        <div className="auth-heading"><span className="auth-kicker">ÚNETE AL EQUIPO</span><h1>Solicita acceso al camporee.</h1><p className="auth-copy">Crea tu cuenta y un administrador revisará la solicitud. La información del equipo permanecerá protegida hasta que active tu acceso.</p></div>
         {params.error ? <div className="auth-alert error">{params.error}</div> : null}
         <form className="auth-form auth-form-ios">
           <label>Nombre completo<div className="field-card"><span><UserRound size={17}/></span><input name="fullName" type="text" autoComplete="name" placeholder="Tu nombre" required /></div></label>
@@ -18,7 +18,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         </form>
         <div className="auth-divider"><span>¿Ya tienes cuenta?</span></div><Link className="secondary-btn auth-link-btn" href="/login">Volver a iniciar sesión</Link>
       </section>
-      <p className="auth-footnote">No necesitas confirmar el correo para comenzar.</p>
+      <p className="auth-footnote">Después de crear la cuenta, un administrador deberá activar tu acceso.</p>
     </section>
   </main>;
 }

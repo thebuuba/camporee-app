@@ -10,19 +10,23 @@ export default async function ProgramPage() {
   const userId = claims?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
     supabase.from("camporees").select("id,name,status").order("starts_on", { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect("/login");
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect("/");
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.schedule);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: events }, { data: areas }] = camporee ? await Promise.all([
+  const [{ data: events, error: eventsError }, { data: areas, error: areasError }] = camporee ? await Promise.all([
     supabase.from("schedule_events").select("id,title,description,starts_at,ends_at,location,responsible_name,area_id").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
-  ]) : [{ data: [] }, { data: [] }];
+  ]) : [{ data: [], error: null }, { data: [], error: null }];
+
+  const contentError = eventsError ?? areasError;
+  if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Programa</h1></div><span className="avatar"><CalendarDays size={22}/></span></header>

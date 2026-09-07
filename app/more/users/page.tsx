@@ -14,12 +14,14 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
-  const { data: me } = await supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle();
+  const { data: me, error: meError } = await supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle();
+  if (meError) throw meError;
   if (!me?.is_active || me.role !== "admin") redirect("/more");
-  const [{ data: members }, { data: profiles }] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: profiles, error: profilesError }] = await Promise.all([
     supabase.from("app_members").select("user_id,role,permissions,is_active,created_at").order("created_at", { ascending: true }),
     supabase.from("profiles").select("id,full_name,email"),
   ]);
+  if (membersError || profilesError) throw membersError ?? profilesError;
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
 
   return <main className="app users-app">

@@ -10,15 +10,19 @@ export default async function DocumentsPage() {
   const userId = auth?.claims?.sub;
   if (!userId) redirect('/login');
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from('app_members').select('role,is_active,permissions').eq('user_id', userId).maybeSingle(),
     supabase.from('camporees').select('id,status').order('starts_on', { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect('/login');
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect('/');
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
-  const canEdit = membership.role === 'admin' || Boolean(permissions.settings);
+  const canEdit = membership.role === 'admin' || membership.role === 'editor' || Boolean(permissions.settings);
   const camporee = camporees?.find((item) => item.status !== 'archived') ?? camporees?.[0];
-  const { data: documents } = camporee ? await supabase.from('camporee_documents').select('*').eq('camporee_id', camporee.id).order('created_at', { ascending: false }) : { data: [] };
+  const { data: documents, error: documentsError } = camporee ? await supabase.from('camporee_documents').select('*').eq('camporee_id', camporee.id).order('created_at', { ascending: false }) : { data: [], error: null };
+
+  const contentError = documentsError;
+  if (contentError) throw contentError;
 
   return <main className='app panel-page'>
     <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>ARCHIVOS</div><h1>Documentos</h1></div><span className='avatar'><FileText size={22}/></span></header>

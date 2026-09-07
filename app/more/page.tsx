@@ -9,8 +9,9 @@ export default async function MorePage() {
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
-  const { data: membership } = await supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle();
-  if (!membership?.is_active) redirect("/login");
+  const { data: membership, error: membershipError } = await supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle();
+  if (membershipError) throw membershipError;
+  if (!membership?.is_active) redirect("/");
   const isAdmin = membership.role === "admin";
   const items = [
     [Soup,"Comidas","Menús, ingredientes y responsables","/more/meals"],

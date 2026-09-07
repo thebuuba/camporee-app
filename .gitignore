@@ -7,3 +7,5 @@ out
 .wrangler
 .DS_Store
 npm-debug.log*
+*.tsbuildinfo
+supabase/.temp/

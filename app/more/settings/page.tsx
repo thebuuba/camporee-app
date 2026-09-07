@@ -10,11 +10,12 @@ export default async function SettingsPage() {
   const userId = auth?.claims?.sub;
   if (!userId) redirect('/login');
 
-  const [{ data: membership }, { data: camporees }] = await Promise.all([
+  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from('app_members').select('role,is_active,permissions').eq('user_id', userId).maybeSingle(),
     supabase.from('camporees').select('id,name,location,starts_on,ends_on,status').order('starts_on', { ascending: true }),
   ]);
-  if (!membership?.is_active) redirect('/login');
+  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
+  if (!membership?.is_active) redirect('/');
   const camporee = camporees?.find((item) => item.status !== 'archived') ?? camporees?.[0];
   const canEdit = membership.role === 'admin';
 
