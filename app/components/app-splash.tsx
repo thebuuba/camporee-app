@@ -18,14 +18,20 @@ export default function AppSplash(){
     <div className="app-splash-cloud cloud-left" />
     <div className="app-splash-cloud cloud-right" />
     <div className="app-splash-center">
-      <img className="app-splash-logo" src="/camporee-home-icon-v2.png?v=5" alt="" />
+      <div className="app-splash-logo-mark" aria-hidden="true">
+        <span className="splash-sun"/>
+        <span className="splash-mountain splash-mountain-back"/>
+        <span className="splash-mountain splash-mountain-front"/>
+        <span className="splash-ground"/>
+        <span className="splash-tree">♠</span>
+        <span className="splash-tent"/>
+      </div>
       <div className="app-splash-title">CAMPOREE</div>
       <div className="app-splash-tagline">MÁS QUE UN CAMPAMENTO,<br/>UNA HISTORIA JUNTOS</div>
       <div className="app-splash-progress" aria-hidden="true"><span /></div>
       <div className="app-splash-loading">Cargando tu aventura…</div>
     </div>
     <div className="app-splash-landscape" aria-hidden="true">
-      <span className="mountain mountain-one"/><span className="mountain mountain-two"/>
       <span className="pine pine-one">▲</span><span className="pine pine-two">▲</span><span className="pine pine-three">▲</span><span className="pine pine-four">▲</span>
     </div>
   </div>;
