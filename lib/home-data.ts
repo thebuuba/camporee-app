@@ -3,7 +3,11 @@ import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-type SupabaseResult<T> = { data: T; error: { message?: string } | null };
+type SupabaseResult<T> = {
+  data: T;
+  error: { message?: string } | null;
+  count?: number | null;
+};
 
 async function retryQuery<T>(query: () => PromiseLike<SupabaseResult<T>>, attempts = 4) {
   let result = await query();
@@ -31,15 +35,16 @@ export async function loadHomeData() {
   }
 
   const authData = authResult.data;
-  const userId = authData.user?.id;
-  if (authResult.error || !userId) return null;
+  const user = authData.user;
+  if (authResult.error || !user) return null;
+  const userId = user.id;
 
   const [profileResult, memberResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle()),
     retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle()),
   ]);
 
-  const firstName = profileResult.data?.full_name?.split(" ")[0] || authData.user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
+  const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
 
   if (profileResult.error) {
     console.error("Camporee profile load failed after retries", profileResult.error);
