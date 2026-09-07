@@ -7,5 +7,5 @@ export default async function HomeRoute() {
   const data = await loadHomeData();
   if (!data) redirect("/login");
   if (!data.camporee) return <HomeSetup firstName={data.firstName} isAdmin={Boolean(data.member?.is_active && data.member.role === "admin")} role={data.member?.role}/>;
-  return <HomeDashboard firstName={data.firstName} camporee={data.camporee} days={data.days} progress={data.progress} pendingTasks={data.pendingTasks} participants={data.participants} totalExpenses={data.totalExpenses}/>;
+  return <HomeDashboard {...data} camporee={data.camporee}/>;
 }
