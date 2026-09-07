@@ -18,7 +18,7 @@ export default function AppSplash(){
     <div className="app-splash-cloud cloud-left" />
     <div className="app-splash-cloud cloud-right" />
     <div className="app-splash-center">
-      <img className="app-splash-logo" src="/camporee-home-icon-v2.png" alt="Camporee" />
+      <img className="app-splash-logo" src="/camporee-logo-v8.png" alt="Camporee" width="512" height="512" />
       <div className="app-splash-title">CAMPOREE</div>
       <div className="app-splash-tagline">MÁS QUE UN CAMPAMENTO,<br/>UNA HISTORIA JUNTOS</div>
       <div className="app-splash-progress" aria-hidden="true"><span /></div>
