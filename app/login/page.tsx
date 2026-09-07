@@ -6,7 +6,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   return <main className="auth-shell auth-shell-clean">
     <section className="auth-wrap">
-      <div className="auth-brand-row"><div className="brand-badge brand-image"><img src="/camporee-logo-v8.png" alt="Camporee" width="54" height="54" /></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
+      <div className="auth-brand-row"><div className="brand-badge brand-image"><img src="/camporee-logo-v8.png?v=9" alt="Camporee" width="54" height="54" /></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
       <section className="auth-card auth-card-ios">
         <div className="auth-heading"><span className="auth-kicker">BIENVENIDO</span><h1>Todo el camporee en un mismo lugar.</h1><p className="auth-copy">Entra al espacio compartido del equipo para organizar tareas, programa, participantes, comidas, listas y presupuesto.</p></div>
         {params.error ? <div className="auth-alert error">{params.error}</div> : null}{params.message ? <div className="auth-alert success">{params.message}</div> : null}
