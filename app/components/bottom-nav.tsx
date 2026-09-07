@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, CheckCircle2, Home, MoreHorizontal } from "lucide-react";
+import "../nav.css";
 
 const items = [
   ["/", "Inicio", Home],
