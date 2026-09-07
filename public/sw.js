@@ -1,5 +1,5 @@
-const CACHE='camporee-shell-v6';
-const STATIC=['/offline','/manifest.webmanifest','/camporee-home-icon-v2.png','/apple-touch-icon.png'];
+const CACHE='camporee-shell-v7';
+const STATIC=['/offline','/manifest.webmanifest','/camporee-icon-512.png','/camporee-home-icon-v2.png','/apple-touch-icon.png'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
