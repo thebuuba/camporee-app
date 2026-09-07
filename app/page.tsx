@@ -24,7 +24,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   if (!camporee) {
     return <main className="app setup-app">
       <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="icon-btn" aria-label="Cerrar sesión">↗</button></form></header>
-      <section className="setup-card">
+      <section className="setup-card ios-card">
         <div className="setup-icon">⛺</div>
         <div className="eyebrow">PRIMER PASO</div>
         <h2>Crea tu camporee</h2>
@@ -56,10 +56,28 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
 
   return <main className="app">
     <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="avatar" aria-label="Cerrar sesión">{firstName.slice(0,1).toUpperCase()}</button></form></header>
+
+    <button className="search-card" type="button" aria-label="Buscar"><span className="search-icon">⌕</span><span>Buscar</span></button>
+
     <section className="hero"><small>PRÓXIMO CAMPOREE</small><h2>{camporee.name}</h2>{camporee.location ? <p className="hero-location">📍 {camporee.location}</p> : null}<div className="countdown"><span>{days} {days === 1 ? "día" : "días"}</span><span>{camporee.status === "active" ? "Camporee en curso" : "Modo preparación"}</span></div><div className="progress-label"><span>Preparación general</span><b>{progress}%</b></div><div className="bar"><i style={{ width: `${progress}%` }} /></div></section>
-    <section className="grid"><article className="stat"><small>Tareas pendientes</small><b>{pendingTasks}</b></article><article className="stat"><small>Programa</small><b>—</b></article><article className="stat"><small>Participantes</small><b>{participantsResult.count ?? 0}</b></article><article className="stat"><small>Gastos</small><b>RD${totalExpenses.toLocaleString("es-DO", { maximumFractionDigits: 0 })}</b></article></section>
-    <div className="section-head"><h3>Agregar rápido</h3><span>Lo que necesites</span></div><section className="actions"><button className="action"><span className="ico">✓</span><small>Tarea</small></button><button className="action"><span className="ico">📝</span><small>Apunte</small></button><button className="action"><span className="ico">💰</span><small>Gasto</small></button><button className="action"><span className="ico">🛒</span><small>Compra</small></button></section>
-    <div className="section-head"><h3>Para hoy</h3><span>{pendingTasks ? `${pendingTasks} pendientes` : "Todo al día"}</span></div><div className="empty">{pendingTasks ? "Ya tienes tareas pendientes. En el siguiente paso activaremos la vista de tareas y responsables." : "No hay tareas pendientes. Empieza agregando la primera tarea del camporee."}</div>
+
+    <section className="grid">
+      <article className="stat ios-card"><span className="stat-icon stat-red">✓</span><small>Tareas pendientes</small><b>{pendingTasks}</b></article>
+      <article className="stat ios-card"><span className="stat-icon stat-gold">▣</span><small>Programa</small><b>—</b></article>
+      <article className="stat ios-card"><span className="stat-icon stat-blue">♟</span><small>Participantes</small><b>{participantsResult.count ?? 0}</b></article>
+      <article className="stat ios-card"><span className="stat-icon stat-green">$</span><small>Gastos</small><b>RD${totalExpenses.toLocaleString("es-DO", { maximumFractionDigits: 0 })}</b></article>
+    </section>
+
+    <section className="section-card ios-card">
+      <div className="section-head inside"><h3>Agregar rápido</h3><span>Lo que necesites</span></div>
+      <div className="actions"><button className="action"><span className="ico">✓</span><small>Tarea</small></button><button className="action"><span className="ico">📝</span><small>Apunte</small></button><button className="action"><span className="ico">💰</span><small>Gasto</small></button><button className="action"><span className="ico">🛒</span><small>Compra</small></button></div>
+    </section>
+
+    <section className="section-card ios-card today-card">
+      <div className="section-head inside"><h3>Para hoy</h3><span>{pendingTasks ? `${pendingTasks} pendientes` : "Todo al día"}</span></div>
+      <div className="empty compact">{pendingTasks ? "Ya tienes tareas pendientes. Aquí aparecerán las más importantes del día." : "No hay tareas pendientes. Empieza agregando la primera tarea del camporee."}</div>
+    </section>
+
     <nav className="nav" aria-label="Navegación principal"><button className="active"><span>⌂</span>Inicio</button><button><span>▣</span>Programa</button><button className="plus" aria-label="Agregar">+</button><button><span>✓</span>Tareas</button><button><span>•••</span>Más</button></nav>
   </main>;
 }
