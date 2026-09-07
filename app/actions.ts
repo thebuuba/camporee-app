@@ -16,6 +16,16 @@ export async function createCamporee(formData: FormData) {
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
 
+  const { data: appMember } = await supabase
+    .from("app_members")
+    .select("role,is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!appMember?.is_active || appMember.role !== "admin") {
+    redirect(`/?error=${encodeURIComponent("Solo un administrador puede crear o configurar el camporee")}`);
+  }
+
   const name = String(formData.get("name") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim();
   const startsOn = String(formData.get("startsOn") ?? "");
