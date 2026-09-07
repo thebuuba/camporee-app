@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createCamporee } from "./actions";
@@ -88,6 +89,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <div className="empty compact">{pendingTasks ? "Aquí aparecerán las tareas más importantes del día." : "No hay tareas pendientes. Empieza agregando la primera tarea del camporee."}</div>
     </section>
 
-    <nav className="nav" aria-label="Navegación principal"><button className="active"><span>⌂</span>Inicio</button><button><span>▣</span>Programa</button><button className="plus" aria-label="Agregar">+</button><button><span>✓</span>Tareas</button><button><span>•••</span>Más</button></nav>
+    <nav className="nav" aria-label="Navegación principal"><Link className="active" href="/"><span>⌂</span>Inicio</Link><button><span>▣</span>Programa</button><button className="plus" aria-label="Agregar">+</button><button><span>✓</span>Tareas</button><Link href="/more"><span>•••</span>Más</Link></nav>
   </main>;
 }
