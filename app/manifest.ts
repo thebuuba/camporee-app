@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#1D7180",
     orientation: "portrait",
     icons: [
-      { src: "/camporee-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/camporee-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/camporee-logo-v8.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/camporee-logo-v8.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
