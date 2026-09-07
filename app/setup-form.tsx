@@ -11,6 +11,8 @@ const DEFAULT_AREAS = [
   ['Administración','clipboard-list'],['Compras','shopping-cart']
 ] as const;
 
+type ExistingCamporee = { id: string; status: string | null };
+
 export default function SetupForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -43,7 +45,8 @@ export default function SetupForm() {
         .select('id,status')
         .order('starts_on', { ascending: true });
       if (existingError) throw existingError;
-      if ((existingCamporees ?? []).some(c => c.status !== 'archived') || (existingCamporees?.length ?? 0) > 0) {
+      const existing = (existingCamporees ?? []) as ExistingCamporee[];
+      if (existing.some((camporee) => camporee.status !== 'archived') || existing.length > 0) {
         router.replace('/');
         router.refresh();
         return;
