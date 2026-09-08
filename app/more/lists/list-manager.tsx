@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Circle, ListChecks, Plus, Search, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval } from "@/lib/client-ui";
@@ -13,6 +14,9 @@ export default function ListManager({ camporeeId, canEdit, initialLists }: { cam
   const [itemFor, setItemFor] = useState<string|null>(null);
   const [query, setQuery] = useState("");
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => { setLists(initialLists); }, [initialLists]);
 
   const visibleLists = useMemo(() => lists.filter((list) => {
     const haystack = `${list.title} ${list.category || ""} ${(list.list_items || []).map((item) => item.label).join(" ")}`.toLowerCase();
@@ -24,34 +28,41 @@ export default function ListManager({ camporeeId, canEdit, initialLists }: { cam
     const title = String(formData.get('title') || '').trim();
     if (!title) return;
     const { data, error } = await supabase.from('lists').insert({ camporee_id:camporeeId, title, category:String(formData.get('category') || '').trim() || null }).select('id,title,category').single();
-    if (!error && data) { setLists((cur) => [...cur, { ...data, list_items:[] }]); setOpenList(false); }
+    if (!error && data) { setLists((cur) => [...cur, { ...data, list_items:[] }]); setOpenList(false); router.refresh(); }
   }
 
   async function addItem(formData:FormData) {
     if (!canEdit || !itemFor) return;
     const label = String(formData.get('label') || '').trim();
     if (!label) return;
-    const { data, error } = await supabase.from('list_items').insert({ list_id:itemFor, label, quantity:Number(formData.get('quantity') || 1), unit:String(formData.get('unit') || '').trim() || null, notes:String(formData.get('notes') || '').trim() || null }).select('id,label,quantity,unit,is_done,notes,sort_order').single();
-    if (!error && data) { setLists((cur) => cur.map((list) => list.id === itemFor ? { ...list, list_items:[...(list.list_items || []), data] } : list)); setItemFor(null); }
+    const targetListId = itemFor;
+    const { data, error } = await supabase.from('list_items').insert({ list_id:targetListId, label, quantity:Number(formData.get('quantity') || 1), unit:String(formData.get('unit') || '').trim() || null, notes:String(formData.get('notes') || '').trim() || null }).select('id,label,quantity,unit,is_done,notes,sort_order').single();
+    if (!error && data) { setLists((cur) => cur.map((list) => list.id === targetListId ? { ...list, list_items:[...(list.list_items || []), data] } : list)); setItemFor(null); router.refresh(); }
   }
 
   async function toggleItem(listId:string,item:any) {
     if (!canEdit) return;
     const next = !item.is_done;
+    setLists((cur) => cur.map((list) => list.id === listId ? { ...list, list_items:list.list_items.map((it) => it.id === item.id ? { ...it, is_done:next } : it) } : list));
     const { error } = await supabase.from('list_items').update({ is_done:next }).eq('id', item.id);
-    if (!error) setLists((cur) => cur.map((list) => list.id === listId ? { ...list, list_items:list.list_items.map((it) => it.id === item.id ? { ...it, is_done:next } : it) } : list));
+    if (error) setLists((cur) => cur.map((list) => list.id === listId ? { ...list, list_items:list.list_items.map((it) => it.id === item.id ? { ...it, is_done:item.is_done } : it) } : list));
+    else router.refresh();
   }
 
   async function removeItem(listId:string,itemId:string) {
     if (!canEdit || !confirmRemoval('este elemento')) return;
+    const previous = lists;
+    setLists((cur) => cur.map((list) => list.id === listId ? { ...list, list_items:list.list_items.filter((item) => item.id !== itemId) } : list));
     const { error } = await supabase.from('list_items').delete().eq('id', itemId);
-    if (!error) setLists((cur) => cur.map((list) => list.id === listId ? { ...list, list_items:list.list_items.filter((item) => item.id !== itemId) } : list));
+    if (error) setLists(previous); else router.refresh();
   }
 
   async function removeList(id:string) {
     if (!canEdit || !confirmRemoval('esta lista y sus elementos')) return;
+    const previous = lists;
+    setLists((cur) => cur.filter((list) => list.id !== id));
     const { error } = await supabase.from('lists').delete().eq('id', id);
-    if (!error) setLists((cur) => cur.filter((list) => list.id !== id));
+    if (error) setLists(previous); else router.refresh();
   }
 
   return <>
