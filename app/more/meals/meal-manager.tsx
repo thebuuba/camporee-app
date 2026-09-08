@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PackageCheck, Pencil, Plus, Search, ShoppingCart, Trash2, Utensils, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval } from "@/lib/client-ui";
@@ -21,6 +22,11 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => { setMeals(initialMeals); }, [initialMeals]);
+  useEffect(() => { setLists(initialLists); }, [initialLists]);
+
   const inventoryMap = useMemo(() => new Map(inventory.map((item:any) => [item.id,item])), [inventory]);
   const generatedIngredientIds = useMemo(() => new Set(lists.flatMap((list:any) => (list.list_items || []).map((item:any) => item.source_meal_ingredient_id).filter(Boolean))), [lists]);
 
@@ -50,22 +56,25 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
     if (!error && data) {
       const hydrated={...data,meal_ingredients:editing?.meal_ingredients||[]};
       setMeals((current) => (editing ? current.map((item) => item.id === data.id ? hydrated : item) : [...current, hydrated]).sort((a,b) => `${a.meal_date}${a.meal_type}`.localeCompare(`${b.meal_date}${b.meal_type}`)));
-      setOpen(false); setEditing(null);
+      setOpen(false); setEditing(null); router.refresh();
     }
   }
 
   async function addIngredient(formData:FormData){
     if(!canEdit||!ingredientFor)return;
     const name=String(formData.get('name')||'').trim(); if(!name)return;
-    const payload={meal_id:ingredientFor.id,name,required_quantity:Number(formData.get('required_quantity')||1),unit:String(formData.get('unit')||'').trim()||null,inventory_item_id:String(formData.get('inventory_item_id')||'')||null};
+    const mealId=ingredientFor.id;
+    const payload={meal_id:mealId,name,required_quantity:Number(formData.get('required_quantity')||1),unit:String(formData.get('unit')||'').trim()||null,inventory_item_id:String(formData.get('inventory_item_id')||'')||null};
     const {data,error}=await supabase.from('meal_ingredients').insert(payload).select('id,name,required_quantity,unit,inventory_item_id').single();
-    if(!error&&data){setMeals(cur=>cur.map(meal=>meal.id===ingredientFor.id?{...meal,meal_ingredients:[...(meal.meal_ingredients||[]),data]}:meal));setIngredientFor(null)}
+    if(!error&&data){setMeals(cur=>cur.map(meal=>meal.id===mealId?{...meal,meal_ingredients:[...(meal.meal_ingredients||[]),data]}:meal));setIngredientFor(null);router.refresh()}
   }
 
   async function removeIngredient(mealId:string,ingredientId:string){
     if(!canEdit||!confirmRemoval('este ingrediente'))return;
+    const previous=meals;
+    setMeals(cur=>cur.map(meal=>meal.id===mealId?{...meal,meal_ingredients:(meal.meal_ingredients||[]).filter((item:any)=>item.id!==ingredientId)}:meal));
     const {error}=await supabase.from('meal_ingredients').delete().eq('id',ingredientId);
-    if(!error)setMeals(cur=>cur.map(meal=>meal.id===mealId?{...meal,meal_ingredients:(meal.meal_ingredients||[]).filter((item:any)=>item.id!==ingredientId)}:meal));
+    if(error)setMeals(previous);else router.refresh();
   }
 
   async function ensureFoodShoppingList(){
@@ -73,7 +82,7 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
     if(existing)return existing;
     const {data,error}=await supabase.from('lists').insert({camporee_id:camporeeId,title:'Compras de comidas',category:'food-shopping'}).select('id,title,category').single();
     if(error||!data)return null;
-    const created={...data,list_items:[]}; setLists(cur=>[...cur,created]); return created;
+    const created={...data,list_items:[]}; setLists(cur=>[...cur,created]); router.refresh(); return created;
   }
 
   async function addShortageToShopping(meal:any,ingredient:any){
@@ -82,13 +91,15 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
     const list=await ensureFoodShoppingList(); if(!list)return;
     const note=`Faltante para ${mealLabel(meal.meal_type)} · ${new Date(`${meal.meal_date}T00:00:00`).toLocaleDateString('es-DO',{day:'numeric',month:'short'})}`;
     const {data,error}=await supabase.from('list_items').insert({list_id:list.id,label:ingredient.name,quantity:missing,unit:ingredient.unit||null,notes:note,source_meal_ingredient_id:ingredient.id}).select('id,label,quantity,unit,is_done,notes,sort_order,source_meal_ingredient_id').single();
-    if(!error&&data)setLists(cur=>cur.map((row:any)=>row.id===list.id?{...row,list_items:[...(row.list_items||[]),data]}:row));
+    if(!error&&data){setLists(cur=>cur.map((row:any)=>row.id===list.id?{...row,list_items:[...(row.list_items||[]),data]}:row));router.refresh()}
   }
 
   async function removeMeal(id: string) {
     if (!canEdit || !confirmRemoval('esta comida')) return;
+    const previous=meals;
+    setMeals((current) => current.filter((item) => item.id !== id));
     const { error } = await supabase.from("meals").delete().eq("id", id);
-    if (!error) setMeals((current) => current.filter((item) => item.id !== id));
+    if (error) setMeals(previous); else router.refresh();
   }
 
   const totalIngredients=meals.reduce((sum,meal)=>sum+(meal.meal_ingredients?.length||0),0);
