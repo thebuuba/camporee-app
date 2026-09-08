@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, ClipboardCheck, Plus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -12,6 +13,12 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => {
+    setSessions(initialSessions);
+    setActiveSession((current:any) => current ? initialSessions.find((session:any) => session.id === current.id) ?? current : null);
+  }, [initialSessions]);
 
   const activeMarks = useMemo(() => new Map((activeSession?.attendance_marks || []).map((mark:any) => [mark.participant_id, Boolean(mark.present)])), [activeSession]);
   const presentCount = activeSession ? participants.filter((p) => activeMarks.get(p.id)).length : 0;
@@ -35,20 +42,30 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
       setSessions((current) => [hydrated, ...current]);
       setActiveSession(hydrated);
       setOpen(false);
+      router.refresh();
     }
   }
 
   async function toggleParticipant(person:any) {
     if (!canEdit || !activeSession) return;
-    const next = !activeMarks.get(person.id);
-    const { data, error } = await supabase.from('attendance_marks').upsert({ session_id:activeSession.id, participant_id:person.id, present:next }, { onConflict:'session_id,participant_id' }).select('participant_id,present').single();
-    if (error || !data) return;
-    const updateMarks = (marks:any[]) => {
-      const rest = marks.filter((m:any) => m.participant_id !== person.id);
-      return [...rest, data];
-    };
-    setActiveSession((current:any) => current ? { ...current, attendance_marks:updateMarks(current.attendance_marks || []) } : current);
-    setSessions((current) => current.map((session) => session.id === activeSession.id ? { ...session, attendance_marks:updateMarks(session.attendance_marks || []) } : session));
+    const sessionId = activeSession.id;
+    const previous = Boolean(activeMarks.get(person.id));
+    const next = !previous;
+    const optimistic = { participant_id:person.id, present:next };
+    const updateMarks = (marks:any[], mark:any) => [...marks.filter((m:any) => m.participant_id !== person.id), mark];
+    setActiveSession((current:any) => current && current.id === sessionId ? { ...current, attendance_marks:updateMarks(current.attendance_marks || [], optimistic) } : current);
+    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, attendance_marks:updateMarks(session.attendance_marks || [], optimistic) } : session));
+
+    const { data, error } = await supabase.from('attendance_marks').upsert({ session_id:sessionId, participant_id:person.id, present:next }, { onConflict:'session_id,participant_id' }).select('participant_id,present').single();
+    if (error || !data) {
+      const rollback = { participant_id:person.id, present:previous };
+      setActiveSession((current:any) => current && current.id === sessionId ? { ...current, attendance_marks:updateMarks(current.attendance_marks || [], rollback) } : current);
+      setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, attendance_marks:updateMarks(session.attendance_marks || [], rollback) } : session));
+      return;
+    }
+    setActiveSession((current:any) => current && current.id === sessionId ? { ...current, attendance_marks:updateMarks(current.attendance_marks || [], data) } : current);
+    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, attendance_marks:updateMarks(session.attendance_marks || [], data) } : session));
+    router.refresh();
   }
 
   if (activeSession) return <>
