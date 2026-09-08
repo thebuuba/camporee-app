@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -8,7 +9,11 @@ export default function SettingsForm({ camporee, canEdit }: { camporee: any; can
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [version, setVersion] = useState(0);
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => { setVersion((value) => value + 1); setSaved(false); setError(''); }, [camporee]);
 
   async function save(formData: FormData) {
     if (!canEdit || saving) return;
@@ -18,19 +23,13 @@ export default function SettingsForm({ camporee, canEdit }: { camporee: any; can
     if (!name || !startsOn || !endsOn) return;
     if (new Date(endsOn) < new Date(startsOn)) { setError('La fecha final no puede ser anterior a la fecha de inicio.'); return; }
     setSaving(true); setSaved(false); setError('');
-    const { error } = await supabase.from('camporees').update({
-      name,
-      location: String(formData.get('location') || '').trim() || null,
-      starts_on: startsOn,
-      ends_on: endsOn,
-      status: String(formData.get('status') || 'planning'),
-    }).eq('id', camporee.id);
+    const { error } = await supabase.from('camporees').update({ name, location: String(formData.get('location') || '').trim() || null, starts_on: startsOn, ends_on: endsOn, status: String(formData.get('status') || 'planning') }).eq('id', camporee.id);
     setSaving(false);
-    if (error) setError(error.message); else setSaved(true);
+    if (error) setError(error.message); else { setSaved(true); router.refresh(); }
   }
 
   return <section className='section-card ios-card'>
-    <form action={save} className='panel-form'>
+    <form key={version} action={save} className='panel-form'>
       <label>Nombre<input name='name' defaultValue={camporee.name} disabled={!canEdit} required/></label>
       <label>Lugar<input name='location' defaultValue={camporee.location ?? ''} disabled={!canEdit}/></label>
       <div className='form-two'><label>Inicio<input name='starts_on' type='date' defaultValue={camporee.starts_on} disabled={!canEdit} required/></label><label>Final<input name='ends_on' type='date' defaultValue={camporee.ends_on} disabled={!canEdit} required/></label></div>
