@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Circle, ListChecks, Pencil, Plus, Search, Trash2, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval } from '@/lib/client-ui';
@@ -18,7 +19,12 @@ export default function TaskManager({ camporeeId, userId, canEdit, initialTasks,
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all'|'today'|'urgent'|'done'>('all');
   const supabase = createClient();
+  const router = useRouter();
   const assigneeMap = useMemo(() => new Map(assignees.map((person:any)=>[person.id, person.full_name || person.email || 'Usuario'])), [assignees]);
+
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
 
   const visible = useMemo(() => {
     const today = localDateKey(new Date());
@@ -45,15 +51,17 @@ export default function TaskManager({ camporeeId, userId, canEdit, initialTasks,
     if (!error && data) {
       const hydrated = editing ? {...editing,...data} : {...data,task_checklist_items:[]};
       setTasks((current)=> editing ? current.map((item)=>item.id===data.id?hydrated:item) : [hydrated,...current]);
-      setEditing(null); setOpen(false);
+      setEditing(null);
+      setOpen(false);
+      router.refresh();
     }
   }
 
-  async function toggleTask(task:any){ if(!canEdit)return; const next=task.status==='done'?'pending':'done'; const {error}=await supabase.from('tasks').update({status:next,updated_at:new Date().toISOString()}).eq('id',task.id); if(!error)setTasks((cur)=>cur.map((item)=>item.id===task.id?{...item,status:next}:item)); }
-  async function removeTask(id:string){ if(!canEdit||!confirmRemoval('esta tarea'))return; const {error}=await supabase.from('tasks').delete().eq('id',id); if(!error)setTasks((cur)=>cur.filter((item)=>item.id!==id)); }
-  async function addChecklistItem(formData:FormData){ if(!canEdit||!checklistFor)return; const label=String(formData.get('label')||'').trim(); if(!label)return; const {data,error}=await supabase.from('task_checklist_items').insert({task_id:checklistFor.id,label}).select('id,label,is_done,sort_order').single(); if(!error&&data){setTasks((cur)=>cur.map((task)=>task.id===checklistFor.id?{...task,task_checklist_items:[...(task.task_checklist_items||[]),data]}:task));setChecklistFor((cur:any)=>({...cur,task_checklist_items:[...(cur.task_checklist_items||[]),data]}));}}
-  async function toggleChecklist(taskId:string,item:any){if(!canEdit)return;const next=!item.is_done;const{error}=await supabase.from('task_checklist_items').update({is_done:next}).eq('id',item.id);if(!error){setTasks((cur)=>cur.map((task)=>task.id===taskId?{...task,task_checklist_items:(task.task_checklist_items||[]).map((it:any)=>it.id===item.id?{...it,is_done:next}:it)}:task));setChecklistFor((cur:any)=>cur?{...cur,task_checklist_items:(cur.task_checklist_items||[]).map((it:any)=>it.id===item.id?{...it,is_done:next}:it)}:cur);}}
-  async function removeChecklist(taskId:string,itemId:string){if(!canEdit||!confirmRemoval('este paso'))return;const{error}=await supabase.from('task_checklist_items').delete().eq('id',itemId);if(!error){setTasks((cur)=>cur.map((task)=>task.id===taskId?{...task,task_checklist_items:(task.task_checklist_items||[]).filter((it:any)=>it.id!==itemId)}:task));setChecklistFor((cur:any)=>cur?{...cur,task_checklist_items:(cur.task_checklist_items||[]).filter((it:any)=>it.id!==itemId)}:cur);}}
+  async function toggleTask(task:any){ if(!canEdit)return; const next=task.status==='done'?'pending':'done'; const {error}=await supabase.from('tasks').update({status:next,updated_at:new Date().toISOString()}).eq('id',task.id); if(!error){setTasks((cur)=>cur.map((item)=>item.id===task.id?{...item,status:next}:item));router.refresh();} }
+  async function removeTask(id:string){ if(!canEdit||!confirmRemoval('esta tarea'))return; const {error}=await supabase.from('tasks').delete().eq('id',id); if(!error){setTasks((cur)=>cur.filter((item)=>item.id!==id));router.refresh();} }
+  async function addChecklistItem(formData:FormData){ if(!canEdit||!checklistFor)return; const label=String(formData.get('label')||'').trim(); if(!label)return; const {data,error}=await supabase.from('task_checklist_items').insert({task_id:checklistFor.id,label}).select('id,label,is_done,sort_order').single(); if(!error&&data){setTasks((cur)=>cur.map((task)=>task.id===checklistFor.id?{...task,task_checklist_items:[...(task.task_checklist_items||[]),data]}:task));setChecklistFor((cur:any)=>({...cur,task_checklist_items:[...(cur.task_checklist_items||[]),data]}));router.refresh();}}
+  async function toggleChecklist(taskId:string,item:any){if(!canEdit)return;const next=!item.is_done;const{error}=await supabase.from('task_checklist_items').update({is_done:next}).eq('id',item.id);if(!error){setTasks((cur)=>cur.map((task)=>task.id===taskId?{...task,task_checklist_items:(task.task_checklist_items||[]).map((it:any)=>it.id===item.id?{...it,is_done:next}:it)}:task));setChecklistFor((cur:any)=>cur?{...cur,task_checklist_items:(cur.task_checklist_items||[]).map((it:any)=>it.id===item.id?{...it,is_done:next}:it)}:cur);router.refresh();}}
+  async function removeChecklist(taskId:string,itemId:string){if(!canEdit||!confirmRemoval('este paso'))return;const{error}=await supabase.from('task_checklist_items').delete().eq('id',itemId);if(!error){setTasks((cur)=>cur.map((task)=>task.id===taskId?{...task,task_checklist_items:(task.task_checklist_items||[]).filter((it:any)=>it.id!==itemId)}:task));setChecklistFor((cur:any)=>cur?{...cur,task_checklist_items:(cur.task_checklist_items||[]).filter((it:any)=>it.id!==itemId)}:cur);router.refresh();}}
 
   return <>
     <div className='panel-tools'><label className='panel-search'><Search size={17}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder='Buscar tareas o responsable'/>{query?<button type='button' onClick={()=>setQuery('')}>×</button>:null}</label><div className='filter-chips'>{[['all','Pendientes'],['today','Hoy'],['urgent','Prioridad'],['done','Completadas']].map(([key,label])=><button key={key} className={filter===key?'active':''} onClick={()=>setFilter(key as any)}>{label}</button>)}</div>{canEdit?<button className='panel-add' onClick={()=>{setEditing(null);setOpen(true)}}><Plus size={18}/> Nueva tarea</button>:null}</div>
