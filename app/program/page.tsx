@@ -12,7 +12,7 @@ export default async function ProgramPage() {
 
   const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
     supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
-    supabase.from("camporees").select("id,name,status").order("starts_on", { ascending: true }),
+    supabase.from("camporees").select("id,name,status,starts_on,ends_on").order("starts_on", { ascending: true }),
   ]);
   if (membershipError || camporeesError) throw membershipError ?? camporeesError;
   if (!membership?.is_active) redirect("/");
@@ -28,9 +28,14 @@ export default async function ProgramPage() {
   const contentError = eventsError ?? areasError;
   if (contentError) throw contentError;
 
+  const now = new Date();
+  const start = camporee?.starts_on ? new Date(`${camporee.starts_on}T00:00:00`) : null;
+  const end = camporee?.ends_on ? new Date(`${camporee.ends_on}T23:59:59`) : null;
+  const eventMode = Boolean(start && end && now >= start && now <= end);
+
   return <main className="app panel-page program-page">
     <header className="top top-icon-only compact-panel-top"><span className="avatar"><CalendarDays size={22}/></span></header>
-    {camporee ? <ProgramManager camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    {camporee ? <ProgramManager camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []} eventMode={eventMode}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;
 }
