@@ -31,5 +31,9 @@ export async function updateMemberAccess(formData: FormData) {
   if (error) redirect(`/more/users?error=${encodeURIComponent("No se pudieron guardar los permisos")}`);
 
   revalidatePath("/more/users");
+  revalidatePath("/more");
+  revalidatePath("/");
+  revalidatePath("/tasks");
+  revalidatePath("/program");
   redirect("/more/users?saved=1");
 }
