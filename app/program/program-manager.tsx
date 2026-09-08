@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarPlus, Clock3, MapPin, Pencil, Search, Trash2, UserRound } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval } from '@/lib/client-ui';
 
@@ -29,7 +30,10 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<'today'|'all'>(eventMode ? 'today' : 'all');
   const supabase = createClient();
+  const router = useRouter();
   const todayKey = localDayKey(new Date());
+
+  useEffect(()=>setEvents(initialEvents),[initialEvents]);
 
   const visible = useMemo(() => events.filter((event) => {
     const matchesText = `${event.title} ${event.location ?? ''} ${event.responsible_name ?? ''}`.toLowerCase().includes(query.toLowerCase());
@@ -54,11 +58,11 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
     setSaving(false);
     if (!error && data) {
       setEvents((current) => (editing ? current.map((item) => item.id === data.id ? data : item) : [...current, data]).sort((a,b)=>String(a.starts_at).localeCompare(String(b.starts_at))));
-      setEditing(null); setOpen(false);
+      setEditing(null); setOpen(false); router.refresh();
     }
   }
 
-  async function removeEvent(id: string) { if (!canEdit || !confirmRemoval('esta actividad')) return; const { error } = await supabase.from('schedule_events').delete().eq('id', id); if (!error) setEvents((current) => current.filter((item) => item.id !== id)); }
+  async function removeEvent(id: string) { if (!canEdit || !confirmRemoval('esta actividad')) return; const { error } = await supabase.from('schedule_events').delete().eq('id', id); if (!error){ setEvents((current) => current.filter((item) => item.id !== id)); router.refresh(); } }
   const formEvent = editing;
 
   return <>
