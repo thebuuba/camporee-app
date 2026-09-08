@@ -9,7 +9,7 @@ type QueuedRequest = {
 
 const DB_NAME = 'camporee-offline';
 const STORE = 'requests';
-const REST_TABLES_WITH_UUID_ID = new Set(['camporees','areas','tasks','task_checklist_items','schedule_events','lists','list_items','meals','participants','expenses','income_entries','notes','inventory_items','emergency_contacts','camporee_documents']);
+const REST_TABLES_WITH_UUID_ID = new Set(['camporees','areas','tasks','task_checklist_items','schedule_events','lists','list_items','meals','participants','expenses','income_entries','notes','inventory_items','emergency_contacts','camporee_documents','announcements','attendance_sessions','camporee_activities']);
 let lastAuthorization = '';
 let flushing = false;
 
