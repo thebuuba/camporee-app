@@ -8,7 +8,7 @@ import "../nav.css";
 
 const items = [
   ["/", "Inicio", Home],
-  ["/program", "Programa", CalendarDays],
+  ["/program", "Hoy", CalendarDays],
   ["/tasks", "Tareas", CheckCircle2],
   ["/more", "Más", MoreHorizontal],
 ] as const;
