@@ -11,6 +11,7 @@ import "./outdoor-style.css";
 import "./logo-fixes.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
+import DataFreshness from "./components/data-freshness";
 import AppSplash from "./components/app-splash";
 
 export const metadata: Metadata = {
@@ -32,5 +33,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><head><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus />{children}</body></html>;
+  return <html lang="es"><head><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
 }
