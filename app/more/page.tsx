@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Users, WalletCards } from "lucide-react";
+import { BookOpenText, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
 
@@ -15,8 +15,9 @@ export default async function MorePage() {
   const isAdmin = membership.role === "admin";
   const items = [
     [Megaphone,"Avisos","Cambios, llamados y mensajes importantes","/more/announcements"],
+    [ClipboardCheck,"Pases de lista","Salidas, llegadas, cultos y actividades","/more/attendance"],
     [Soup,"Comidas","Menús, ingredientes y responsables","/more/meals"],
-    [Users,"Participantes","Listado general y asistencia","/more/participants"],
+    [Users,"Participantes","Listado general y unidades","/more/participants"],
     [ListChecks,"Listas","Qué llevar, compras y materiales","/more/lists"],
     [PackageCheck,"Inventario","Qué sale, qué vuelve y cantidades","/more/inventory"],
     [WalletCards,"Presupuesto","Gastos, compras e ingresos","/more/budget"],
