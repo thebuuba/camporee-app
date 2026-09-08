@@ -30,7 +30,7 @@ export default async function TasksPage() {
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
-    <header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Tareas</h1></div><span className="avatar"><CheckCircle2 size={22}/></span></header>
+    <header className="top top-icon-only"><span className="avatar"><CheckCircle2 size={22}/></span></header>
     <div className="panel-intro"><div><strong>{(tasks ?? []).filter((task) => task.status !== "done").length} pendientes</strong><small>Organiza lo que hay que hacer antes y durante el camporee.</small></div></div>
     {camporee ? <TaskManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />

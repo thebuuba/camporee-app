@@ -29,7 +29,7 @@ export default async function ProgramPage() {
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
-    <header className="top"><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Programa</h1></div><span className="avatar"><CalendarDays size={22}/></span></header>
+    <header className="top top-icon-only"><span className="avatar"><CalendarDays size={22}/></span></header>
     <div className="panel-intro"><div><strong>{events?.length ?? 0} actividades</strong><small>Todo el itinerario del camporee ordenado por fecha y hora.</small></div></div>
     {camporee ? <ProgramManager camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
