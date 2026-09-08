@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, BellRing, Megaphone, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval } from '@/lib/client-ui';
@@ -12,6 +13,9 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => { setAnnouncements(initialAnnouncements); }, [initialAnnouncements]);
 
   async function requestNotifications() {
     if (!('Notification' in window)) return;
@@ -37,14 +41,17 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     if (!error && data) {
       setAnnouncements((current) => [data, ...current]);
       setOpen(false);
+      router.refresh();
       await notifyLocally(title, message);
     }
   }
 
   async function removeAnnouncement(id:string) {
     if (!canEdit || !confirmRemoval('este aviso')) return;
+    const previous = announcements;
+    setAnnouncements((current) => current.filter((item) => item.id !== id));
     const { error } = await supabase.from('announcements').delete().eq('id', id);
-    if (!error) setAnnouncements((current) => current.filter((item) => item.id !== id));
+    if (error) setAnnouncements(previous); else router.refresh();
   }
 
   return <>
