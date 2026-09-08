@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Users, WalletCards } from "lucide-react";
+import { BookOpenText, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
 
@@ -16,6 +16,7 @@ export default async function MorePage() {
   const items = [
     [Megaphone,"Avisos","Cambios, llamados y mensajes importantes","/more/announcements"],
     [ClipboardCheck,"Pases de lista","Salidas, llegadas, cultos y actividades","/more/attendance"],
+    [Trophy,"Competencias","Competencias, especialidades y resultados","/more/activities"],
     [Soup,"Comidas","Menús, ingredientes y responsables","/more/meals"],
     [Users,"Participantes","Listado general y unidades","/more/participants"],
     [ListChecks,"Listas","Qué llevar, compras y materiales","/more/lists"],
