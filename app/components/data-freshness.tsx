@@ -22,11 +22,14 @@ export default function DataFreshness(){
     window.addEventListener('online',refresh);
     window.addEventListener('camporee:queue-flushed',refresh);
     document.addEventListener('visibilitychange',onVisibility);
+    const liveRoute=pathname==='/'||pathname==='/program';
+    const interval=liveRoute ? window.setInterval(()=>{if(document.visibilityState==='visible')refresh()},60000) : undefined;
     return()=>{
       window.removeEventListener('focus',refresh);
       window.removeEventListener('online',refresh);
       window.removeEventListener('camporee:queue-flushed',refresh);
       document.removeEventListener('visibilitychange',onVisibility);
+      if(interval)window.clearInterval(interval);
     };
   },[pathname,router]);
 
