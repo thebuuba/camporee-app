@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight, Pencil, Plus, Search, Trash2, WalletCards, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval } from "@/lib/client-ui";
@@ -27,6 +28,10 @@ export default function BudgetManager({ camporeeId, userId, canEdit, initialExpe
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<'all' | MovementType>('all');
   const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => { setExpenses(initialExpenses); }, [initialExpenses]);
+  useEffect(() => { setIncome(initialIncome); }, [initialIncome]);
 
   const totalExpenses = useMemo(() => expenses.reduce((sum, row) => sum + Number(row.amount || 0), 0), [expenses]);
   const totalIncome = useMemo(() => income.reduce((sum, row) => sum + Number(row.amount || 0), 0), [income]);
@@ -83,16 +88,19 @@ export default function BudgetManager({ camporeeId, userId, canEdit, initialExpe
       if (error) { setSaving(false); return; }
     }
 
-    setSaving(false); setOpen(false); setEditing(null);
+    setSaving(false); setOpen(false); setEditing(null); router.refresh();
   }
 
   async function removeMovement(movement:any) {
     if (!canEdit || !confirmRemoval('este movimiento')) return;
-    const table = movement.movement_type === 'income' ? 'income_entries' : 'expenses';
-    const { error } = await supabase.from(table).delete().eq('id', movement.id);
-    if (error) return;
+    const previousExpenses = expenses;
+    const previousIncome = income;
     if (movement.movement_type === 'income') setIncome((current) => current.filter((item) => item.id !== movement.id));
     else setExpenses((current) => current.filter((item) => item.id !== movement.id));
+    const table = movement.movement_type === 'income' ? 'income_entries' : 'expenses';
+    const { error } = await supabase.from(table).delete().eq('id', movement.id);
+    if (error) { setExpenses(previousExpenses); setIncome(previousIncome); return; }
+    router.refresh();
   }
 
   const movementDate = editing ? (kind === 'income' ? editing.received_on : editing.spent_on) : dateKeyInTimeZone();
