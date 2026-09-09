@@ -8,17 +8,28 @@ import { confirmRemoval } from '@/lib/client-ui';
 
 const labelFor = (priority:string) => priority === 'urgent' ? 'Urgente' : priority === 'important' ? 'Importante' : 'Aviso';
 
+function urlBase64ToUint8Array(value:string) {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
+}
+
 export default function AnnouncementManager({ camporeeId, userId, canEdit, initialAnnouncements }: { camporeeId:string; userId:string; canEdit:boolean; initialAnnouncements:any[] }) {
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notificationPermission,setNotificationPermission] = useState<'default'|'denied'|'granted'|'unsupported'>('default');
+  const [pushReady,setPushReady] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => { setAnnouncements(initialAnnouncements); }, [initialAnnouncements]);
   useEffect(() => {
-    setNotificationPermission('Notification' in window ? Notification.permission : 'unsupported');
+    const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    setNotificationPermission(supported ? Notification.permission : 'unsupported');
+    if (!supported) return;
+    navigator.serviceWorker.ready.then((registration) => registration.pushManager.getSubscription()).then((subscription) => setPushReady(Boolean(subscription))).catch(() => setPushReady(false));
   }, []);
 
   useEffect(() => {
@@ -26,7 +37,6 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements', filter:`camporee_id=eq.${camporeeId}` }, (payload:any) => {
         const item = payload.new;
         setAnnouncements((current) => current.some((row) => row.id === item.id) ? current : [item, ...current]);
-        if (item.created_by !== userId) void notifyLocally(item.title, item.message);
       })
       .on('postgres_changes', { event:'DELETE', schema:'public', table:'announcements' }, (payload:any) => {
         const id = payload.old?.id;
@@ -34,19 +44,45 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [camporeeId,userId,supabase]);
+  }, [camporeeId,supabase]);
 
   async function requestNotifications() {
-    if (!('Notification' in window)) { setNotificationPermission('unsupported'); return; }
+    const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    if (!supported) { setNotificationPermission('unsupported'); return; }
+
     const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
     setNotificationPermission(permission);
-  }
+    if (permission !== 'granted') return;
 
-  async function notifyLocally(title:string, message:string) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const registration = await navigator.serviceWorker?.ready.catch(() => null);
-    if (registration) await registration.showNotification(title, { body: message, icon: '/camporee-icon-512.png', badge: '/apple-touch-icon.png', tag: 'camporee-announcement', data:{url:'/more/announcements'} });
-    else new Notification(title, { body: message, icon: '/camporee-icon-512.png' });
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const { data:keyData, error:keyError } = await supabase.functions.invoke('camporee-push', { body:{ action:'public-key' } });
+        if (keyError || !keyData?.publicKey) throw keyError ?? new Error('No push key');
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:urlBase64ToUint8Array(keyData.publicKey),
+        });
+      }
+      const json = subscription.toJSON();
+      const p256dh = json.keys?.p256dh;
+      const auth = json.keys?.auth;
+      if (!p256dh || !auth) throw new Error('Push subscription keys unavailable');
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id:userId,
+        camporee_id:camporeeId,
+        endpoint:subscription.endpoint,
+        p256dh,
+        auth,
+        updated_at:new Date().toISOString(),
+      }, { onConflict:'endpoint' });
+      if (error) throw error;
+      setPushReady(true);
+    } catch (error) {
+      console.error('Camporee push subscription failed', error);
+      setPushReady(false);
+    }
   }
 
   async function saveAnnouncement(formData: FormData) {
@@ -62,6 +98,11 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       setAnnouncements((current) => current.some((item)=>item.id===data.id) ? current : [data, ...current]);
       setOpen(false);
       router.refresh();
+      if (navigator.onLine) {
+        void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then(({error:pushError}) => {
+          if (pushError) console.error('Camporee push delivery failed', pushError);
+        });
+      }
     }
   }
 
@@ -73,11 +114,11 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     if (error) setAnnouncements(previous); else router.refresh();
   }
 
-  const notificationLabel = notificationPermission === 'granted' ? 'Avisos activados' : notificationPermission === 'denied' ? 'Avisos bloqueados en este dispositivo' : notificationPermission === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos en este dispositivo';
+  const notificationLabel = notificationPermission === 'granted' && pushReady ? 'Avisos activados' : notificationPermission === 'denied' ? 'Avisos bloqueados en este dispositivo' : notificationPermission === 'unsupported' ? 'Avisos no disponibles' : notificationPermission === 'granted' ? 'Completar activación de avisos' : 'Activar avisos en este dispositivo';
 
   return <>
     <div className='panel-tools'>
-      <button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>
+      <button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'&&pushReady?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>
       {canEdit ? <button className='panel-add' onClick={() => setOpen(true)}><Plus size={18}/> Nuevo aviso</button> : null}
     </div>
 
