@@ -35,5 +35,9 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es"><head><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
+  // Inline launch colors are intentional: iOS can paint the webview before the
+  // external CSS bundle arrives. Giving html/body a color here prevents a black
+  // frame between the native launch surface and the React splash screen.
+  const launchStyle = { backgroundColor: "#F4E7C9", colorScheme: "light" as const };
+  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content="#F4E7C9" /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
 }
