@@ -12,20 +12,40 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notificationPermission,setNotificationPermission] = useState<'default'|'denied'|'granted'|'unsupported'>('default');
   const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => { setAnnouncements(initialAnnouncements); }, [initialAnnouncements]);
+  useEffect(() => {
+    setNotificationPermission('Notification' in window ? Notification.permission : 'unsupported');
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase.channel(`camporee-announcements-${camporeeId}`)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements', filter:`camporee_id=eq.${camporeeId}` }, (payload:any) => {
+        const item = payload.new;
+        setAnnouncements((current) => current.some((row) => row.id === item.id) ? current : [item, ...current]);
+        if (item.created_by !== userId) void notifyLocally(item.title, item.message);
+      })
+      .on('postgres_changes', { event:'DELETE', schema:'public', table:'announcements' }, (payload:any) => {
+        const id = payload.old?.id;
+        if (id) setAnnouncements((current) => current.filter((row) => row.id !== id));
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [camporeeId,userId,supabase]);
 
   async function requestNotifications() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (!('Notification' in window)) { setNotificationPermission('unsupported'); return; }
+    const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+    setNotificationPermission(permission);
   }
 
   async function notifyLocally(title:string, message:string) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const registration = await navigator.serviceWorker?.ready.catch(() => null);
-    if (registration) await registration.showNotification(title, { body: message, icon: '/camporee-icon-512.png', badge: '/apple-touch-icon.png', tag: 'camporee-announcement' });
+    if (registration) await registration.showNotification(title, { body: message, icon: '/camporee-icon-512.png', badge: '/apple-touch-icon.png', tag: 'camporee-announcement', data:{url:'/more/announcements'} });
     else new Notification(title, { body: message, icon: '/camporee-icon-512.png' });
   }
 
@@ -36,13 +56,12 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     const priority = String(formData.get('priority') || 'normal');
     if (!title || !message) return;
     setSaving(true);
-    const { data, error } = await supabase.from('announcements').insert({ camporee_id:camporeeId, title, message, priority, created_by:userId }).select('id,title,message,priority,created_at,created_by').single();
+    const { data, error } = await supabase.from('announcements').insert({ camporee_id:camporeeId, title, message, priority, created_by:userId }).select('id,camporee_id,title,message,priority,created_at,created_by').single();
     setSaving(false);
     if (!error && data) {
-      setAnnouncements((current) => [data, ...current]);
+      setAnnouncements((current) => current.some((item)=>item.id===data.id) ? current : [data, ...current]);
       setOpen(false);
       router.refresh();
-      await notifyLocally(title, message);
     }
   }
 
@@ -54,9 +73,11 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     if (error) setAnnouncements(previous); else router.refresh();
   }
 
+  const notificationLabel = notificationPermission === 'granted' ? 'Avisos activados' : notificationPermission === 'denied' ? 'Avisos bloqueados en este dispositivo' : notificationPermission === 'unsupported' ? 'Avisos no disponibles' : 'Activar avisos en este dispositivo';
+
   return <>
     <div className='panel-tools'>
-      <button className='secondary-btn notification-permission-btn' type='button' onClick={requestNotifications}><BellRing size={17}/> Activar avisos en este dispositivo</button>
+      <button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>
       {canEdit ? <button className='panel-add' onClick={() => setOpen(true)}><Plus size={18}/> Nuevo aviso</button> : null}
     </div>
 
