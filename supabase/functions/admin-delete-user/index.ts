@@ -1,8 +1,15 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
-const jsonHeaders = { "Content-Type": "application/json" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
   try {
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
