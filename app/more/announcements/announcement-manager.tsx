@@ -8,6 +8,8 @@ import { confirmRemoval } from '@/lib/client-ui';
 
 const labelFor = (priority:string) => priority === 'urgent' ? 'Urgente' : priority === 'important' ? 'Importante' : 'Aviso';
 
+type FunctionInvokeResult = { error: unknown };
+
 function urlBase64ToUint8Array(value:string) {
   const padding = '='.repeat((4 - value.length % 4) % 4);
   const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -99,7 +101,7 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       setOpen(false);
       router.refresh();
       if (navigator.onLine) {
-        void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then((result) => {
+        void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then((result: FunctionInvokeResult) => {
           if (result.error) console.error('Camporee push delivery failed', result.error);
         });
       }
