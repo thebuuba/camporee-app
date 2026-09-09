@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, Search, ShieldCheck, UserRoundCheck, UserRoundX, UsersRound, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { CheckCircle2, ChevronDown, Loader2, Search, ShieldCheck, Trash2, UserRoundCheck, UserRoundX, UsersRound, X } from 'lucide-react';
 import { updateMemberAccess } from './actions';
+import { createClient } from '@/lib/supabase/client';
 
 type UserRow = {
   user_id:string;
@@ -23,10 +25,16 @@ const roleLabel = (role:string) => role === 'admin' ? 'Administrador' : role ===
 
 type Filter = 'all'|'pending'|'active';
 
+type DeleteInvokeResult = { data?: { ok?: boolean } | null; error?: { message?: string } | null };
+
 export default function UsersManager({ users }: { users:UserRow[] }) {
   const [query,setQuery] = useState('');
   const [filter,setFilter] = useState<Filter>(users.some((user) => !user.is_active) ? 'pending' : 'all');
   const [openId,setOpenId] = useState<string|null>(null);
+  const [deletingId,setDeletingId] = useState<string|null>(null);
+  const [deleteError,setDeleteError] = useState<string|null>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
   const counts = useMemo(() => ({
     all:users.length,
@@ -46,6 +54,26 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
       });
   },[users,filter,query]);
 
+  async function removeAccount(user:UserRow) {
+    if (user.is_self || deletingId) return;
+    const display = user.full_name || user.email || 'esta cuenta';
+    const confirmed = window.confirm(`¿Eliminar la cuenta de ${display}?\n\nPerderá el acceso inmediatamente. Su historial del camporee se conservará como registro y esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+
+    setDeleteError(null);
+    setDeletingId(user.user_id);
+    try {
+      const result = await supabase.functions.invoke('admin-delete-user', { body:{ userId:user.user_id } }) as DeleteInvokeResult;
+      if (result.error || !result.data?.ok) throw new Error(result.error?.message || 'No se pudo eliminar la cuenta');
+      setOpenId(null);
+      router.refresh();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar la cuenta');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return <>
     <section className='user-admin-summary'>
       <button className={`user-filter ${filter==='pending'?'active':''}`} type='button' onClick={() => setFilter('pending')}><UserRoundX size={17}/><span>Pendientes</span><b>{counts.pending}</b></button>
@@ -57,6 +85,7 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
       <Search size={18}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder='Buscar por nombre o correo' aria-label='Buscar usuarios'/>{query?<button type='button' onClick={() => setQuery('')} aria-label='Limpiar búsqueda'><X size={16}/></button>:null}
     </div>
 
+    {deleteError ? <div className='auth-alert error'>{deleteError}</div> : null}
     {counts.pending > 0 && filter !== 'pending' ? <button className='pending-callout' type='button' onClick={() => setFilter('pending')}><span><UserRoundX size={18}/><strong>{counts.pending} {counts.pending===1?'cuenta pendiente':'cuentas pendientes'}</strong></span><small>Revisar y activar</small></button> : null}
 
     <div className='user-list-head'><span>{filtered.length} {filtered.length===1?'persona':'personas'}</span><small>{filter==='pending'?'Esperando aprobación':filter==='active'?'Con acceso a la app':'Todas las cuentas'}</small></div>
@@ -65,6 +94,7 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
       {filtered.map((user) => {
         const isOpen = openId === user.user_id;
         const display = user.full_name || user.email || 'Sin nombre';
+        const deleting = deletingId === user.user_id;
         return <article className={`compact-member ios-card ${!user.is_active?'pending-user':''}`} key={user.user_id}>
           <button className='compact-member-summary' type='button' onClick={() => setOpenId(isOpen ? null : user.user_id)} aria-expanded={isOpen}>
             <div className='member-avatar'>{display.slice(0,1).toUpperCase()}</div>
@@ -83,6 +113,7 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
             <div className='permission-title'><strong>Permisos específicos</strong><small>Activa solo los módulos que esta persona puede editar.</small></div>
             <div className='permission-grid'>{permissionLabels.map(([key,label]) => <label className='permission-chip' key={key}><input type='checkbox' name={key} defaultChecked={Boolean(user.permissions[key])}/><span>{label}</span></label>)}</div>
             <button className='primary-btn member-save' type='submit'><ShieldCheck size={16}/> Guardar cambios</button>
+            {!user.is_self ? <div className='member-danger-zone'><div><strong>Eliminar cuenta</strong><small>Quita el acceso de forma permanente. El historial del camporee se conserva.</small></div><button className='member-delete-btn' type='button' onClick={() => void removeAccount(user)} disabled={deleting}>{deleting?<Loader2 size={16} className='spin'/>:<Trash2 size={16}/>} {deleting?'Eliminando…':'Eliminar'}</button></div> : null}
           </form> : null}
         </article>;
       })}
