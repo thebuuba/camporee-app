@@ -9,39 +9,48 @@ type SupabaseResult<T> = {
   count?: number | null;
 };
 
-async function retryQuery<T>(query: () => PromiseLike<SupabaseResult<T>>, attempts = 4) {
+async function retryQuery<T>(query: () => PromiseLike<SupabaseResult<T>>, attempts = 2) {
   let result = await query();
 
   for (let attempt = 1; result.error && attempt < attempts; attempt += 1) {
-    // Immediately after a password sign-in, Cloudflare/Supabase can briefly see
-    // the refreshed auth cookie before every RLS-backed request sees the same session.
-    // A short backoff keeps that transient state from crashing the whole app.
-    await wait(150 * attempt);
+    await wait(100 * attempt);
     result = await query();
   }
 
   return result;
 }
 
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T) {
+  return Promise.race([
+    Promise.resolve(promise),
+    wait(ms).then(() => fallback),
+  ]);
+}
+
 export async function loadHomeData() {
   const supabase = await createClient();
 
-  // The first request after sign-in can also race the session cookie propagation.
-  // Retry auth itself before deciding that the user is signed out.
+  // Keep auth resilient, but do not hold the PWA on a long retry chain.
   let authResult = await supabase.auth.getUser();
-  for (let attempt = 1; (authResult.error || !authResult.data.user) && attempt < 4; attempt += 1) {
-    await wait(150 * attempt);
+  for (let attempt = 1; (authResult.error || !authResult.data.user) && attempt < 3; attempt += 1) {
+    await wait(100 * attempt);
     authResult = await supabase.auth.getUser();
   }
 
-  const authData = authResult.data;
-  const user = authData.user;
+  const user = authResult.data.user;
   if (authResult.error || !user) return null;
   const userId = user.id;
 
-  const [profileResult, memberResult] = await Promise.all([
+  // These reads are independent. Running them together removes an entire
+  // network round-trip from the initial launch path.
+  const [profileResult, memberResult, camporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle()),
     retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle()),
+    retryQuery(() =>
+      supabase.from("camporees")
+        .select("id,name,location,starts_on,ends_on,status")
+        .order("starts_on", { ascending: true })
+    ),
   ]);
 
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
@@ -53,21 +62,10 @@ export async function loadHomeData() {
     console.error("Camporee membership load failed after retries", memberResult.error);
   }
 
-  // A profile is optional for rendering. Membership is allowed to fall back to
-  // the setup/pending screen instead of sending the whole PWA to error.tsx.
   const member = memberResult.data ?? null;
-
-  const camporeeResult = await retryQuery(() =>
-    supabase.from("camporees")
-      .select("id,name,location,starts_on,ends_on,status")
-      .order("starts_on", { ascending: true })
-  );
 
   if (camporeeResult.error) {
     console.error("Camporee list load failed after retries", camporeeResult.error);
-    // Do not crash the installed PWA because of a short-lived RLS/network read.
-    // Treat it as temporarily unavailable; the setup screen can render and a
-    // later navigation/reload will fetch again.
     return { firstName, member, camporee: null };
   }
 
@@ -84,14 +82,31 @@ export async function loadHomeData() {
   const totalDays = Math.max(1, dateOnlyDistance(camporee.starts_on, camporee.ends_on) + 1);
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
+  // Dashboard cards are secondary. Never let one slow table keep the whole app
+  // behind the splash screen. Each read gets a short ceiling and safe fallback.
   const [taskResult, participantResult, expenseResult, eventResult] = await Promise.all([
-    retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id), 2),
-    retryQuery(() => supabase.from("participants").select("id", { count: "exact", head: true }).eq("camporee_id", camporee.id), 2),
-    retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id), 2),
-    retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }), 2),
+    withTimeout(
+      retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id), 1),
+      1400,
+      { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>
+    ),
+    withTimeout(
+      retryQuery(() => supabase.from("participants").select("id", { count: "exact", head: true }).eq("camporee_id", camporee.id), 1),
+      1400,
+      { data: null, error: { message: "timeout" }, count: 0 } as SupabaseResult<null>
+    ),
+    withTimeout(
+      retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id), 1),
+      1400,
+      { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>
+    ),
+    withTimeout(
+      retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }), 1),
+      1400,
+      { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>
+    ),
   ]);
 
-  // Secondary dashboard cards must never block access to the app.
   const tasks = taskResult.data ?? [];
   const events = eventResult.data ?? [];
   const pendingTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length;
