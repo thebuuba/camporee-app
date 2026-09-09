@@ -4,6 +4,7 @@ import "./mobile-fixes.css";
 import "./hero-card.css";
 import "./nav.css";
 import "./polish.css";
+import "./program-filter.css";
 import "./budget.css";
 import "./error.css";
 import "./fun-panels.css";
