@@ -1,0 +1,89 @@
+/* Desktop-only layout. Mobile and installed PWA styles remain unchanged. */
+@media (min-width: 900px) {
+  html,body{min-width:900px}
+  body{background:linear-gradient(180deg,#f5f1e7 0%,var(--bg) 42%,#eceae3 100%)}
+
+  .app{
+    max-width:1180px;
+    padding:112px 36px 54px;
+    margin:0 auto;
+  }
+
+  .nav.nav-four{
+    position:fixed;
+    z-index:80;
+    top:22px;
+    bottom:auto;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(720px,calc(100% - 56px));
+    min-height:66px;
+    padding:7px;
+    border-radius:24px;
+    grid-template-columns:repeat(4,1fr)!important;
+    box-shadow:0 14px 38px rgba(40,21,15,.12);
+  }
+  .nav.nav-four a{
+    height:52px;
+    flex-direction:row;
+    gap:9px;
+    padding:0 18px;
+  }
+  .nav.nav-four a .nav-icon{width:32px;height:32px}
+  .nav.nav-four a .nav-label{font-size:12px}
+
+  .top,.subpage-top{margin-bottom:24px}
+  .subpage-top h1{font-size:31px}
+  h1{font-size:34px}
+
+  .hero{padding:30px 34px;border-radius:34px}
+  .hero h2{font-size:32px;max-width:620px}
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .stat{min-height:140px;padding:18px}
+  .stat b{font-size:28px}
+
+  .section-card{padding:22px;border-radius:28px}
+  .actions{gap:16px}
+  .action{padding:14px 8px 10px}
+  .action .ico{width:50px;height:50px}
+  .action small{font-size:12px}
+
+  .panel-tools{display:grid;grid-template-columns:minmax(260px,1fr) auto auto;align-items:center;gap:12px}
+  .panel-tools .panel-search{margin:0}
+  .panel-tools .filter-chips{width:auto!important;min-width:420px}
+  .panel-add{white-space:nowrap;margin:0!important}
+
+  .more-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important}
+  .more-card{min-height:148px}
+
+  .program-days,.unit-groups{gap:22px}
+  .panel-list{gap:11px}
+  .panel-row{padding:16px 18px}
+
+  .inventory-summary{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .user-admin-summary{max-width:620px}
+  .user-search{max-width:620px}
+  .compact-member-list{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
+  .compact-member-editor .permission-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+  .sheet-backdrop{align-items:center!important;padding:28px!important}
+  .sheet-card{
+    width:min(760px,calc(100vw - 72px))!important;
+    max-height:min(86vh,820px)!important;
+    margin:auto!important;
+    border-radius:30px!important;
+    overflow:auto!important;
+  }
+  .sheet-handle{display:none}
+  .sheet-card h2{margin-top:0}
+  .panel-form{gap:14px}
+  .panel-form .form-two{grid-template-columns:1fr 1fr!important}
+
+  .connection-toast{bottom:24px}
+}
+
+@media (min-width: 1280px) {
+  .app{max-width:1260px;padding-left:48px;padding-right:48px}
+  .hero{padding:34px 38px}
+  .more-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+}
