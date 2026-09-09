@@ -8,8 +8,10 @@ export default function AppSplash(){
 
   useEffect(()=>{
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const leave=window.setTimeout(()=>setLeaving(true),reduced?350:1050);
-    const hide=window.setTimeout(()=>setVisible(false),reduced?500:1350);
+    // Keep the branded launch screen brief. It must mask the native/PWA startup,
+    // not make an already-ready app feel slower.
+    const leave=window.setTimeout(()=>setLeaving(true),reduced?120:420);
+    const hide=window.setTimeout(()=>setVisible(false),reduced?180:650);
     return()=>{window.clearTimeout(leave);window.clearTimeout(hide)};
   },[]);
 
