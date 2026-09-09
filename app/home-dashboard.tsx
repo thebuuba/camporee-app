@@ -5,11 +5,11 @@ import BottomNav from "./components/bottom-nav";
 type EventRow = { id:string; title:string; starts_at:string; ends_at:string|null; location:string|null };
 type TaskRow = { id:string; title:string; priority:string; due_at:string|null };
 
-export default function HomeDashboard({ firstName, camporee, days, progress, pendingTasks, participants, totalExpenses, phase, dayNumber, totalDays, programCount, currentEvent, nextEvent, todayTasks }: {
+export default function HomeDashboard({ firstName, camporee, days, progress, pendingTasks, todayPendingTasks, participants, totalExpenses, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks }: {
   firstName: string;
   camporee: { name:string; location:string|null; status:string };
-  days:number; progress:number; pendingTasks:number; participants:number; totalExpenses:number;
-  phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number;
+  days:number; progress:number; pendingTasks:number; todayPendingTasks:number; participants:number; totalExpenses:number;
+  phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number;
   currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[];
 }) {
   const active = phase === "during";
@@ -18,8 +18,8 @@ export default function HomeDashboard({ firstName, camporee, days, progress, pen
 
   const summaryCards = active
     ? [
-        { href:"/program", label:"Actividades de hoy", value:programCount, icon:<CalendarDays size={20}/>, tone:"stat-gold" },
-        { href:"/tasks", label:"Pendientes de hoy", value:pendingTasks, icon:<CheckCircle2 size={20}/>, tone:"stat-red" },
+        { href:"/program", label:"Actividades de hoy", value:todayProgramCount, icon:<CalendarDays size={20}/>, tone:"stat-gold" },
+        { href:"/tasks", label:"Pendientes de hoy", value:todayPendingTasks, icon:<CheckCircle2 size={20}/>, tone:"stat-red" },
         { href:"/more/participants", label:"Participantes", value:participants, icon:<Users size={20}/>, tone:"stat-blue" },
         { href:"/more/budget", label:"Gastos registrados", value:`RD$${totalExpenses.toLocaleString("es-DO",{maximumFractionDigits:0})}`, icon:<DollarSign size={20}/>, tone:"stat-green" },
       ]
