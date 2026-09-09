@@ -13,6 +13,7 @@ import "./logo-fixes.css";
 import "./notifications.css";
 import "./users.css";
 import "./tasks.css";
+import "./desktop.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
