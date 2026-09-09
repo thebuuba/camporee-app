@@ -30,7 +30,6 @@ async function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T) 
 export async function loadHomeData() {
   const supabase = await createClient();
 
-  // Keep auth resilient, but do not hold the PWA on a long retry chain.
   let authResult = await supabase.auth.getUser();
   for (let attempt = 1; (authResult.error || !authResult.data.user) && attempt < 3; attempt += 1) {
     await wait(100 * attempt);
@@ -41,8 +40,6 @@ export async function loadHomeData() {
   if (authResult.error || !user) return null;
   const userId = user.id;
 
-  // These reads are independent. Running them together removes an entire
-  // network round-trip from the initial launch path.
   const [profileResult, memberResult, camporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle()),
     retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle()),
@@ -55,12 +52,8 @@ export async function loadHomeData() {
 
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
 
-  if (profileResult.error) {
-    console.error("Camporee profile load failed after retries", profileResult.error);
-  }
-  if (memberResult.error) {
-    console.error("Camporee membership load failed after retries", memberResult.error);
-  }
+  if (profileResult.error) console.error("Camporee profile load failed after retries", profileResult.error);
+  if (memberResult.error) console.error("Camporee membership load failed after retries", memberResult.error);
 
   const member = memberResult.data ?? null;
 
@@ -82,8 +75,6 @@ export async function loadHomeData() {
   const totalDays = Math.max(1, dateOnlyDistance(camporee.starts_on, camporee.ends_on) + 1);
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
-  // Dashboard cards are secondary. Never let one slow table keep the whole app
-  // behind the splash screen. Each read gets a short ceiling and safe fallback.
   const [taskResult, participantResult, expenseResult, eventResult] = await Promise.all([
     withTimeout(
       retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id), 1),
@@ -113,10 +104,13 @@ export async function loadHomeData() {
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
   const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const todayTasks = tasks
+
+  const pendingToday = tasks
     .filter((task) => task.status !== "done" && task.status !== "cancelled" && task.due_at && dateKeyInTimeZone(task.due_at) === todayKey)
-    .sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0))
-    .slice(0, 3);
+    .sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
+  const todayTasks = pendingToday.slice(0, 3);
+  const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at) === todayKey).length;
+
   const nowMs = now.getTime();
   const currentEvent = events.find((event) => {
     const eventStart = new Date(event.starts_at).getTime();
@@ -130,6 +124,7 @@ export async function loadHomeData() {
     member,
     camporee,
     pendingTasks,
+    todayPendingTasks: pendingToday.length,
     progress,
     totalExpenses,
     participants: participantResult.count ?? 0,
@@ -138,6 +133,7 @@ export async function loadHomeData() {
     dayNumber,
     totalDays,
     programCount: events.length,
+    todayProgramCount,
     currentEvent,
     nextEvent,
     todayTasks,
