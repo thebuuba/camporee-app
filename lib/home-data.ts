@@ -33,11 +33,11 @@ export async function loadHomeData() {
   if (profileResult.error) console.error("Camporee profile load failed after retries", profileResult.error);
   if (memberResult.error) console.error("Camporee membership load failed after retries", memberResult.error);
   const member = memberResult.data ?? null;
-  if (camporeeResult.error) { console.error("Camporee list load failed after retries", camporeeResult.error); return { firstName, member, camporee: null }; }
+  if (camporeeResult.error) { console.error("Camporee list load failed after retries", camporeeResult.error); return { userId, firstName, member, camporee: null }; }
 
   const camporees = camporeeResult.data ?? [];
   const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
-  if (!camporee) return { firstName, member, camporee: null };
+  if (!camporee) return { userId, firstName, member, camporee: null };
 
   const now = new Date();
   const todayKey = dateKeyInTimeZone(now);
@@ -72,7 +72,7 @@ export async function loadHomeData() {
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {
-    firstName, member, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
+    userId, firstName, member, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
     participants: participantResult.count ?? 0, days, phase, dayNumber, totalDays, programCount: events.length,
     todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,
   };
