@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import NotificationControls from '@/app/components/notification-controls';
 import SettingsForm from './settings-form';
 
 export default async function SettingsPage() {
@@ -22,6 +23,11 @@ export default async function SettingsPage() {
   return <main className='app panel-page'>
     <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>CONFIGURACIÓN</div><h1>Ajustes</h1></div><span className='avatar'><Settings size={22}/></span></header>
     <div className='panel-intro'><div><strong>Datos generales del camporee</strong><small>Cambia el nombre, lugar, fechas y etapa del evento.</small></div></div>
-    {camporee ? <SettingsForm camporee={camporee} canEdit={canEdit}/> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
+    {camporee ? <>
+      <div className='section-head'><h3>Notificaciones</h3><span>Este dispositivo</span></div>
+      <NotificationControls camporeeId={camporee.id} userId={userId} mode='settings'/>
+      <div className='section-head'><h3>Camporee</h3><span>Configuración general</span></div>
+      <SettingsForm camporee={camporee} canEdit={canEdit}/>
+    </> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
   </main>;
 }
