@@ -3,7 +3,15 @@ import webpush from "npm:web-push@3.6.7";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
-Deno.serve(async (req) => {
+type SubscriptionRow = {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_id: string;
+};
+
+Deno.serve(async (req: Request) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -29,14 +37,15 @@ Deno.serve(async (req) => {
 
     const { data: admins, error: adminError } = await supabase.from("app_members").select("user_id").eq("role", "admin").eq("is_active", true);
     if (adminError) throw adminError;
-    const adminIds = (admins ?? []).map((row) => row.user_id);
-    if (!adminIds.length) return new Response(JSON.stringify({ sent: 0, message: "No active admins" }), { headers: jsonHeaders });
+    const adminIds = new Set((admins ?? []).map((row: { user_id: string }) => row.user_id));
+    if (!adminIds.size) return new Response(JSON.stringify({ sent: 0, message: "No active admins", admins: 0, subscriptions: 0 }), { headers: jsonHeaders });
 
-    const { data: subscriptions, error: subscriptionsError } = await supabase
+    const { data: allSubscriptions, error: subscriptionsError } = await supabase
       .from("push_subscriptions")
-      .select("id,endpoint,p256dh,auth,user_id")
-      .in("user_id", adminIds);
+      .select("id,endpoint,p256dh,auth,user_id");
     if (subscriptionsError) throw subscriptionsError;
+
+    const subscriptions = ((allSubscriptions ?? []) as SubscriptionRow[]).filter((subscription) => adminIds.has(subscription.user_id));
 
     const payload = JSON.stringify({
       title: "👤 Nuevo registro pendiente",
@@ -47,7 +56,7 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     const staleIds: string[] = [];
-    for (const subscription of subscriptions ?? []) {
+    for (const subscription of subscriptions) {
       try {
         await webpush.sendNotification({
           endpoint: subscription.endpoint,
@@ -61,7 +70,7 @@ Deno.serve(async (req) => {
     }
 
     if (staleIds.length) await supabase.from("push_subscriptions").delete().in("id", staleIds);
-    return new Response(JSON.stringify({ sent, stale: staleIds.length }), { headers: jsonHeaders });
+    return new Response(JSON.stringify({ sent, stale: staleIds.length, admins: adminIds.size, subscriptions: subscriptions.length }), { headers: jsonHeaders });
   } catch (error: any) {
     console.error("admin-signup-alert failed", error);
     return new Response(JSON.stringify({ error: error?.message ?? "Unknown error" }), { status: 500, headers: jsonHeaders });
