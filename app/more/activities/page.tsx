@@ -22,7 +22,7 @@ export default async function ActivitiesPage() {
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
   const [{ data: activities, error: activitiesError }, { data: participants, error: participantsError }] = camporee ? await Promise.all([
-    supabase.from("camporee_activities").select("id,title,activity_type,starts_at,location,responsible_name,materials,result,score,notes,camporee_activity_participants(participant_id)").eq("camporee_id", camporee.id).order("starts_at", { ascending: true, nullsFirst: false }),
+    supabase.from("camporee_activities").select("id,title,activity_type,starts_at,location,responsible_name,materials,result,score,notes,schedule_event_id,camporee_activity_participants(participant_id)").eq("camporee_id", camporee.id).order("starts_at", { ascending: true, nullsFirst: false }),
     supabase.from("participants").select("id,full_name,unit_name,attendance_status").eq("camporee_id", camporee.id).neq("attendance_status", "cancelled").order("full_name"),
   ]) : [{ data: [], error: null }, { data: [], error: null }];
   const error = activitiesError ?? participantsError;
