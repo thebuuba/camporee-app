@@ -1,0 +1,11 @@
+.notification-prompt{position:relative;display:grid;grid-template-columns:auto 1fr;gap:12px;padding:16px;margin:12px 0 16px;background:linear-gradient(145deg,#fffaf0,#f4f8ee);border:1px solid rgba(51,72,48,.10)}
+.notification-prompt-icon,.notification-settings-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#f0e6c8;color:#4a4a37;flex:0 0 auto}
+.notification-prompt-copy,.notification-settings-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.notification-prompt-copy strong,.notification-settings-copy strong{font-size:15px;line-height:1.2}
+.notification-prompt-copy span,.notification-settings-copy span{font-size:12px;line-height:1.4;color:var(--muted,#6f6a60)}
+.notification-prompt-actions{grid-column:1/-1;display:flex;gap:8px}.notification-prompt-actions .primary-btn,.notification-prompt-actions .secondary-btn{flex:1;min-height:42px}
+.notification-prompt-close{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:50%;display:grid;place-items:center;background:transparent;color:#777;cursor:pointer}
+.notification-settings{display:flex;align-items:center;gap:12px;padding:14px 15px;margin-top:14px}.notification-settings-copy{flex:1}.notification-settings .secondary-btn{white-space:nowrap}
+.notification-settings.state-ready .notification-settings-icon{background:#e7f4df;color:#3f6940}.notification-settings.state-denied .notification-settings-icon{background:#f7e7e2;color:#9c4d3f}
+.notification-settings-hint{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8a5d4d}
+@media(max-width:520px){.notification-settings{align-items:flex-start;flex-wrap:wrap}.notification-settings .secondary-btn{width:100%}.notification-settings-hint{width:100%;margin-left:54px}}
