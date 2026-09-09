@@ -99,8 +99,8 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       setOpen(false);
       router.refresh();
       if (navigator.onLine) {
-        void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then(({error:pushError}) => {
-          if (pushError) console.error('Camporee push delivery failed', pushError);
+        void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then((result) => {
+          if (result.error) console.error('Camporee push delivery failed', result.error);
         });
       }
     }
