@@ -1,0 +1,196 @@
+/*
+ * CAMPOREE DESIGN SYSTEM — REDESIGN V2
+ * --------------------------------------
+ * Fuente visual principal para superficies, tarjetas y controles.
+ * Inspirado en una interfaz editorial móvil: cálida, redondeada, limpia,
+ * con bloques de color suave y jerarquía fuerte.
+ *
+ * REGLA: cualquier pantalla nueva debe reutilizar estos tokens/clases antes
+ * de introducir colores, radios o sombras nuevos.
+ */
+
+:root{
+  /* Foundation */
+  --ds-bg:#F1EFEC;
+  --ds-surface:#FFFEFB;
+  --ds-surface-muted:#E7E1D9;
+  --ds-ink:#191917;
+  --ds-muted:#74716C;
+  --ds-line:rgba(25,25,23,.075);
+
+  /* Pastel blocks */
+  --ds-yellow:#FFC33D;
+  --ds-yellow-soft:#FFF0B8;
+  --ds-peach:#F6D7D0;
+  --ds-lilac:#DDD5FA;
+  --ds-sage:#D7DFBE;
+  --ds-stone:#CFC8BE;
+  --ds-green:#789C2A;
+  --ds-brown:#7C4135;
+
+  /* Geometry */
+  --ds-radius-card:22px;
+  --ds-radius-card-lg:28px;
+  --ds-radius-control:16px;
+  --ds-radius-pill:999px;
+  --ds-gap:10px;
+
+  /* Flat first, subtle elevation only when needed */
+  --ds-shadow:0 2px 10px rgba(25,25,23,.035);
+  --ds-shadow-raised:0 8px 24px rgba(25,25,23,.065);
+}
+
+html,body{background:var(--ds-bg)}
+
+/* Base card language */
+.ios-card,
+.section-card,
+.more-card,
+.settings-list,
+.panel-row.ios-card,
+.task{
+  background:var(--ds-surface)!important;
+  border:1px solid var(--ds-line)!important;
+  border-radius:var(--ds-radius-card)!important;
+  box-shadow:var(--ds-shadow)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* Large content blocks */
+.section-card,
+.settings-list{
+  border-radius:var(--ds-radius-card-lg)!important;
+}
+
+/* Dashboard summary tiles: graphic, soft and intentionally different. */
+.grid{gap:var(--ds-gap)!important}
+.stat{
+  min-height:132px!important;
+  border:0!important;
+  border-radius:var(--ds-radius-card)!important;
+  box-shadow:none!important;
+  padding:16px!important;
+  color:var(--ds-ink)!important;
+}
+.grid .stat:nth-child(4n+1){background:var(--ds-peach)!important}
+.grid .stat:nth-child(4n+2){background:var(--ds-lilac)!important}
+.grid .stat:nth-child(4n+3){background:var(--ds-sage)!important}
+.grid .stat:nth-child(4n){background:var(--ds-yellow-soft)!important}
+.stat small{color:rgba(25,25,23,.68)!important;font-weight:650!important}
+.stat b{font-size:25px!important;color:var(--ds-ink)!important}
+.stat-icon{
+  width:40px!important;
+  height:40px!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,.6)!important;
+  color:var(--ds-ink)!important;
+  border:1px solid rgba(255,255,255,.45)!important;
+}
+
+/* Module cards follow the same pastel rotation. */
+.more-card{
+  min-height:118px;
+  border:0!important;
+  box-shadow:none!important;
+}
+.more-card:nth-child(4n+1){background:var(--ds-peach)!important}
+.more-card:nth-child(4n+2){background:var(--ds-lilac)!important}
+.more-card:nth-child(4n+3){background:var(--ds-sage)!important}
+.more-card:nth-child(4n){background:var(--ds-yellow-soft)!important}
+.more-card:after{display:none!important}
+.more-icon,.settings-icon,.settings-icon.red,.settings-icon.green,.settings-icon.gray{
+  background:rgba(255,255,255,.62)!important;
+  color:var(--ds-ink)!important;
+  border:1px solid rgba(255,255,255,.45)!important;
+  border-radius:14px!important;
+}
+
+/* Rows are calm and flat, like grouped mobile content. */
+.panel-list{gap:8px!important}
+.panel-row.ios-card,
+.panel-row.today-row{
+  border-radius:18px!important;
+  padding:14px!important;
+  background:var(--ds-surface)!important;
+  box-shadow:none!important;
+}
+.panel-row.ios-card:before{display:none!important}
+.panel-row-copy strong{color:var(--ds-ink)!important}
+.panel-row-copy small,.section-head span{color:var(--ds-muted)!important}
+.chevron{color:#AAA49B!important}
+
+/* Section typography */
+.section-head h3{font-size:18px!important;font-weight:800!important;letter-spacing:-.025em!important}
+.section-head{margin-bottom:12px!important}
+
+/* Actions behave like compact journal cards instead of SaaS buttons. */
+.actions{gap:8px!important}
+.action{
+  min-height:88px;
+  padding:10px 6px!important;
+  border-radius:18px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+.action:nth-child(4n+1){background:var(--ds-sage)!important}
+.action:nth-child(4n+2){background:var(--ds-lilac)!important}
+.action:nth-child(4n+3){background:var(--ds-yellow-soft)!important}
+.action:nth-child(4n){background:var(--ds-peach)!important}
+.action .ico{
+  background:rgba(255,255,255,.55)!important;
+  color:var(--ds-ink)!important;
+  width:40px!important;
+  height:40px!important;
+  border-radius:13px!important;
+}
+.action small{color:var(--ds-ink)!important;font-weight:750!important}
+
+/* Form controls */
+.panel-search,
+.panel-form input,
+.panel-form textarea,
+.panel-form select,
+.search-card{
+  background:var(--ds-surface)!important;
+  border:1px solid var(--ds-line)!important;
+  box-shadow:none!important;
+  border-radius:var(--ds-radius-control)!important;
+}
+
+.filter-chips button{
+  background:var(--ds-surface)!important;
+  border:1px solid var(--ds-line)!important;
+  border-radius:var(--ds-radius-pill)!important;
+}
+.filter-chips button.active{
+  background:var(--ds-yellow)!important;
+  color:var(--ds-ink)!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+
+.primary-btn,.panel-add{
+  background:var(--ds-yellow)!important;
+  color:var(--ds-ink)!important;
+  border-radius:var(--ds-radius-control)!important;
+  box-shadow:none!important;
+}
+
+/* Strong feature card: one bright focal surface per view is preferred. */
+.hero-v3{
+  border-radius:var(--ds-radius-card-lg)!important;
+}
+
+/* Motion: tactile but quiet. */
+.stat,.more-card,.panel-row,.action,.primary-btn,.panel-add{
+  transition:transform .14s ease,filter .14s ease!important;
+}
+.stat:active,.more-card:active,.panel-row:active,.action:active,.primary-btn:active,.panel-add:active{
+  transform:scale(.985)!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  .stat,.more-card,.panel-row,.action,.primary-btn,.panel-add{transition:none!important}
+}
