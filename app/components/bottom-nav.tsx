@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, Home, MoreHorizontal } from "lucide-react";
-import "../nav.css";
 
 const items = [
   ["/", "Inicio", Home],

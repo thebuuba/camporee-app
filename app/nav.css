@@ -1,76 +1,119 @@
-.nav{grid-template-columns:repeat(4,1fr)!important}.nav svg{display:block}.nav a,.stat,.action,.more-card,.settings-row{text-decoration:none!important}.stat:visited,.action:visited,.more-card:visited,.settings-row:visited,.nav a:visited{color:inherit}
-
-.nav.nav-reference{
-  position:fixed;
-  z-index:50;
-  left:50%;
-  transform:translateX(-50%);
-  bottom:0;
-  width:min(100%,480px);
-  min-height:calc(76px + env(safe-area-inset-bottom));
-  padding:8px 10px max(8px,env(safe-area-inset-bottom));
-  border-radius:0;
-  background:#FFFEF9;
-  border:0;
-  border-top:1px solid rgba(30,34,38,.08);
-  box-shadow:none;
-  backdrop-filter:none;
-  -webkit-backdrop-filter:none;
-  display:grid;
-  grid-template-columns:repeat(4,1fr)!important;
-  align-items:start;
+.nav {
+  grid-template-columns: repeat(4,1fr) !important;
 }
 
-.nav.nav-reference>a{
-  position:relative;
-  min-width:0;
-  height:60px;
-  border-radius:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:5px;
-  color:#85817A;
-  background:transparent!important;
-  transition:color .16s ease,transform .16s ease;
+.nav svg {
+  display: block;
 }
 
-.nav.nav-reference .nav-icon{
-  width:31px;
-  height:28px;
-  display:grid;
-  place-items:center;
-  color:inherit;
+.nav a,
+.stat,
+.action,
+.more-card,
+.settings-row {
+  text-decoration: none !important;
 }
 
-.nav.nav-reference .nav-icon svg{width:23px;height:23px}
-
-.nav.nav-reference .nav-label{
-  font-size:10px;
-  font-weight:700;
-  line-height:1;
-  white-space:nowrap;
-  color:inherit;
+.stat:visited,
+.action:visited,
+.more-card:visited,
+.settings-row:visited,
+.nav a:visited {
+  color: inherit;
 }
 
-.nav.nav-reference>a.active{
-  color:#203C24!important;
-  background:transparent!important;
+.nav.nav-reference {
+  --nav-muted: #66635c;
+  position: fixed !important;
+  z-index: 1000 !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: 0 !important;
+  width: min(100%,480px) !important;
+  max-width: 480px !important;
+  min-height: calc(76px + env(safe-area-inset-bottom)) !important;
+  padding: 8px 10px max(8px,env(safe-area-inset-bottom)) !important;
+  transform: translateX(-50%) !important;
+  display: grid !important;
+  grid-template-columns: repeat(4,1fr) !important;
+  align-items: start !important;
+  background: #fffef9 !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(30,34,38,.08) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backface-visibility: hidden;
 }
 
-.nav.nav-reference>a.active .nav-icon{
-  color:#203C24;
-  background:transparent;
-  transform:none;
+.nav.nav-reference > a {
+  position: relative;
+  min-width: 0;
+  min-height: 60px;
+  padding: 5px 2px 4px;
+  border-radius: 0 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: transparent !important;
+  color: var(--nav-muted) !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color .16s ease,transform .16s ease !important;
 }
 
-.nav.nav-reference>a.active .nav-icon svg{stroke-width:2.65}
-.nav.nav-reference>a.active .nav-label{color:#203C24;font-weight:900}
-.nav.nav-reference>a:active{transform:scale(.96)}
+.nav.nav-reference .nav-icon {
+  width: 31px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: transparent !important;
+  color: inherit;
+  transform: none !important;
+}
 
-@media (max-width:380px){
-  .nav.nav-reference{padding-left:5px;padding-right:5px}
-  .nav.nav-reference>a{height:58px}
-  .nav.nav-reference .nav-label{font-size:9px}
+.nav.nav-reference .nav-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.nav.nav-reference .nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.nav.nav-reference > a.active,
+.nav.nav-reference > a.active .nav-icon,
+.nav.nav-reference > a.active .nav-label {
+  color: var(--green-strong) !important;
+}
+
+.nav.nav-reference > a.active .nav-label {
+  font-weight: 900;
+}
+
+.nav.nav-reference > a.active svg {
+  stroke-width: 2.65;
+}
+
+.nav.nav-reference > a:active {
+  transform: scale(.96) !important;
+}
+
+.nav.nav-reference > a:focus-visible {
+  outline: 2px solid var(--green-strong);
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav.nav-reference > a {
+    transition: none !important;
+  }
 }
