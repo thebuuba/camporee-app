@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, Home, MoreHorizontal } from "lucide-react";
+import { CalendarDays, CheckCircle2, Home, MoreHorizontal, Plus } from "lucide-react";
 import "../nav.css";
 
 const items = [
@@ -20,23 +20,63 @@ export default function BottomNav() {
 
   useEffect(() => {
     for (const [href] of items) router.prefetch(href);
+    router.prefetch("/more");
   }, [router]);
 
   useEffect(() => {
     setPendingHref(null);
   }, [pathname]);
 
-  return <nav className="nav nav-four" aria-label="Navegación principal">{items.map(([href,label,Icon]) => {
-    const routeActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
-    const active = pendingHref ? pendingHref === href : routeActive;
-    return <Link
-      prefetch
-      className={active ? "active" : ""}
-      href={href}
-      key={href}
-      aria-current={routeActive ? "page" : undefined}
-      onPointerDown={() => setPendingHref(href)}
-      onClick={() => setPendingHref(href)}
-    ><span className="nav-icon"><Icon size={22} strokeWidth={2.2}/></span><span className="nav-label">{label}</span></Link>;
-  })}</nav>;
+  return (
+    <nav className="nav nav-reference" aria-label="Navegación principal">
+      {items.slice(0, 2).map(([href, label, Icon]) => {
+        const routeActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = pendingHref ? pendingHref === href : routeActive;
+        return (
+          <Link
+            prefetch
+            className={active ? "active" : ""}
+            href={href}
+            key={href}
+            aria-current={routeActive ? "page" : undefined}
+            onPointerDown={() => setPendingHref(href)}
+            onClick={() => setPendingHref(href)}
+          >
+            <span className="nav-icon"><Icon size={22} strokeWidth={2.2} /></span>
+            <span className="nav-label">{label}</span>
+          </Link>
+        );
+      })}
+
+      <Link
+        href="/more"
+        prefetch
+        className="nav-center-action"
+        aria-label="Abrir opciones"
+        onPointerDown={() => setPendingHref("/more")}
+        onClick={() => setPendingHref("/more")}
+      >
+        <Plus size={28} strokeWidth={2.1} />
+      </Link>
+
+      {items.slice(2).map(([href, label, Icon]) => {
+        const routeActive = pathname.startsWith(href);
+        const active = pendingHref ? pendingHref === href : routeActive;
+        return (
+          <Link
+            prefetch
+            className={active ? "active" : ""}
+            href={href}
+            key={href}
+            aria-current={routeActive ? "page" : undefined}
+            onPointerDown={() => setPendingHref(href)}
+            onClick={() => setPendingHref(href)}
+          >
+            <span className="nav-icon"><Icon size={22} strokeWidth={2.2} /></span>
+            <span className="nav-label">{label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }
