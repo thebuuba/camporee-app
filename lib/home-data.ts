@@ -25,19 +25,20 @@ export async function loadHomeData() {
 
   const [profileResult, memberResult, camporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle()),
-    retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle()),
+    retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(), 3),
     retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true })),
   ]);
 
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
   if (profileResult.error) console.error("Camporee profile load failed after retries", profileResult.error);
   if (memberResult.error) console.error("Camporee membership load failed after retries", memberResult.error);
-  const member = memberResult.data ?? null;
-  if (camporeeResult.error) { console.error("Camporee list load failed after retries", camporeeResult.error); return { userId, firstName, member, camporee: null }; }
+  const memberLoadError = Boolean(memberResult.error);
+  const member = memberLoadError ? null : memberResult.data ?? null;
+  if (camporeeResult.error) { console.error("Camporee list load failed after retries", camporeeResult.error); return { userId, firstName, member, memberLoadError, camporee: null }; }
 
   const camporees = camporeeResult.data ?? [];
   const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
-  if (!camporee) return { userId, firstName, member, camporee: null };
+  if (!camporee) return { userId, firstName, member, memberLoadError, camporee: null };
 
   const now = new Date();
   const todayKey = dateKeyInTimeZone(now);
@@ -72,7 +73,7 @@ export async function loadHomeData() {
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {
-    userId, firstName, member, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
+    userId, firstName, member, memberLoadError, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
     participants: participantResult.count ?? 0, days, phase, dayNumber, totalDays, programCount: events.length,
     todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,
   };
