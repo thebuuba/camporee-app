@@ -79,6 +79,23 @@
   .panel-form{gap:14px}
   .panel-form .form-two{grid-template-columns:1fr 1fr!important}
 
+  .more-route-shell .sheet-backdrop{align-items:center!important;padding:28px!important}
+  .more-route-shell .sheet-card{
+    width:min(760px,calc(100vw - 72px))!important;
+    max-height:min(86vh,820px)!important;
+    margin:auto!important;
+    border-radius:30px!important;
+    overflow:auto!important;
+  }
+  .more-route-shell .sheet-card>.sheet-handle{display:none}
+  .more-route-shell .sheet-card>h2,
+  .more-route-shell .sheet-card>.sheet-title-row{
+    position:static;
+    margin-top:0;
+    padding-top:0;
+    cursor:default;
+  }
+
   .connection-toast{bottom:24px}
 }
 

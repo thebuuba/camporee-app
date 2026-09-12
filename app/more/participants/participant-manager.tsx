@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Pencil, Phone, Plus, Search, ShieldAlert, Trash2, UserRound, UsersRound, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from "@/lib/client-ui";
@@ -17,6 +17,8 @@ export default function ParticipantManager({ camporeeId, canEdit, initialPartici
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState<'people'|'units'>('people');
   const [rollCall, setRollCall] = useState(false);
+  const [sheetDrag, setSheetDrag] = useState(0);
+  const dragStart = useRef<number | null>(null);
   const supabase = createClient();
 
   useEffect(() => { setParticipants(initialParticipants); }, [initialParticipants]);
@@ -38,9 +40,12 @@ export default function ParticipantManager({ camporeeId, canEdit, initialPartici
 
   const presentCount = participants.filter((person) => person.attendance_status === 'checked_in').length;
 
-  function openNew() { setEditing(null); setFormError(''); setOpen(true); }
-  function openEdit(person: any) { setEditing(person); setFormError(''); setOpen(true); }
-  function closeSheet(){if(saving)return;setOpen(false);setEditing(null);setFormError('')}
+  function openNew() { setEditing(null); setFormError(''); setSheetDrag(0); setOpen(true); }
+  function openEdit(person: any) { setEditing(person); setFormError(''); setSheetDrag(0); setOpen(true); }
+  function closeSheet(){if(saving)return;setSheetDrag(0);setOpen(false);setEditing(null);setFormError('')}
+  function startSheetDrag(clientY:number){if(saving)return;dragStart.current=clientY}
+  function moveSheetDrag(clientY:number){if(dragStart.current===null)return;setSheetDrag(Math.max(0,clientY-dragStart.current))}
+  function endSheetDrag(){if(dragStart.current===null)return;dragStart.current=null;if(sheetDrag>95)closeSheet();else setSheetDrag(0)}
 
   async function saveParticipant(formData: FormData) {
     if (!canEdit || saving) return;
@@ -101,7 +106,7 @@ export default function ParticipantManager({ camporeeId, canEdit, initialPartici
       {!rollCall && canEdit ? <button type="button" className="panel-add" onClick={openNew}><Plus size={18}/> Agregar participante</button> : null}
     </div>
 
-    {open ? <div className="sheet-backdrop" onClick={closeSheet}><section className="sheet-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><div className="sheet-handle"/><h2>{editing ? "Editar participante" : "Nuevo participante"}</h2><form onSubmit={(event)=>{event.preventDefault();void saveParticipant(new FormData(event.currentTarget));}} className="panel-form">{formError?<div className="auth-alert error" role="alert">{formError}</div>:null}<input name="full_name" placeholder="Nombre completo" defaultValue={editing?.full_name || ""} required/><div className="form-two"><select name="participant_type" defaultValue={editing?.participant_type || "member"}><option value="member">Miembro</option><option value="leader">Dirigente</option><option value="staff">Personal</option><option value="guest">Invitado</option></select><select name="attendance_status" defaultValue={editing?.attendance_status || "confirmed"}><option value="invited">Pendiente</option><option value="confirmed">Confirmado</option><option value="checked_in">Presente</option><option value="cancelled">No asistirá</option></select></div><input name="unit_name" placeholder="Unidad o equipo" defaultValue={editing?.unit_name || ""}/><input name="phone" inputMode="tel" placeholder="Teléfono" defaultValue={editing?.phone || ""}/><div className="form-two"><input name="emergency_contact" placeholder="Contacto de emergencia" defaultValue={editing?.emergency_contact || ""}/><input name="emergency_phone" inputMode="tel" placeholder="Teléfono emergencia" defaultValue={editing?.emergency_phone || ""}/></div><textarea name="notes" placeholder="Notas" defaultValue={editing?.notes || ""}/><button type="submit" className="primary-btn" disabled={saving}>{saving ? "Guardando…" : editing ? "Guardar cambios" : "Agregar participante"}</button></form></section></div> : null}
+    {open ? <div className="sheet-backdrop participant-sheet-backdrop" onClick={closeSheet}><section className={`sheet-card participant-edit-sheet ${sheetDrag>0?'is-dragging':''}`} style={{transform:`translateY(${sheetDrag}px)`}} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><div className="sheet-drag-zone" onPointerDown={(e)=>{e.currentTarget.setPointerCapture(e.pointerId);startSheetDrag(e.clientY)}} onPointerMove={(e)=>moveSheetDrag(e.clientY)} onPointerUp={endSheetDrag} onPointerCancel={endSheetDrag}><div className="sheet-handle"/><h2>{editing ? "Editar participante" : "Nuevo participante"}</h2></div><form onSubmit={(event)=>{event.preventDefault();void saveParticipant(new FormData(event.currentTarget));}} className="panel-form participant-edit-form">{formError?<div className="auth-alert error" role="alert">{formError}</div>:null}<input name="full_name" placeholder="Nombre completo" defaultValue={editing?.full_name || ""} required/><div className="form-two"><select name="participant_type" defaultValue={editing?.participant_type || "member"}><option value="member">Miembro</option><option value="leader">Dirigente</option><option value="staff">Personal</option><option value="guest">Invitado</option></select><select name="attendance_status" defaultValue={editing?.attendance_status || "confirmed"}><option value="invited">Pendiente</option><option value="confirmed">Confirmado</option><option value="checked_in">Presente</option><option value="cancelled">No asistirá</option></select></div><input name="unit_name" placeholder="Unidad o equipo" defaultValue={editing?.unit_name || ""}/><input name="phone" inputMode="tel" placeholder="Teléfono" defaultValue={editing?.phone || ""}/><div className="form-two"><input name="emergency_contact" placeholder="Contacto de emergencia" defaultValue={editing?.emergency_contact || ""}/><input name="emergency_phone" inputMode="tel" placeholder="Teléfono emergencia" defaultValue={editing?.emergency_phone || ""}/></div><textarea name="notes" placeholder="Notas" defaultValue={editing?.notes || ""}/><button type="submit" className="primary-btn" disabled={saving}>{saving ? "Guardando…" : editing ? "Guardar cambios" : "Agregar participante"}</button></form></section></div> : null}
 
     {view === 'units' ? <section className="unit-groups">{unitGroups.length ? unitGroups.map(([unit,rows]) => <section className="unit-group" key={unit}><div className="program-day-head"><strong>{unit}</strong><span>{rows.filter((person)=>person.attendance_status==='checked_in').length}/{rows.length} presentes</span></div><div className="panel-list">{rows.map(personCard)}</div></section>) : <div className="empty compact">No hay participantes que coincidan con este filtro.</div>}</section> : <section className="panel-list">{visible.length ? visible.map(personCard) : <div className="empty compact">No hay participantes que coincidan con este filtro.</div>}</section>}
   </>;
