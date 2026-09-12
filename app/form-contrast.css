@@ -1,0 +1,29 @@
+/* Keep every modal form field clearly separated from the sheet background. */
+.sheet-card .panel-form input,
+.sheet-card .panel-form textarea,
+.sheet-card .panel-form select{
+  background:#f3f1ed!important;
+  border:1px solid rgba(37,63,91,.16)!important;
+  box-shadow:inset 0 1px 2px rgba(32,39,51,.035)!important;
+  color:#202733!important;
+  -webkit-text-fill-color:#202733!important;
+  opacity:1!important;
+}
+.sheet-card .panel-form input::placeholder,
+.sheet-card .panel-form textarea::placeholder{
+  color:#8a8d91!important;
+  opacity:1!important;
+}
+.sheet-card .panel-form input:focus,
+.sheet-card .panel-form textarea:focus,
+.sheet-card .panel-form select:focus{
+  background:#fff!important;
+  border-color:rgba(37,63,91,.42)!important;
+  box-shadow:0 0 0 4px rgba(37,63,91,.10),inset 0 1px 2px rgba(32,39,51,.025)!important;
+}
+.sheet-card .panel-form input[type="datetime-local"],
+.sheet-card .panel-form input[type="date"],
+.sheet-card .panel-form input[type="time"]{
+  min-height:54px;
+  color-scheme:light;
+}
