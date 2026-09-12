@@ -47,9 +47,9 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLo
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "app_members", filter: `user_id=eq.${userId}` },
-          (payload) => {
-            const next = payload.new as { is_active?: boolean };
-            if (next.is_active && !refreshingRef.current) {
+          (payload: unknown) => {
+            const next = (payload as { new?: { is_active?: boolean } }).new;
+            if (next?.is_active && !refreshingRef.current) {
               refreshingRef.current = true;
               router.refresh();
             }
