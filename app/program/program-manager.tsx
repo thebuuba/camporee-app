@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarPlus, Clock3, ListFilter, MapPin, Pencil, Search, Trash2, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -30,6 +30,8 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
   const [formError,setFormError] = useState('');
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<'today'|'all'>(eventMode ? 'today' : 'all');
+  const [sheetDrag,setSheetDrag] = useState(0);
+  const dragStart = useRef<number|null>(null);
   const supabase = createClient();
   const router = useRouter();
   const todayKey = localDayKey(new Date());
@@ -44,9 +46,12 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
   const groups = useMemo(() => visible.reduce((acc:any, event:any) => { const key = localDayKey(event.starts_at); (acc[key] ||= []).push(event); return acc; }, {}), [visible]);
   const todayCount = useMemo(() => events.filter((event) => localDayKey(event.starts_at) === todayKey).length, [events,todayKey]);
 
-  function closeSheet(){ if(saving)return; setOpen(false); setEditing(null); setFormError(''); }
-  function openNew(){ setEditing(null); setFormError(''); setOpen(true); }
-  function openEdit(event:any){ setEditing(event); setFormError(''); setOpen(true); }
+  function closeSheet(){ if(saving)return; setSheetDrag(0); setOpen(false); setEditing(null); setFormError(''); }
+  function openNew(){ setEditing(null); setFormError(''); setSheetDrag(0); setOpen(true); }
+  function openEdit(event:any){ setEditing(event); setFormError(''); setSheetDrag(0); setOpen(true); }
+  function startSheetDrag(clientY:number){ if(saving)return; dragStart.current=clientY; }
+  function moveSheetDrag(clientY:number){ if(dragStart.current===null)return; setSheetDrag(Math.max(0,clientY-dragStart.current)); }
+  function endSheetDrag(){ if(dragStart.current===null)return; dragStart.current=null; if(sheetDrag>95) closeSheet(); else setSheetDrag(0); }
 
   async function saveEvent(formData: FormData) {
     if (!canEdit || saving) return;
@@ -86,7 +91,7 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
       </div>
     </div>
     <div className='panel-tools'><label className='panel-search'><Search size={17}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder='Buscar actividad, lugar o responsable'/>{query ? <button type='button' onClick={()=>setQuery('')}>×</button> : null}</label>{canEdit ? <button type='button' className='panel-add' onClick={openNew}><CalendarPlus size={18}/> Nueva actividad</button> : null}</div>
-    {open ? <div className='sheet-backdrop' onClick={closeSheet}><section className='sheet-card' role='dialog' aria-modal='true' onClick={(e) => e.stopPropagation()}><div className='sheet-handle'/><h2>{editing ? 'Editar actividad' : 'Nueva actividad'}</h2><form onSubmit={(event)=>{event.preventDefault();void saveEvent(new FormData(event.currentTarget));}} className='panel-form'>{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<input name='title' defaultValue={formEvent?.title ?? ''} placeholder='Nombre de la actividad' required/><textarea name='description' defaultValue={formEvent?.description ?? ''} placeholder='Descripción opcional'/><div className='form-two'><input name='starts_at' type='datetime-local' defaultValue={toLocalInput(formEvent?.starts_at)} required/><input name='ends_at' type='datetime-local' defaultValue={toLocalInput(formEvent?.ends_at)}/></div><input name='location' defaultValue={formEvent?.location ?? ''} placeholder='Lugar'/><input name='responsible_name' defaultValue={formEvent?.responsible_name ?? ''} placeholder='Responsable'/><select name='area_id' defaultValue={formEvent?.area_id ?? ''}><option value=''>Sin área</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar al programa'}</button></form></section></div> : null}
+    {open ? <div className='sheet-backdrop program-sheet-backdrop' onClick={closeSheet}><section className={`sheet-card program-activity-sheet ${sheetDrag>0?'is-dragging':''}`} style={{transform:`translateY(${sheetDrag}px)`}} role='dialog' aria-modal='true' onClick={(e)=>e.stopPropagation()}><div className='sheet-drag-zone' onPointerDown={(e)=>{e.currentTarget.setPointerCapture(e.pointerId);startSheetDrag(e.clientY)}} onPointerMove={(e)=>moveSheetDrag(e.clientY)} onPointerUp={endSheetDrag} onPointerCancel={endSheetDrag}><div className='sheet-handle'/><h2>{editing ? 'Editar actividad' : 'Nueva actividad'}</h2></div><form onSubmit={(event)=>{event.preventDefault();void saveEvent(new FormData(event.currentTarget));}} className='panel-form program-activity-form'>{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<input name='title' defaultValue={formEvent?.title ?? ''} placeholder='Nombre de la actividad' required/><textarea name='description' defaultValue={formEvent?.description ?? ''} placeholder='Descripción opcional'/><div className='form-two program-date-fields'><label><span>Inicio</span><input name='starts_at' type='datetime-local' defaultValue={toLocalInput(formEvent?.starts_at)} required/></label><label><span>Finaliza</span><input name='ends_at' type='datetime-local' defaultValue={toLocalInput(formEvent?.ends_at)}/></label></div><input name='location' defaultValue={formEvent?.location ?? ''} placeholder='Lugar'/><input name='responsible_name' defaultValue={formEvent?.responsible_name ?? ''} placeholder='Responsable'/><select name='area_id' defaultValue={formEvent?.area_id ?? ''}><option value=''>Sin área</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar al programa'}</button></form></section></div> : null}
     <section className='program-days'>{Object.keys(groups).length ? Object.entries(groups).map(([day, rows]:any) => <section className='program-day' key={day}><div className='program-day-head'><strong>{formatProgramDay(day)}</strong><span>{rows.length} {rows.length === 1 ? 'actividad' : 'actividades'}</span></div><div className='panel-list'>{rows.map((event:any) => <article className='panel-row ios-card program-row' key={event.id}><span className='stat-icon stat-gold'><Clock3 size={18}/></span><div className='panel-row-copy'><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleTimeString('es-DO',{hour:'numeric',minute:'2-digit'})}{event.ends_at ? ` – ${new Date(event.ends_at).toLocaleTimeString('es-DO',{hour:'numeric',minute:'2-digit'})}` : ''}</small>{event.location ? <small className='meta-line'><MapPin size={13}/>{event.location}</small> : null}{event.responsible_name ? <small className='meta-line'><UserRound size={13}/>{event.responsible_name}</small> : null}</div>{canEdit ? <div className='row-actions program-actions'><button type='button' className='row-icon-btn' onClick={()=>openEdit(event)} aria-label='Editar'><Pencil size={15}/></button><button type='button' className='row-icon-btn danger' onClick={() => removeEvent(event.id)} aria-label='Eliminar'><Trash2 size={16}/></button></div> : null}</article>)}</div></section>) : <div className='empty compact'>{scope === 'today' ? 'No hay actividades programadas para hoy. Cambia el filtro a Todo o agrega una actividad.' : 'Todavía no hay actividades. Agrega el culto, comidas, eventos y demás momentos del camporee.'}</div>}</section>
   </>;
 }
