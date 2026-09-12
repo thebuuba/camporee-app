@@ -27,7 +27,8 @@ export default function ConnectionStatus(){
   },[]);
 
   useEffect(()=>{
-    let timer:number|undefined;
+    let recoveredTimer:number|undefined;
+    let requestTimer:number|undefined;
     let messageTimer:number|undefined;
     const refreshQueue=()=>void getOfflineQueueCount().then(setQueued).catch(()=>undefined);
     const syncConnection=()=>{
@@ -35,8 +36,8 @@ export default function ConnectionStatus(){
       setOnline(next);
       if(next){
         setRecovered(true);
-        window.clearTimeout(timer);
-        timer=window.setTimeout(()=>setRecovered(false),1800);
+        window.clearTimeout(recoveredTimer);
+        recoveredTimer=window.setTimeout(()=>setRecovered(false),1800);
         void syncNow();
       }
       refreshQueue();
@@ -45,8 +46,8 @@ export default function ConnectionStatus(){
     const queueError=()=>setSyncError(true);
     const dataError=()=>{
       setRequestError(true);
-      window.clearTimeout(timer);
-      timer=window.setTimeout(()=>setRequestError(false),5000);
+      window.clearTimeout(requestTimer);
+      requestTimer=window.setTimeout(()=>setRequestError(false),5000);
     };
     const mutationError=(event:Event)=>{
       const message=String((event as CustomEvent<{message?:string}>).detail?.message || 'No se pudo guardar el cambio. Inténtalo otra vez.');
@@ -82,7 +83,8 @@ export default function ConnectionStatus(){
       window.removeEventListener('camporee:request-error',dataError);
       window.removeEventListener('camporee:mutation-error',mutationError);
       window.removeEventListener('camporee:mutation-success',mutationSuccess);
-      window.clearTimeout(timer);
+      window.clearTimeout(recoveredTimer);
+      window.clearTimeout(requestTimer);
       window.clearTimeout(messageTimer);
     };
   },[syncNow]);
@@ -92,6 +94,6 @@ export default function ConnectionStatus(){
   const isError=Boolean(mutationMessage||requestError||syncError);
   const text = mutationMessage || successMessage || (!online
     ? queued > 0 ? `Sin internet · ${queued} ${queued===1?'cambio guardado':'cambios guardados'} para sincronizar` : 'Sin internet · puedes seguir usando las pantallas ya visitadas'
-    : requestError ? 'No se pudo guardar el cambio. Inténtalo otra vez.' : syncError ? `${queued} ${queued===1?'cambio pendiente':'cambios pendientes'} · no se descartaron` : queued > 0 ? `Sincronizando ${queued} ${queued===1?'cambio':'cambios'}…` : 'Conexión recuperada');
+    : requestError ? 'No se pudo completar la solicitud. Inténtalo otra vez.' : syncError ? `${queued} ${queued===1?'cambio pendiente':'cambios pendientes'} · no se descartaron` : queued > 0 ? `Sincronizando ${queued} ${queued===1?'cambio':'cambios'}…` : 'Conexión recuperada');
   return <div className={'connection-toast '+(online?'syncing':'offline')+(successMessage?' success':'')} role={isError?'alert':'status'}>{successMessage?<CheckCircle2 size={15}/>:!online?<CloudOff size={15}/>:queued>0?<RefreshCw className={syncError?'':'spin'} size={15}/>:isError?<CloudOff size={15}/>:<Wifi size={15}/>}<span>{text}</span>{online&&syncError&&!mutationMessage?<button type='button' onClick={()=>void syncNow()}>Reintentar</button>:null}</div>
 }
