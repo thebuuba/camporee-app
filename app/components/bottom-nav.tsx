@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, Home, MoreHorizontal } from "lucide-react";
 
@@ -16,6 +16,7 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const fallbackTimer = useRef<number|null>(null);
 
   useEffect(() => {
     for (const [href] of items) router.prefetch(href);
@@ -23,7 +24,19 @@ export default function BottomNav() {
 
   useEffect(() => {
     setPendingHref(null);
+    if(fallbackTimer.current!==null){window.clearTimeout(fallbackTimer.current);fallbackTimer.current=null;}
   }, [pathname]);
+
+  useEffect(()=>()=>{if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current)},[]);
+
+  function beginNavigation(href:string, routeActive:boolean){
+    if(routeActive)return;
+    setPendingHref(href);
+    if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current);
+    fallbackTimer.current=window.setTimeout(()=>{
+      if(window.location.pathname!==href)window.location.assign(href);
+    },2200);
+  }
 
   return (
     <nav className="nav nav-reference" aria-label="Navegación principal">
@@ -37,8 +50,9 @@ export default function BottomNav() {
             href={href}
             key={href}
             aria-current={routeActive ? "page" : undefined}
-            onPointerDown={() => setPendingHref(href)}
-            onClick={() => setPendingHref(href)}
+            aria-busy={pendingHref===href||undefined}
+            onPointerDown={() => beginNavigation(href,routeActive)}
+            onClick={() => beginNavigation(href,routeActive)}
           >
             <span className="nav-icon"><Icon size={22} strokeWidth={2.2} /></span>
             <span className="nav-label">{label}</span>
