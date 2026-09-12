@@ -61,7 +61,7 @@ export default function ConnectionStatus(){
       setMutationMessage('');
       setSuccessMessage(message);
       window.clearTimeout(messageTimer);
-      messageTimer=window.setTimeout(()=>setSuccessMessage(''),2600);
+      messageTimer=window.setTimeout(()=>setSuccessMessage(''),1200);
     };
     setOnline(navigator.onLine);
     refreshQueue();
