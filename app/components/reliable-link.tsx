@@ -17,13 +17,9 @@ export default function ReliableLink({href,className='',children,ariaLabel}:Reli
   const timerRef=useRef<number|null>(null);
 
   useEffect(()=>{
-    router.prefetch(href);
-    return()=>{if(timerRef.current!==null)window.clearTimeout(timerRef.current)};
-  },[href,router]);
-
-  useEffect(()=>{
     setPending(false);
     if(timerRef.current!==null){window.clearTimeout(timerRef.current);timerRef.current=null}
+    return()=>{if(timerRef.current!==null)window.clearTimeout(timerRef.current)};
   },[pathname]);
 
   function open(event:React.MouseEvent<HTMLAnchorElement>){
