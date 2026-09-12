@@ -23,6 +23,8 @@ import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
 import AppSplash from "./components/app-splash";
 
+const appBackground = "#F2EFE8";
+
 export const metadata: Metadata = {
   title: "Camporee",
   description: "Organiza cada detalle antes, durante y después del camporee.",
@@ -40,10 +42,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#F2F0EA",
+  themeColor: appBackground,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const launchStyle = { backgroundColor: "#F2F0EA", colorScheme: "light" as const };
-  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content="#F2F0EA" /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
+  const launchStyle = { backgroundColor: appBackground, colorScheme: "light" as const };
+  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content={appBackground} /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
 }
