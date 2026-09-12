@@ -22,6 +22,7 @@ import "./reliable-navigation.css";
 import "./form-contrast.css";
 import "./profile.css";
 import "./camporee-state-card.css";
+import "./orange-theme.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";

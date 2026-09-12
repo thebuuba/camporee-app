@@ -1,0 +1,90 @@
+:root{
+  --brand-orange:#F28C18;
+  --brand-orange-strong:#B85100;
+  --brand-orange-soft:#FFF0D8;
+  --brand-orange-ink:#241507;
+  --brand-orange-line:rgba(184,81,0,.22);
+}
+
+/* Orange leads the interface without replacing semantic status colors. */
+.primary-btn,
+.panel-add{
+  background:#F28C18!important;
+  color:#241507!important;
+  box-shadow:0 9px 22px rgba(184,81,0,.20)!important;
+}
+
+.nav a.active,
+.nav button.active{
+  background:#FFF0D8!important;
+  color:#B85100!important;
+}
+.nav a.active svg,
+.nav button.active svg{color:#B85100!important}
+
+.brand-badge,
+.setup-icon,
+.setup-steps span.active{
+  background:var(--brand-orange)!important;
+  color:var(--brand-orange-ink)!important;
+  box-shadow:0 8px 20px rgba(184,81,0,.18)!important;
+}
+
+.auth-kicker,
+.filter-chips button.active,
+.permission-chip input:checked+span,
+.compact-member-editor .permission-chip input:checked+span{
+  background:var(--brand-orange-soft)!important;
+  border-color:var(--brand-orange-line)!important;
+  color:var(--brand-orange-strong)!important;
+}
+
+.switch input:checked+span,
+.compact-member-editor .switch input:checked+i{background:var(--brand-orange)!important}
+
+.panel-form input:focus,
+.panel-form textarea:focus,
+.panel-form select:focus,
+.setup-form input:focus,
+.auth-form input:focus,
+.field-card:focus-within,
+.sheet-card .panel-form input:focus,
+.sheet-card .panel-form textarea:focus,
+.sheet-card .panel-form select:focus{
+  border-color:rgba(184,81,0,.42)!important;
+  box-shadow:0 0 0 4px rgba(242,140,24,.14)!important;
+}
+
+.profile-avatar-fallback,
+.top .avatar-profile .avatar-initial{
+  background:linear-gradient(145deg,#FFF0D8,#FFE0B0)!important;
+  color:var(--brand-orange-strong)!important;
+}
+.profile-avatar-camera{
+  background:var(--brand-orange)!important;
+  color:var(--brand-orange-ink)!important;
+  box-shadow:0 7px 18px rgba(184,81,0,.22)!important;
+}
+
+.hero-v3:before{background:var(--brand-orange)!important;opacity:.13!important}
+.hero-v3-decor{color:rgba(184,81,0,.15)!important}
+.hero-v3-decor-two{color:rgba(242,140,24,.25)!important}
+.hero-v3-badge,
+.hero-v3-days{
+  background:var(--brand-orange-soft)!important;
+  color:var(--brand-orange-ink)!important;
+}
+.hero-v3-mini{color:var(--brand-orange-strong)!important}
+.hero-v3 .bar i{background:linear-gradient(90deg,#B85100,#F28C18,#FFC45C)!important}
+
+body{
+  background-image:linear-gradient(180deg,#f2efe8 0,#f2efe8 105px,rgba(242,239,232,.94) 145px,rgba(242,239,232,.55) 205px,rgba(242,239,232,0) 270px),radial-gradient(circle at 8% 16%,rgba(242,140,24,.13),transparent 31%),radial-gradient(circle at 92% 20%,rgba(255,196,92,.18),transparent 29%),radial-gradient(circle at 18% 72%,rgba(216,201,168,.24),transparent 29%),radial-gradient(circle at 82% 78%,rgba(184,81,0,.08),transparent 34%),linear-gradient(180deg,#f6f3ec 0%,#eeeae1 100%)!important;
+}
+.auth-shell-clean,
+.auth-shell{
+  background:radial-gradient(circle at 8% 8%,rgba(242,140,24,.14),transparent 31%),radial-gradient(circle at 92% 14%,rgba(255,196,92,.18),transparent 29%),linear-gradient(180deg,#f7f3eb 0%,#efe9df 100%)!important;
+}
+
+@media (min-width:900px){
+  body{background-image:linear-gradient(180deg,#f2efe8 0,#f2efe8 76px,rgba(242,239,232,0) 220px),radial-gradient(circle at 12% 14%,rgba(242,140,24,.12),transparent 27%),radial-gradient(circle at 88% 18%,rgba(255,196,92,.16),transparent 27%),linear-gradient(180deg,#f6f3ec 0%,#eeeae1 100%)!important}
+}
