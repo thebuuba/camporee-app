@@ -15,6 +15,7 @@ import "./users.css";
 import "./tasks.css";
 import "./desktop.css";
 import "./soft-glass-theme.css";
+import "./neutral-glass-theme.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
@@ -37,10 +38,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#F6F0ED",
+  themeColor: "#F2F0EA",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const launchStyle = { backgroundColor: "#F6F0ED", colorScheme: "light" as const };
-  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content="#F6F0ED" /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
+  const launchStyle = { backgroundColor: "#F2F0EA", colorScheme: "light" as const };
+  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content="#F2F0EA" /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=9" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=9" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=9" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
 }
