@@ -76,11 +76,12 @@ export async function loadHomeData() {
 
   const tasks = taskResult.data ?? [];
   const events = eventResult.data ?? [];
-  const pendingTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length;
-  const completed = tasks.filter((task) => task.status === "done").length;
-  const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  const progressTasks = tasks.filter((task) => task.status !== "cancelled");
+  const pendingTasks = progressTasks.filter((task) => task.status !== "done").length;
+  const completed = progressTasks.filter((task) => task.status === "done").length;
+  const progress = progressTasks.length ? Math.round(completed / progressTasks.length * 100) : 0;
   const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const pendingToday = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled" && task.due_at && dateKeyInTimeZone(task.due_at) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
+  const pendingToday = progressTasks.filter((task) => task.status !== "done" && task.due_at && dateKeyInTimeZone(task.due_at) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
   const todayTasks = pendingToday.slice(0, 3);
   const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at) === todayKey).length;
   const nowMs = now.getTime();
