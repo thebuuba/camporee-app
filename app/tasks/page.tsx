@@ -20,18 +20,23 @@ export default async function TasksPage() {
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.tasks);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: tasks, error: tasksError }, { data: areas, error: areasError }, { data: profiles, error: profilesError }] = camporee ? await Promise.all([
+  const [{ data: tasks, error: tasksError }, { data: areas, error: areasError }, { data: activeMembers, error: membersError }] = camporee ? await Promise.all([
     supabase.from("tasks").select("id,title,description,status,priority,due_at,area_id,phase,assigned_to,task_checklist_items(id,label,is_done,sort_order)").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
-    supabase.from("profiles").select("id,full_name,email").order("full_name", { ascending: true }),
+    supabase.from("app_members").select("user_id").eq("is_active", true),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
 
-  const contentError = tasksError ?? areasError ?? profilesError;
+  const activeUserIds = (activeMembers ?? []).map((member) => member.user_id);
+  const { data: profiles, error: profilesError } = activeUserIds.length
+    ? await supabase.from("profiles").select("id,full_name,email").in("id", activeUserIds).order("full_name", { ascending: true })
+    : { data: [], error: null };
+
+  const contentError = tasksError ?? areasError ?? membersError ?? profilesError;
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="top top-icon-only"><span className="avatar"><CheckCircle2 size={22}/></span></header>
-    <div className="panel-intro"><div><strong>{(tasks ?? []).filter((task) => task.status !== "done").length} pendientes</strong><small>Organiza lo que hay que hacer antes y durante el camporee.</small></div></div>
+    <div className="panel-intro"><div><strong>{(tasks ?? []).filter((task) => task.status !== "done" && task.status !== "cancelled").length} pendientes</strong><small>Organiza lo que hay que hacer antes y durante el camporee.</small></div></div>
     {camporee ? <TaskManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;
