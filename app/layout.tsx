@@ -13,6 +13,7 @@ import "./logo-fixes.css";
 import "./notifications.css";
 import "./users.css";
 import "./tasks.css";
+import "./task-sheet.css";
 import "./desktop.css";
 import "./soft-glass-theme.css";
 import "./neutral-glass-theme.css";
