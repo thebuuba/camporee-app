@@ -16,6 +16,7 @@ import "./tasks.css";
 import "./desktop.css";
 import "./soft-glass-theme.css";
 import "./neutral-glass-theme.css";
+import "./interaction-fixes.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
