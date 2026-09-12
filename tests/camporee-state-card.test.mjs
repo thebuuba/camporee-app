@@ -27,7 +27,7 @@ async function cardRules() {
   return rules;
 }
 
-test('la tarjeta activa mantiene la densidad de la referencia móvil', async () => {
+test('las tarjetas activa y de preparación mantienen la densidad de la referencia móvil', async () => {
   const rules = await cardRules();
 
   assert.deepEqual(
@@ -58,4 +58,10 @@ test('la tarjeta activa mantiene la densidad de la referencia móvil', async () 
       operationPadding: '13px 15px 12px',
     },
   );
+
+  assert.equal(rules.get('.prep-countdown-card')['margin-top'], '12px');
+  assert.equal(rules.get('.prep-countdown-card').padding, '13px 12px 12px');
+  assert.equal(rules.get('.prep-status-card')['margin-top'], '12px');
+  assert.equal(rules.get('.prep-status-card').padding, '11px 12px 10px');
+  assert.equal(rules.get('.prep-progress-track').height, '5px');
 });
