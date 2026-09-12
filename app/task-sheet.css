@@ -1,0 +1,71 @@
+/* Task sheets mirror the polished draggable Program sheet from commit 63ea5f3. */
+.task-sheet-backdrop{
+  padding:0!important;
+  align-items:flex-end!important;
+}
+.task-edit-sheet{
+  width:min(100%,480px)!important;
+  max-width:480px!important;
+  max-height:min(88dvh,820px)!important;
+  border-radius:30px 30px 0 0!important;
+  padding:0 18px max(18px,env(safe-area-inset-bottom))!important;
+  overflow:auto!important;
+  overflow-x:hidden!important;
+  transition:transform .22s cubic-bezier(.2,.8,.2,1)!important;
+  will-change:transform;
+}
+.task-edit-sheet.is-dragging{transition:none!important}
+.task-edit-sheet .sheet-drag-zone{
+  position:sticky;
+  top:0;
+  z-index:3;
+  background:#fff;
+  padding:12px 0 1px;
+  touch-action:none;
+  cursor:grab;
+}
+.task-edit-sheet .sheet-drag-zone:active{cursor:grabbing}
+.task-edit-sheet .sheet-drag-zone .sheet-handle{margin-bottom:16px}
+.task-edit-sheet .sheet-drag-zone h2{margin-bottom:16px}
+.task-edit-form{padding-bottom:2px}
+.task-edit-sheet select{
+  color:#24262a!important;
+  -webkit-text-fill-color:#24262a!important;
+  opacity:1!important;
+}
+.task-date-field{
+  display:grid;
+  gap:6px;
+  color:#666b72;
+  font-size:11px;
+  font-weight:800;
+}
+.task-date-field>span{padding-left:3px}
+.task-date-field input[type="datetime-local"]{
+  min-height:54px!important;
+  font-size:14px!important;
+  background:#f7f7f5!important;
+  color:#24262a!important;
+  -webkit-text-fill-color:#24262a!important;
+  opacity:1!important;
+  -webkit-appearance:auto!important;
+  appearance:auto!important;
+  color-scheme:light!important;
+}
+.task-date-field input[type="datetime-local"]::-webkit-date-and-time-value{
+  display:block;
+  text-align:left;
+  color:#24262a;
+  -webkit-text-fill-color:#24262a;
+}
+.task-date-field input[type="datetime-local"]::-webkit-calendar-picker-indicator{opacity:.72}
+
+@media(max-width:440px){
+  .task-sheet-backdrop{padding-left:0!important;padding-right:0!important}
+  .task-edit-sheet{
+    max-width:100%!important;
+    padding-left:18px!important;
+    padding-right:18px!important;
+    border-radius:30px 30px 0 0!important;
+  }
+}
