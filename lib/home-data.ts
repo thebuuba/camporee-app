@@ -23,10 +23,10 @@ export async function loadHomeData() {
   if (authResult.error || !user) return null;
   const userId = user.id;
 
-  const [profileResult, memberResult, camporeeResult] = await Promise.all([
+  const [profileResult, memberResult, initialCamporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle()),
     retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(), 3),
-    retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true })),
+    retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }), 3),
   ]);
 
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
@@ -34,11 +34,26 @@ export async function loadHomeData() {
   if (memberResult.error) console.error("Camporee membership load failed after retries", memberResult.error);
   const memberLoadError = Boolean(memberResult.error);
   const member = memberLoadError ? null : memberResult.data ?? null;
-  if (camporeeResult.error) { console.error("Camporee list load failed after retries", camporeeResult.error); return { userId, firstName, member, memberLoadError, camporee: null }; }
+
+  let camporeeResult = initialCamporeeResult;
+  // An authenticated active member should not be pushed into setup because of a
+  // transient RLS/network read. Retry both errors and suspicious empty reads.
+  if (member?.is_active && (camporeeResult.error || !(camporeeResult.data ?? []).length)) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await wait(180 * attempt);
+      const retry = await supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true });
+      camporeeResult = retry as typeof camporeeResult;
+      if (!camporeeResult.error && (camporeeResult.data ?? []).length) break;
+    }
+  }
+
+  const camporeeLoadError = Boolean(camporeeResult.error);
+  if (camporeeLoadError) console.error("Camporee list load failed after retries", camporeeResult.error);
+  if (camporeeLoadError) return { userId, firstName, member, memberLoadError, camporeeLoadError, camporee: null };
 
   const camporees = camporeeResult.data ?? [];
   const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
-  if (!camporee) return { userId, firstName, member, memberLoadError, camporee: null };
+  if (!camporee) return { userId, firstName, member, memberLoadError, camporeeLoadError: false, camporee: null };
 
   const now = new Date();
   const todayKey = dateKeyInTimeZone(now);
@@ -73,7 +88,7 @@ export async function loadHomeData() {
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {
-    userId, firstName, member, memberLoadError, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
+    userId, firstName, member, memberLoadError, camporeeLoadError: false, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
     participants: participantResult.count ?? 0, days, phase, dayNumber, totalDays, programCount: events.length,
     todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,
   };
