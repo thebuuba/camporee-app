@@ -132,14 +132,19 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
   async function removeActivity(activity:any){
     if(!canEdit || !confirmRemoval('esta competencia o actividad')) return;
     try {
-      if(activity.schedule_event_id){
-        const {error:eventError}=await supabase.from('schedule_events').delete().eq('id',activity.schedule_event_id);
-        if(eventError) throw eventError;
-      }
+      const linkedEventId=activity.schedule_event_id || null;
       const {error}=await supabase.from('camporee_activities').delete().eq('id',activity.id);
       if(error) throw error;
       setActivities((current)=>current.filter((item)=>item.id!==activity.id));
-      reportMutationSuccess('Actividad eliminada.');
+      let cleanupWarning=false;
+      if(linkedEventId){
+        const {error:eventError}=await supabase.from('schedule_events').delete().eq('id',linkedEventId);
+        if(eventError){
+          cleanupWarning=true;
+          reportMutationError(eventError,'La actividad se eliminó, pero no se pudo quitar su entrada del Programa.');
+        }
+      }
+      if(!cleanupWarning) reportMutationSuccess('Actividad eliminada.');
       router.refresh();
     } catch(error){ reportMutationError(error,'No se pudo eliminar la actividad.'); }
   }
