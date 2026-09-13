@@ -18,21 +18,24 @@ export default function PwaRegister() {
       })().catch(() => undefined);
       return;
     }
+
     let cancelled = false;
-    const register = async () => {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        if (!cancelled) await registration.update().catch(() => undefined);
-      } catch {
-        // The app still works without service worker support.
-      }
-    };
-    if (document.readyState === 'complete') void register();
-    else window.addEventListener('load', register, { once: true });
+
+    void navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        if (cancelled) return;
+        // Do not block app startup waiting for an update check.
+        window.setTimeout(() => {
+          void registration.update().catch(() => undefined);
+        }, 1500);
+      })
+      .catch(() => undefined);
+
     return () => {
       cancelled = true;
-      window.removeEventListener('load', register);
     };
   }, []);
+
   return null;
 }
