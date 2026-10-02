@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarDays, CheckCircle2, Home, MoreHorizontal } from "lucide-react";
+import { CalendarClock, House, LayoutGrid, ListChecks } from "lucide-react";
 
 const items = [
-  ["/", "Inicio", Home],
-  ["/program", "Hoy", CalendarDays],
-  ["/tasks", "Tareas", CheckCircle2],
-  ["/more", "Más", MoreHorizontal],
+  ["/", "Inicio", House],
+  ["/program", "Hoy", CalendarClock],
+  ["/tasks", "Tareas", ListChecks],
+  ["/more", "Más", LayoutGrid],
 ] as const;
 
 export default function BottomNav() {
@@ -41,7 +41,7 @@ export default function BottomNav() {
   return (
     <nav className="nav nav-reference" aria-label="Navegación principal">
       {items.map(([href, label, Icon]) => {
-        const routeActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const routeActive = href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/more" && pathname === "/profile");
         const active = pendingHref ? pendingHref === href : routeActive;
         return (
           <Link

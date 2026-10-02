@@ -25,7 +25,7 @@ export default async function EmergencyPage() {
   if (contentError) throw contentError;
 
   return <main className='app panel-page'>
-    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>SEGURIDAD</div><h1>Emergencia</h1></div><span className='avatar'><HeartPulse size={22}/></span></header>
+    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>SEGURIDAD</div><h1>Emergencia</h1><p className='polymet-subtitle'>Contactos prioritarios</p></div><span className='avatar'><HeartPulse size={22}/></span></header>
     <div className='panel-intro'><div><strong>Contactos y protocolo</strong><small>Ten a mano los números y referencias importantes antes de salir.</small></div></div>
     {camporee ? <EmergencyManager camporeeId={camporee.id} canEdit={canEdit} initialContacts={contacts ?? []}/> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
   </main>;

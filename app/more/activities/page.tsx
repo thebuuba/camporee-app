@@ -28,8 +28,8 @@ export default async function ActivitiesPage() {
   const error = activitiesError ?? participantsError;
   if (error) throw error;
 
-  return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">PARTICIPACIÓN</div><h1>Competencias</h1></div><span className="avatar"><Trophy size={22}/></span></header>
+  return <main className="app panel-page polymet-detail-page polymet-activities">
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><h1>Competencias</h1><small>{activities?.length ?? 0} competencias</small></div><span className="avatar"><Trophy size={22}/></span></header>
     <div className="panel-intro"><div><strong>{activities?.length ?? 0} actividades</strong><small>Competencias, especialidades, marcha, deportes y talentos del club.</small></div></div>
     {camporee ? <ActivityManager camporeeId={camporee.id} canEdit={canEdit} initialActivities={activities ?? []} participants={participants ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;

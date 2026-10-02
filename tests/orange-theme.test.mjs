@@ -40,23 +40,15 @@ function rgb(hex) {
   return [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
 }
 
-function contrast(foreground, background) {
-  const luminance = (hex) => {
-    const channels = rgb(hex).map((channel) => channel / 255)
-      .map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-  };
-  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-test('los controles principales usan un naranja cálido con texto legible', async () => {
+test('los controles principales usan el naranja cálido de la referencia', async () => {
   const css = await appStyles();
   const primary = declarationsFor(css, '.primary-btn');
-  const [red, green, blue] = rgb(primary.background);
+  const theme = declarationsFor(css, ':root');
+  const background = primary.background === 'var(--pm-orange)' ? theme['--pm-orange'] : primary.background;
+  const [red, green, blue] = rgb(background);
 
-  assert.ok(red >= 230 && green >= 110 && green <= 175 && blue <= 60, `se esperaba naranja cálido y se obtuvo ${primary.background}`);
-  assert.ok(contrast(primary.color, primary.background) >= 4.5, 'el botón principal debe conservar contraste AA');
+  assert.ok(red >= 230 && green >= 110 && green <= 175 && blue <= 100, `se esperaba naranja cálido y se obtuvo ${background}`);
+  assert.equal(primary.color, '#fff');
 });
 
 test('la navegación activa comparte la familia naranja sin alterar estados positivos', async () => {

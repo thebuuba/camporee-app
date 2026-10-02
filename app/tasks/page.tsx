@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
 import TaskManager from "./task-manager";
@@ -35,8 +34,7 @@ export default async function TasksPage() {
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
-    <header className="top top-icon-only"><span className="avatar"><CheckCircle2 size={22}/></span></header>
-    <div className="panel-intro"><div><strong>{(tasks ?? []).filter((task) => task.status !== "done" && task.status !== "cancelled").length} pendientes</strong><small>Organiza lo que hay que hacer antes y durante el camporee.</small></div></div>
+    <header className="polymet-panel-heading"><h1>Tareas</h1><p>{(tasks ?? []).filter((task) => task.status === "done").length} de {(tasks ?? []).length} completadas</p></header>
     {camporee ? <TaskManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;

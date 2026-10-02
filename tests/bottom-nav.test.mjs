@@ -60,7 +60,7 @@ test('la navegación móvil queda integrada al borde inferior', async () => {
       left: '50%',
       right: 'auto',
       bottom: '0',
-      width: 'min(100%,480px)',
+      width: 'min(100%,440px)',
       borderRadius: '0',
       columns: 'repeat(4,1fr)',
     },

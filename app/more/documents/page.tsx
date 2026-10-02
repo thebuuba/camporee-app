@@ -25,7 +25,7 @@ export default async function DocumentsPage() {
   if (contentError) throw contentError;
 
   return <main className='app panel-page'>
-    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>ARCHIVOS</div><h1>Documentos</h1></div><span className='avatar'><FileText size={22}/></span></header>
+    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>ARCHIVOS</div><h1>Documentos</h1><p className='polymet-subtitle'>{documents?.length ?? 0} archivos y enlaces</p></div><span className='avatar'><FileText size={22}/></span></header>
     <div className='panel-intro'><div><strong>Todo lo importante en un lugar</strong><small>Registra permisos, reglamentos, mapas, recibos y enlaces útiles.</small></div></div>
     {camporee ? <DocumentManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialDocuments={documents ?? []}/> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
   </main>;

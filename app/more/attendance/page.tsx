@@ -28,8 +28,8 @@ export default async function AttendancePage() {
   const error = participantsError ?? sessionsError;
   if (error) throw error;
 
-  return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">CONTROL</div><h1>Pases de lista</h1></div><span className="avatar"><ClipboardCheck size={22}/></span></header>
+  return <main className="app panel-page polymet-detail-page polymet-attendance">
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><h1>Pases de lista</h1><small>{participants?.length ?? 0} personas esperadas</small></div><span className="avatar"><ClipboardCheck size={22}/></span></header>
     <div className="panel-intro"><div><strong>{sessions?.length ?? 0} pases recientes</strong><small>Registra quién está presente en salidas, llegadas, cultos y actividades.</small></div></div>
     {camporee ? <AttendanceManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} participants={participants ?? []} initialSessions={sessions ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Utensils } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import MealManager from "./meal-manager";
 
@@ -29,5 +29,5 @@ export default async function MealsPage() {
   const contentError = mealsError ?? inventoryError ?? listsError;
   if (contentError) throw contentError;
 
-  return <main className="app panel-page"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ALIMENTACIÓN</div><h1>Comidas</h1></div><span className="avatar"><Utensils size={22}/></span></header><div className="panel-intro"><div><strong>{meals?.length ?? 0} comidas</strong><small>Menú, ingredientes, existencias y compras faltantes.</small></div></div>{camporee ? <MealManager camporeeId={camporee.id} canEdit={canEdit} canEditLists={canEditLists} initialMeals={meals ?? []} inventory={inventory ?? []} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
+  return <main className="app panel-page polymet-panel polymet-meals"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Comidas</h1><small>Plan de alimentación</small></div></header>{camporee ? <MealManager camporeeId={camporee.id} canEdit={canEdit} canEditLists={canEditLists} initialMeals={meals ?? []} inventory={inventory ?? []} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
 }

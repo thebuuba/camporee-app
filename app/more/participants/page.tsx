@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ParticipantManager from "./participant-manager";
 
@@ -28,9 +28,9 @@ export default async function ParticipantsPage() {
   const contentError = participantsError;
   if (contentError) throw contentError;
 
-  return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ORGANIZACIÓN</div><h1>Participantes</h1></div><span className="avatar"><Users size={22}/></span></header>
-    <div className="panel-intro"><div><strong>{participants?.length ?? 0} personas</strong><small>Miembros, dirigentes, acompañantes y contactos.</small></div></div>
+  return <main className="app panel-page polymet-panel polymet-participants">
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Participantes</h1><small>Participantes inscritos</small></div></header>
+
     {camporee ? <ParticipantManager camporeeId={camporee.id} canEdit={canEdit} initialParticipants={participants ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;
 }

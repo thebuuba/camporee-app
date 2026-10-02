@@ -4,26 +4,51 @@ import { BookOpenText, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut,
 import { createClient } from "@/lib/supabase/server";
 import ReliableLink from "@/app/components/reliable-link";
 
+const modules = [
+  [Megaphone, "Avisos", "Mensajes al equipo", "/more/announcements", "peach"],
+  [ClipboardCheck, "Pases de lista", "Asistencia y conteos", "/more/attendance", "sage"],
+  [Trophy, "Competencias", "Resultados y puntos", "/more/activities", "yellow"],
+  [Soup, "Comidas", "Menús e ingredientes", "/more/meals", "pink"],
+  [Users, "Participantes", "Unidades y contactos", "/more/participants", "sky"],
+  [ListChecks, "Listas", "Compras y equipaje", "/more/lists", "sage"],
+  [PackageCheck, "Inventario", "Equipo y materiales", "/more/inventory", "peach"],
+  [WalletCards, "Presupuesto", "Ingresos y gastos RD$", "/more/budget", "mint"],
+  [FileText, "Documentos", "Permisos, mapas, recibos", "/more/documents", "violet"],
+  [HeartPulse, "Emergencia", "Contactos prioritarios", "/more/emergency", "pink"],
+  [BookOpenText, "Apuntes", "Notas y observaciones", "/more/notes", "yellow"],
+] as const;
+
 export default async function MorePage() {
   const supabase = await createClient();
   const { data: authData } = await supabase.auth.getUser();
   const userId = authData.user?.id;
   if (!userId) redirect("/login");
-  const { data: membership, error: membershipError } = await supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle();
-  if (membershipError) redirect("/");
-  if (!membership?.is_active) redirect("/");
+  const [{ data: membership, error: membershipError }, { data: profile }, { data: camporees }] = await Promise.all([
+    supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(),
+    supabase.from("profiles").select("full_name,avatar_url").eq("id", userId).maybeSingle(),
+    supabase.from("camporees").select("id,name,starts_on,ends_on,status").order("starts_on", { ascending: true }),
+  ]);
+  if (membershipError || !membership?.is_active) redirect("/");
+  const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
   const isAdmin = membership.role === "admin";
-  const items = [
-    [Megaphone,"Avisos","Cambios, llamados y mensajes importantes","/more/announcements"],
-    [ClipboardCheck,"Pases de lista","Salidas, llegadas, cultos y actividades","/more/attendance"],
-    [Trophy,"Competencias","Competencias, especialidades y resultados","/more/activities"],
-    [Soup,"Comidas","Menús, ingredientes y responsables","/more/meals"],
-    [Users,"Participantes","Listado general y unidades","/more/participants"],
-    [ListChecks,"Listas","Qué llevar, compras y materiales","/more/lists"],
-    [PackageCheck,"Inventario","Qué sale, qué vuelve y cantidades","/more/inventory"],
-    [WalletCards,"Presupuesto","Gastos, compras e ingresos","/more/budget"],
-    [FileText,"Documentos","Reglamentos, permisos y archivos","/more/documents"],
-    [HeartPulse,"Emergencia","Contactos, salud y protocolos","/more/emergency"],
-  ] as const;
-  return <main className="app more-app"><header className="subpage-top"><Link href="/" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">CAMPOREE</div><h1>Más</h1></div><div className="subpage-spacer" /></header><section className="more-grid">{items.map(([Icon,title,copy,href]) => <ReliableLink className="more-card ios-card" href={href} key={title}><span className="more-icon"><Icon size={22}/></span><div><strong>{title}</strong><small>{copy}</small></div><span className="chevron">›</span></ReliableLink>)}</section><div className="section-head"><h3>Configuración</h3><span>{isAdmin ? "Administrador" : membership.role === "editor" ? "Editor" : "Solo lectura"}</span></div><section className="settings-list ios-card">{isAdmin ? <ReliableLink href="/more/users" className="settings-row"><span className="settings-icon red"><ShieldCheck size={20}/></span><div><strong>Usuarios y permisos</strong><small>Roles, acceso y permisos por módulo</small></div><span className="chevron">›</span></ReliableLink> : null}<ReliableLink href="/more/settings" className="settings-row"><span className="settings-icon green"><Settings size={20}/></span><div><strong>Ajustes del camporee</strong><small>Datos generales y configuración</small></div><span className="chevron">›</span></ReliableLink><ReliableLink href="/more/notes" className="settings-row"><span className="settings-icon gray"><BookOpenText size={20}/></span><div><strong>Apuntes</strong><small>Notas rápidas y observaciones</small></div><span className="chevron">›</span></ReliableLink><form action="/auth/signout" method="post" className="settings-row signout-row"><span className="settings-icon gray"><LogOut size={20}/></span><div><strong>Cerrar sesión</strong><small>Salir de esta cuenta en este dispositivo</small></div><button type="submit" aria-label="Cerrar sesión">Salir</button></form></section></main>;
+  const role = isAdmin ? "Administrador" : membership.role === "editor" ? "Editor" : "Solo lectura";
+  const name = profile?.full_name || authData.user?.email || "Mi perfil";
+  const dates = camporee ? `${new Date(`${camporee.starts_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long" })} – ${new Date(`${camporee.ends_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long", year: "numeric" })}` : "Próximamente";
+  const state = camporee?.status === "active" ? "En curso" : camporee?.status === "finished" ? "Finalizado" : "Preparación";
+
+  return <main className="app more-app polymet-page">
+    <header className="polymet-main-head"><h1>Más</h1><span className="polymet-sync">☁ Sincronizado</span></header>
+    <Link href="/profile" className="polymet-user-card ios-card">
+      <span className="polymet-user-avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : name.slice(0,1).toUpperCase()}</span>
+      <span><strong>{name}</strong><small>{role}</small></span><span className="polymet-user-club">Mi perfil ›</span>
+    </Link>
+    {camporee ? <div className="polymet-event-banner"><img src="/polymet-camp-hero.svg" alt="" /><div><small>{state}</small><strong>{camporee.name}</strong><span>{dates}</span></div></div> : null}
+    <section className="more-grid polymet-more-grid">{modules.map(([Icon, title, copy, href, tone]) => <ReliableLink className="more-card ios-card" href={href} key={title}><span className={`more-icon tone-${tone}`}><Icon size={22}/></span><div><strong>{title}</strong><small>{copy}</small></div></ReliableLink>)}</section>
+    <div className="polymet-section-label">ADMINISTRACIÓN</div>
+    <section className="more-grid polymet-more-grid polymet-more-admin">
+      <ReliableLink href="/more/settings" className="more-card ios-card"><span className="more-icon tone-sage"><Settings size={22}/></span><div><strong>Ajustes</strong><small>Camporee y notificaciones</small></div></ReliableLink>
+      {isAdmin ? <ReliableLink href="/more/users" className="more-card ios-card"><span className="more-icon tone-pink"><ShieldCheck size={22}/></span><div><strong>Usuarios y permisos</strong><small>Aprobaciones y roles</small></div></ReliableLink> : null}
+    </section>
+    <form action="/auth/signout" method="post" className="polymet-signout"><button type="submit"><LogOut size={17}/> Cerrar sesión</button></form>
+  </main>;
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ListChecks } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ListManager from "./list-manager";
 
@@ -22,5 +22,5 @@ export default async function ListsPage() {
   const contentError = listsError;
   if (contentError) throw contentError;
 
-  return <main className="app panel-page"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">LOGÍSTICA</div><h1>Listas</h1></div><span className="avatar"><ListChecks size={22}/></span></header><div className="panel-intro"><div><strong>{lists?.length ?? 0} listas</strong><small>Compras, materiales, equipaje y pendientes.</small></div></div>{camporee ? <ListManager camporeeId={camporee.id} canEdit={canEdit} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
+  return <main className="app panel-page polymet-panel polymet-lists"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Listas</h1><small>Compras, equipaje y materiales</small></div></header>{camporee ? <ListManager camporeeId={camporee.id} canEdit={canEdit} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
 }

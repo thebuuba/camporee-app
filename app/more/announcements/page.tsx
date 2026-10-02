@@ -26,8 +26,8 @@ export default async function AnnouncementsPage() {
     : { data: [], error: null };
   if (error) throw error;
 
-  return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">COMUNICACIÓN</div><h1>Avisos</h1></div><span className="avatar"><Megaphone size={22}/></span></header>
+  return <main className="app panel-page polymet-detail-page polymet-announcements">
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><h1>Avisos</h1><small>{announcements?.length ?? 0} mensajes</small></div><span className="avatar"><Megaphone size={22}/></span></header>
     <div className="panel-intro"><div><strong>{announcements?.length ?? 0} avisos</strong><small>Cambios de horario, llamados, emergencias y mensajes para todo el club.</small></div></div>
     {camporee ? <AnnouncementManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialAnnouncements={announcements ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;

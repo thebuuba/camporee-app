@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from 'next/navigation';
-import { Plus, StickyNote, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from "@/lib/client-ui";
 import { dateKeyInTimeZone } from "@/lib/date";
@@ -12,6 +12,8 @@ export default function NotesManager({ camporeeId, userId, canEdit, initialNotes
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError,setFormError] = useState('');
+  const [query,setQuery] = useState('');
+  const [areaFilter,setAreaFilter] = useState('all');
   const supabase = createClient();
   const router = useRouter();
 
@@ -38,5 +40,13 @@ export default function NotesManager({ camporeeId, userId, canEdit, initialNotes
     if (error){setNotes(previous);reportMutationError(error,'No se pudo eliminar el apunte.');} else {reportMutationSuccess('Apunte eliminado.');router.refresh();}
   }
 
-  return <>{canEdit ? <button type="button" className="panel-add" onClick={() => {setFormError('');setOpen(true)}}><Plus size={18}/> Nuevo apunte</button> : null}{open ? <div className="sheet-backdrop" onClick={() => {if(!saving)setOpen(false)}}><section className="sheet-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><div className="sheet-handle"/><h2>Nuevo apunte</h2><form onSubmit={(event)=>{event.preventDefault();void addNote(new FormData(event.currentTarget));}} className="panel-form">{formError?<div className="auth-alert error" role="alert">{formError}</div>:null}<input name="title" placeholder="Título opcional"/><textarea name="body" placeholder="Escribe el apunte…" required/><div className="form-two"><input name="note_date" type="date" defaultValue={dateKeyInTimeZone()}/><select name="area_id" defaultValue=""><option value="">Sin área</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></div><button type="submit" className="primary-btn" disabled={saving}>{saving ? 'Guardando…' : 'Guardar apunte'}</button></form></section></div> : null}<section className="panel-list">{notes.length ? notes.map((note) => <article className="panel-row ios-card" key={note.id}><span className="stat-icon stat-blue"><StickyNote size={18}/></span><div className="panel-row-copy"><strong>{note.title || 'Apunte'}</strong><small>{new Date(`${note.note_date}T00:00:00`).toLocaleDateString('es-DO',{dateStyle:'medium'})}</small><div style={{fontSize:13,lineHeight:1.45,color:'var(--muted)',whiteSpace:'pre-wrap'}}>{note.body}</div></div>{canEdit ? <button type="button" className="row-icon-btn danger" onClick={() => removeNote(note.id)} aria-label="Eliminar"><Trash2 size={17}/></button> : null}</article>) : <div className="empty compact">Todavía no hay apuntes.</div>}</section></>;
+  const visible = useMemo(() => notes.filter((note) => (areaFilter === 'all' || note.area_id === areaFilter) && `${note.title || ''} ${note.body}`.toLowerCase().includes(query.toLowerCase())), [notes, areaFilter, query]);
+
+  return <>
+    <label className='polymet-search'><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder='Buscar en apuntes' aria-label='Buscar en apuntes'/>{query ? <button type='button' onClick={() => setQuery('')} aria-label='Limpiar búsqueda'><X size={18}/></button> : <span><Search size={20}/></span>}</label>
+    <div className='polymet-filter-scroll'><button type='button' className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>Todos</button>{areas.map((area) => <button type='button' key={area.id} className={areaFilter === area.id ? 'active' : ''} onClick={() => setAreaFilter(area.id)}>{area.name}</button>)}</div>
+    {canEdit ? <button type='button' className='panel-add' onClick={() => {setFormError('');setOpen(true)}}><Plus size={18}/> Apunte</button> : null}
+    {open ? <div className='sheet-backdrop' onClick={() => {if(!saving)setOpen(false)}}><section className='sheet-card' role='dialog' aria-modal='true' onClick={(e) => e.stopPropagation()}><div className='sheet-handle'/><h2>Nuevo apunte</h2><form onSubmit={(event)=>{event.preventDefault();void addNote(new FormData(event.currentTarget));}} className='panel-form'>{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<input name='title' placeholder='Título opcional'/><textarea name='body' placeholder='Escribe el apunte…' required/><div className='form-two'><input name='note_date' type='date' defaultValue={dateKeyInTimeZone()}/><select name='area_id' defaultValue=''><option value=''>Sin área</option>{areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></div><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Guardando…' : 'Guardar apunte'}</button></form></section></div> : null}
+    <section className='polymet-note-list'>{visible.length ? visible.map((note,index) => <article className={`polymet-note ${index % 2 ? 'peach' : 'cream'}`} key={note.id}><div className='polymet-note-meta'><span>{new Date(note.created_at).toLocaleDateString('es-DO',{day:'numeric',month:'short'})} · {new Date(note.created_at).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'})}</span>{note.area_id ? <span className='polymet-note-tag'>{areas.find((area) => area.id === note.area_id)?.name || 'Área'}</span> : null}</div><strong>{note.title || 'Apunte'}</strong><p>{note.body}</p>{canEdit ? <button type='button' onClick={() => removeNote(note.id)} aria-label='Eliminar apunte'><Trash2 size={15}/></button> : null}</article>) : <div className='empty compact'>No hay apuntes que coincidan con este filtro.</div>}</section>
+  </>;
 }

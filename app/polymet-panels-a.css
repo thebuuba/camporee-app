@@ -1,0 +1,35 @@
+.polymet-detail-page .subpage-top{margin-bottom:23px!important}
+.polymet-detail-page .subpage-top small{display:block;margin-top:2px;color:#8d837c;font-size:11px;font-weight:400}
+.polymet-detail-page .panel-intro{display:none!important}
+.polymet-detail-page .polymet-detail-filters,.polymet-activities .activity-filter-row{display:flex!important;flex-wrap:nowrap!important;gap:7px!important;overflow-x:auto!important;margin:0 -20px 19px!important;padding:0 20px 3px!important;scrollbar-width:none}
+.polymet-detail-page .polymet-detail-filters::-webkit-scrollbar,.polymet-activities .activity-filter-row::-webkit-scrollbar{display:none}
+.polymet-detail-page .polymet-detail-filters button,.polymet-activities .activity-filter-row button{flex:none!important;min-height:36px!important;padding:8px 14px!important;font-size:11px!important}
+.polymet-detail-page .polymet-detail-filters button span{margin-left:3px;opacity:.65}
+.polymet-detail-page .panel-tools:has(.panel-add):not(:has(.panel-search)){min-height:0!important;margin:0!important}
+.polymet-detail-page .panel-list{gap:12px!important}
+.polymet-announcements .notification-permission-btn{position:fixed;z-index:96;right:max(20px,calc(50vw - 200px));bottom:calc(155px + env(safe-area-inset-bottom));width:41px!important;height:41px!important;min-height:41px!important;padding:0!important;overflow:hidden;white-space:nowrap;font-size:0!important;border-radius:50%!important;display:grid!important;place-items:center!important;box-shadow:0 4px 12px rgba(80,62,45,.11)!important}
+.polymet-announcements .notification-permission-btn svg{flex:none}
+.polymet-announcements .announcement-row{display:flex!important;align-items:flex-start!important;gap:12px!important;padding:16px!important;border-radius:24px!important;min-height:120px!important}
+.polymet-announcements .announcement-row .stat-icon{width:44px!important;height:44px!important;flex:0 0 44px!important;border-radius:16px!important;background:#f1ebe6!important;color:#574d45!important}
+.polymet-announcements .announcement-row.priority-important{background:#fdebdc!important}
+.polymet-announcements .announcement-row.priority-important .stat-icon{background:#fa8943!important;color:#fff!important}
+.polymet-announcements .announcement-row.priority-urgent{background:#fae9e5!important;border:1px solid #efcfc9!important}
+.polymet-announcements .announcement-row.priority-urgent .stat-icon{background:#e64a42!important;color:#fff!important}
+.polymet-announcements .announcement-row .panel-row-copy{display:flex!important;flex-direction:column!important;align-items:flex-start!important;min-width:0;flex:1}
+.polymet-announcements .announcement-row .status-pill{font-size:10px!important;min-height:22px!important;padding:3px 9px!important;margin-bottom:5px!important}
+.polymet-announcements .announcement-row strong{font-size:14px!important;line-height:1.35!important}
+.polymet-announcements .announcement-row .announcement-message{display:block!important;color:#756c65!important;font-size:12px!important;line-height:1.45!important;margin-top:4px;white-space:normal!important}
+.polymet-announcements .announcement-row .announcement-date{margin-top:9px;font-size:10px!important;color:#978d85!important}
+.polymet-announcements .announcement-row .row-icon-btn{align-self:flex-start;opacity:.7}
+.polymet-attendance .attendance-session-row{min-height:87px!important;padding:14px!important;gap:12px!important;border-radius:24px!important;text-align:left!important}
+.polymet-attendance .attendance-session-row .stat-icon{width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:17px!important;background:#e2f3fc!important;color:#2d84ab!important}
+.polymet-attendance .attendance-session-row .panel-row-copy{flex:1;min-width:0}
+.polymet-attendance .attendance-session-row .panel-row-copy strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.polymet-attendance .attendance-session-row .panel-row-copy small{display:block;margin-top:3px;font-size:10px!important}
+.polymet-attendance-progress{display:block;width:100%;height:6px;background:#f1eee9;border-radius:99px;overflow:hidden;margin-top:11px}
+.polymet-attendance-progress i{display:block;height:100%;background:#8eaa6d;border-radius:99px}
+.polymet-attendance-count{display:flex;flex-direction:column;text-align:right;min-width:32px}.polymet-attendance-count strong{font-size:19px!important;line-height:1.2!important}.polymet-attendance-count small{font-size:10px!important;white-space:nowrap}
+.polymet-attendance .attendance-live-head{border-radius:25px!important;padding:16px!important;margin-bottom:15px;background:#e2ebd6!important}.polymet-attendance .attendance-live-head h2{font-size:17px!important}.polymet-attendance .attendance-person{border-radius:19px!important;min-height:65px!important}.polymet-attendance .attendance-person.is-present{background:#e9f1e2!important}
+.polymet-activities .panel-tools{display:block!important;margin-bottom:0!important}.polymet-activities .panel-search{margin-bottom:14px!important}.polymet-activities .activity-filter-row{margin-bottom:17px!important}
+.polymet-activities .activity-card{padding:16px!important;border-radius:24px!important;margin:0!important}.polymet-activities .activity-card-head{align-items:flex-start!important}.polymet-activities .activity-type{display:inline-flex!important;border-radius:999px;background:#f2efeb;color:#746c66;padding:4px 9px;font-size:10px!important;font-weight:600!important;margin-bottom:6px}.polymet-activities .activity-card.is-done .activity-type{background:#e2ebd6;color:#56734a}.polymet-activities .activity-card .panel-row-copy strong{display:block;font-size:15px!important}.polymet-activities .activity-card .panel-row-copy small{font-size:11px!important}.polymet-activities .activity-card .status-btn{width:44px!important;height:44px!important;flex:0 0 44px!important;border-radius:16px!important;background:#fff2cf!important;color:#bd792d!important}.polymet-activities .activity-card.is-done .status-btn{background:#e2ebd6!important;color:#659455!important}.polymet-activities .activity-detail,.polymet-activities .activity-materials,.polymet-activities .activity-result{font-size:11px!important;color:#81776f!important}
+.polymet-empty{min-height:240px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;padding:24px!important;gap:7px!important;box-shadow:none!important;background:transparent!important}.polymet-empty-icon{width:64px;height:64px;border-radius:22px;background:#f2eee9;color:#8f847b;display:grid;place-items:center;margin-bottom:5px}.polymet-empty strong{font-size:15px!important;font-weight:600}.polymet-empty small{font-size:12px!important;max-width:260px;line-height:1.5}.polymet-empty .primary-btn{margin-top:11px;padding:10px 20px}

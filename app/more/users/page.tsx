@@ -37,7 +37,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   });
 
   return <main className="app users-app">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ADMINISTRACIÓN</div><h1>Usuarios y permisos</h1></div><span className="avatar"><ShieldCheck size={21}/></span></header>
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ADMINISTRACIÓN</div><h1>Usuarios y permisos</h1><p className="polymet-subtitle">{users.filter((user) => user.is_active).length} activos · {users.filter((user) => !user.is_active).length} por aprobar</p></div><span className="avatar"><ShieldCheck size={21}/></span></header>
     <section className="permission-intro ios-card"><span className="settings-icon red"><UsersRound size={21}/></span><div><strong>Gestiona el acceso sin perder tiempo</strong><p>Primero verás las cuentas pendientes. Busca, filtra y abre solo la persona que quieras editar.</p></div></section>
     {params.error ? <div className="auth-alert error">{params.error}</div> : null}{params.saved ? <div className="auth-alert success">Permisos actualizados.</div> : null}
     <UsersManager users={users}/>

@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, useRef, useState } from 'react';
-import { Camera, ImagePlus, Trash2, UserRound } from 'lucide-react';
+import { Camera, ImagePlus, Trash2, UserRound, Moon, WifiOff, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
@@ -10,16 +10,19 @@ type Props = {
   userId: string;
   fullName: string;
   email: string;
+  role: string;
   initialAvatarUrl: string | null;
 };
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg','image/png','image/webp','image/heic','image/heif']);
 
-export default function ProfileClient({ userId, fullName, email, initialAvatarUrl }: Props) {
+export default function ProfileClient({ userId, fullName, email, role, initialAvatarUrl }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [name, setName] = useState(fullName);
+  const [savingName, setSavingName] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const router = useRouter();
@@ -76,26 +79,25 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarUr
     }
   }
 
-  return <section className='profile-card ios-card'>
-    <div className='profile-avatar-wrap'>
-      <button type='button' className='profile-avatar-button' onClick={() => inputRef.current?.click()} disabled={busy} aria-label='Cambiar foto de perfil'>
-        {avatarUrl ? <img src={avatarUrl} alt={`Foto de ${fullName}`} /> : <span className='profile-avatar-fallback'>{initial || <UserRound size={36}/>}</span>}
-        <span className='profile-avatar-camera'><Camera size={17}/></span>
-      </button>
-      <input ref={inputRef} className='profile-file-input' type='file' accept='image/jpeg,image/png,image/webp,image/heic,image/heif' onChange={uploadAvatar}/>
-    </div>
+  async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = name.trim();
+    if (!nextName || savingName) return;
+    setSavingName(true); setError('');
+    const { error: updateError } = await supabase.from('profiles').update({ full_name: nextName, updated_at: new Date().toISOString() }).eq('id', userId);
+    if (updateError) setError(reportMutationError(updateError, 'No se pudo guardar el perfil.'));
+    else { reportMutationSuccess('Perfil guardado.'); router.refresh(); }
+    setSavingName(false);
+  }
 
-    <div className='profile-copy'>
-      <h2>{fullName}</h2>
-      <span>{email}</span>
-      <p>Esta foto aparecerá en la esquina superior derecha de Inicio.</p>
+  return <section className='polymet-profile'>
+    <div className='polymet-profile-hero'>
+      <div className='profile-avatar-wrap'><button type='button' className='profile-avatar-button' onClick={() => inputRef.current?.click()} disabled={busy} aria-label='Cambiar foto de perfil'>{avatarUrl ? <img src={avatarUrl} alt={`Foto de ${fullName}`}/> : <span className='profile-avatar-fallback'>{initial || <UserRound size={36}/>}</span>}<span className='profile-avatar-camera'><Camera size={17}/></span></button><input ref={inputRef} className='profile-file-input' type='file' accept='image/jpeg,image/png,image/webp,image/heic,image/heif' onChange={uploadAvatar}/></div>
+      <h2>{name || fullName}</h2><span>{role === 'admin' ? 'Administrador' : role === 'editor' ? 'Editor' : 'Solo lectura'}</span>
     </div>
-
-    {error ? <div className='auth-alert error' role='alert'>{error}</div> : null}
-
-    <div className='profile-actions'>
-      <button type='button' className='primary-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={18}/>{busy ? 'Guardando…' : avatarUrl ? 'Cambiar foto' : 'Subir foto'}</button>
-      {avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : null}
-    </div>
+    <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
+    <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>
+    <section className='polymet-profile-preferences' aria-label='Preferencias futuras'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' disabled aria-label='Modo oscuro: aún no disponible'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>Los cambios se sincronizan al instante</small></span><input type='checkbox' disabled aria-label='Modo sin conexión: aún no disponible'/></div></section>
+    <form action='/auth/signout' method='post' className='polymet-profile-signout'><button type='submit'><LogOut size={16}/> Cerrar sesión</button></form>
   </section>;
 }

@@ -92,6 +92,23 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
     }
   }
 
+  async function approveAccount(user:UserRow) {
+    if (savingId) return;
+    setSavingId(user.user_id); setSaveError(null);
+    const formData = new FormData();
+    formData.set('userId',user.user_id);
+    formData.set('role',user.role === 'admin' ? 'editor' : user.role);
+    formData.set('isActive','on');
+    for (const [key] of permissionLabels) if (user.permissions[key]) formData.set(key,'on');
+    try {
+      const result = await updateMemberAccess(formData);
+      if (!result.ok) throw new Error(result.error || 'No se pudo aprobar la cuenta');
+      setMembers((current) => current.map((member) => member.user_id === user.user_id ? {...member,is_active:true,role:user.role === 'admin' ? 'editor' : user.role} : member));
+      router.refresh();
+    } catch(error) { setSaveError(error instanceof Error ? error.message : 'No se pudo aprobar la cuenta'); }
+    finally { setSavingId(null); }
+  }
+
   async function removeAccount(user:UserRow) {
     if (user.is_self || deletingId) return;
     const display = user.full_name || user.email || 'esta cuenta';
@@ -137,6 +154,7 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
         const deleting = deletingId === user.user_id;
         const saving = savingId === user.user_id;
         const saved = savedId === user.user_id;
+        if (!user.is_active) return <article className='polymet-pending-member ios-card' key={user.user_id}><div className='polymet-pending-main'><span className='member-avatar'>{display.split(' ').map((part) => part[0]).slice(0,2).join('').toUpperCase()}</span><div><strong>{display}</strong><small>{user.email || 'Correo no disponible'} · solicitó {new Date(user.created_at).toLocaleDateString('es-DO',{day:'numeric',month:'short'})}</small></div></div><div className='polymet-pending-actions'><button type='button' onClick={() => void removeAccount(user)} disabled={deleting}>Rechazar</button><button type='button' onClick={() => void approveAccount(user)} disabled={saving}>Aprobar</button></div></article>;
         return <article className={`compact-member ios-card ${!user.is_active?'pending-user':''}`} key={user.user_id}>
           <button className='compact-member-summary' type='button' onClick={() => setOpenId(isOpen ? null : user.user_id)} aria-expanded={isOpen}>
             <div className='member-avatar'>{display.slice(0,1).toUpperCase()}</div>

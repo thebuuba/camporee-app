@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import BottomNav from "../components/bottom-nav";
 import ProgramManager from "./program-manager";
@@ -34,7 +33,7 @@ export default async function ProgramPage() {
   const eventMode = Boolean(start && end && now >= start && now <= end);
 
   return <main className="app panel-page program-page">
-    <header className="top top-icon-only compact-panel-top"><span className="avatar"><CalendarDays size={22}/></span></header>
+    <header className="polymet-panel-heading"><h1>Programa</h1><p>{new Date().toLocaleDateString("es-DO",{weekday:"long",day:"numeric",month:"long"})}</p></header>
     {camporee ? <ProgramManager camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []} eventMode={eventMode}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;

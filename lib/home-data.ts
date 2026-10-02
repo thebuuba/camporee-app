@@ -63,10 +63,11 @@ export async function loadHomeData() {
   const totalDays = Math.max(1, dateOnlyDistance(camporee.starts_on, camporee.ends_on) + 1);
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
-  const [taskResult, participantResult, expenseResult, eventResult, urgentResult] = await Promise.all([
+  const [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult] = await Promise.all([
     withTimeout(retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
-    withTimeout(retryQuery(() => supabase.from("participants").select("id", { count: "exact", head: true }).eq("camporee_id", camporee.id), 1), 1400, { data: null, error: { message: "timeout" }, count: 0 } as SupabaseResult<null>),
+    withTimeout(retryQuery(() => supabase.from("participants").select("id,attendance_status").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     withTimeout(retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
+    withTimeout(retryQuery(() => supabase.from("income_entries").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     withTimeout(retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     phase === "during"
       ? withTimeout(retryQuery(() => supabase.from("announcements").select("id,title,message,created_at").eq("camporee_id", camporee.id).eq("priority", "urgent").order("created_at", { ascending: false }).limit(1), 1), 1200, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>)
@@ -80,6 +81,7 @@ export async function loadHomeData() {
   const completed = progressTasks.filter((task) => task.status === "done").length;
   const progress = progressTasks.length ? Math.round(completed / progressTasks.length * 100) : 0;
   const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalIncome = (incomeResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const pendingToday = progressTasks.filter((task) => task.status !== "done" && task.due_at && dateKeyInTimeZone(task.due_at) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
   const todayTasks = pendingToday.slice(0, 3);
   const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at) === todayKey).length;
@@ -88,8 +90,8 @@ export async function loadHomeData() {
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {
-    userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee, pendingTasks, todayPendingTasks: pendingToday.length, progress, totalExpenses,
-    participants: participantResult.count ?? 0, days, phase, dayNumber, totalDays, programCount: events.length,
+    userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee, pendingTasks, completedTasks: completed, totalTasks: progressTasks.length, todayPendingTasks: pendingToday.length, progress, totalExpenses, totalIncome,
+    participants: (participantResult.data ?? []).length, presentParticipants: (participantResult.data ?? []).filter((person) => person.attendance_status === "checked_in").length, days, phase, dayNumber, totalDays, programCount: events.length,
     todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,
   };
 }

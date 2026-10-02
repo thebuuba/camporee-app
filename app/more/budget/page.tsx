@@ -33,7 +33,7 @@ export default async function BudgetPage() {
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1></div><span className="avatar"><WalletCards size={22}/></span></header>
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1><p className="polymet-subtitle">Montos en pesos dominicanos</p></div><span className="avatar"><WalletCards size={22}/></span></header>
     <div className="panel-intro"><div><strong>RD${available.toLocaleString("es-DO", { maximumFractionDigits: 0 })} disponibles</strong><small>Cuotas y aportes menos los gastos registrados.</small></div></div>
     {camporee ? <BudgetManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialExpenses={expenses ?? []} initialIncome={income ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;

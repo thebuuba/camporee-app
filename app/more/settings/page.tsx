@@ -21,13 +21,11 @@ export default async function SettingsPage() {
   const canEdit = membership.role === 'admin';
 
   return <main className='app panel-page'>
-    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>CONFIGURACIÓN</div><h1>Ajustes</h1></div><span className='avatar'><Settings size={22}/></span></header>
+    <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>CONFIGURACIÓN</div><h1>Ajustes</h1><p className='polymet-subtitle'>Camporee y notificaciones</p></div><span className='avatar'><Settings size={22}/></span></header>
     <div className='panel-intro'><div><strong>Datos generales del camporee</strong><small>Cambia el nombre, lugar, fechas y etapa del evento.</small></div></div>
     {camporee ? <>
-      <div className='section-head'><h3>Notificaciones</h3><span>Este dispositivo</span></div>
-      <NotificationControls camporeeId={camporee.id} userId={userId} mode='settings'/>
-      <div className='section-head'><h3>Camporee</h3><span>Configuración general</span></div>
       <SettingsForm camporee={camporee} canEdit={canEdit}/>
+      <section className='polymet-settings-card polymet-notification-card'><h2>Notificaciones</h2><NotificationControls camporeeId={camporee.id} userId={userId} mode='settings'/></section>
     </> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
   </main>;
 }

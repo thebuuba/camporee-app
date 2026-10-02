@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, CheckCheck, ClipboardCheck, Plus, Search, Users, X } from 'lucide-react';
+import { Check, CheckCheck, ClipboardCheck, Plus, Search, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
@@ -16,6 +16,7 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
   const [bulkSaving, setBulkSaving] = useState(false);
   const [formError,setFormError]=useState('');
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const supabase = createClient();
   const router = useRouter();
 
@@ -27,6 +28,7 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
   const activeMarks = useMemo(() => new Map((activeSession?.attendance_marks || []).map((mark:any) => [mark.participant_id, Boolean(mark.present)])), [activeSession]);
   const presentCount = activeSession ? participants.filter((p) => activeMarks.get(p.id)).length : 0;
   const visibleParticipants = useMemo(() => participants.filter((person) => `${person.full_name} ${person.unit_name || ''}`.toLowerCase().includes(query.trim().toLowerCase())), [participants,query]);
+  const visibleSessions = sessions.filter((session) => typeFilter === 'all' || session.session_type === typeFilter);
 
   async function createSession(formData:FormData) {
     if (!canEdit || saving) return;
@@ -70,8 +72,9 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
   </>;
 
   return <>
+    <div className='filter-chips polymet-detail-filters'>{[['all','Todos'],['departure','Salida'],['arrival','Llegada'],['worship','Culto'],['activity','Actividad']].map(([value,label])=><button type='button' key={value} className={typeFilter===value?'active':''} onClick={()=>setTypeFilter(value)}>{label}</button>)}</div>
     <div className='panel-tools'>{canEdit?<button type='button' className='panel-add' onClick={()=>{setFormError('');setOpen(true)}}><Plus size={18}/> Nuevo pase de lista</button>:null}</div>
     {open?<div className='sheet-backdrop' onClick={()=>{if(!saving)setOpen(false)}}><section className='sheet-card' role='dialog' aria-modal='true' onClick={(e)=>e.stopPropagation()}><div className='sheet-handle'/><h2>Nuevo pase de lista</h2><form onSubmit={(event)=>{event.preventDefault();void createSession(new FormData(event.currentTarget));}} className='panel-form'>{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<input name='title' placeholder='Ej. Salida hacia el culto' required/><select name='session_type' defaultValue='general'><option value='general'>General</option><option value='departure'>Salida</option><option value='arrival'>Llegada</option><option value='activity'>Actividad</option><option value='worship'>Culto</option><option value='night'>Noche</option><option value='return'>Regreso</option></select><input name='occurred_at' type='datetime-local'/><button type='submit' className='primary-btn' disabled={saving}>{saving?'Creando…':'Comenzar pase'}</button></form></section></div>:null}
-    <section className='panel-list'>{sessions.length?sessions.map((session)=>{const count=(session.attendance_marks||[]).filter((m:any)=>m.present).length;return <button type='button' className='panel-row ios-card attendance-session-row' onClick={()=>setActiveSession(session)} key={session.id}><span className='stat-icon stat-blue'><ClipboardCheck size={18}/></span><div className='panel-row-copy'><strong>{session.title}</strong><small>{typeLabel(session.session_type)} · {new Date(session.occurred_at).toLocaleString('es-DO',{dateStyle:'short',timeStyle:'short'})}</small><small><Users size={12}/>{count}/{participants.length} presentes</small></div><span className='chevron'>›</span></button>}):<div className='empty compact'>Todavía no hay pases de lista. Crea uno al salir, llegar o antes de una actividad.</div>}</section>
+    <section className='panel-list'>{visibleSessions.length?visibleSessions.map((session)=>{const count=(session.attendance_marks||[]).filter((m:any)=>m.present).length;return <button type='button' className='panel-row ios-card attendance-session-row' onClick={()=>setActiveSession(session)} key={session.id}><span className='stat-icon stat-blue'><ClipboardCheck size={20}/></span><div className='panel-row-copy'><strong>{session.title}</strong><small>{typeLabel(session.session_type)} · {new Date(session.occurred_at).toLocaleString('es-DO',{dateStyle:'short',timeStyle:'short'})}</small><span className='polymet-attendance-progress'><i style={{width:`${participants.length?Math.min(100,count/participants.length*100):0}%`}}/></span></div><span className='polymet-attendance-count'><strong>{count}</strong><small>de {participants.length}</small></span></button>}):<div className='empty compact polymet-empty'><span className='polymet-empty-icon'><ClipboardCheck size={24}/></span><strong>Sin pases de lista</strong><small>{typeFilter==='all'?'Crea un control para salidas, llegadas, cultos o actividades.':'No hay pases de lista de este tipo.'}</small></div>}</section>
   </>;
 }
