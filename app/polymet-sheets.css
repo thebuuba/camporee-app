@@ -3,7 +3,8 @@ body:has(.pm-sheet-frame[open]){overflow:hidden}
 .pm-sheet-frame {
   position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;
   margin:0;padding:0;border:0;background:transparent;color:var(--pm-ink);
-  overflow:hidden;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;
+  /* Unlike hidden, clip cannot scroll when showModal focuses an animated child. */
+  overflow:clip;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;
 }
 .pm-sheet-frame[open]{display:flex;align-items:flex-end;justify-content:center}
 .pm-sheet-frame::backdrop{background:rgb(0 0 0 / .8);animation:pm-backdrop-in .15s}

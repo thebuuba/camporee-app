@@ -45,3 +45,6 @@ test('la animación empieza con el diálogo visible y conserva los tiempos de Po
     'pm-sheet-out .3s cubic-bezier(.4,0,.2,1) forwards');
   assert.equal(declarations(css, '.pm-sheet-frame::backdrop').animation, 'pm-backdrop-in .15s');
 });
+test('el enfoque del diálogo no puede desplazar el contenedor durante la entrada', async () => {
+  assert.equal(declarations(await styles(), '.pm-sheet-frame').overflow, 'clip');
+});
