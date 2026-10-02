@@ -29,17 +29,18 @@ import "./polymet-panels-a.css";
 import "./polymet-panels-b.css";
 import "./polymet-panels-c.css";
 import "./polymet-sheets.css";
+import "./polymet-launch.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
 import AppSplash from "./components/app-splash";
 
-const appBackground = "#F2EFE8";
+const appBackground = "#fdf8f5";
 
 export const metadata: Metadata = {
   title: "Camporee",
   description: "Organiza cada detalle antes, durante y después del camporee.",
-  manifest: "/manifest.webmanifest?v=11",
+  manifest: "/manifest.webmanifest?v=14",
   icons: {
     icon: [{ url: "/camporee-logo-v8.png?v=11", type: "image/png", sizes: "512x512" }],
     apple: [{ url: "/apple-touch-icon.png?v=11", type: "image/png", sizes: "180x180" }],

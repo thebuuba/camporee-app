@@ -1,0 +1,12 @@
+.pm-launch-screen{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:#fdf8f5;color:#2b211c;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;pointer-events:none;animation:pm-launch-dismiss .2s ease .65s forwards}
+.pm-launch-content{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px}
+.pm-launch-mark{display:grid;place-items:center;width:80px;height:80px;background:#fff;color:#fa8943;border-radius:24px;box-shadow:0 4px 14px -4px rgb(120 60 20 / .16),0 1px 3px rgb(120 60 20 / .08)}
+.pm-launch-content strong{margin-top:20px;font-size:28px;font-weight:600;line-height:1.3;letter-spacing:-.5px}
+.pm-launch-content p{margin:6px 0 28px;font-size:13px;font-weight:400;color:#827973}
+.pm-launch-content small{margin-top:12px;font-size:11px;color:#827973}
+.pm-launch-progress{display:block;width:160px;height:4px;border-radius:999px;background:#f0e9e3;overflow:clip}
+.pm-launch-progress>span{display:block;width:100%;height:100%;border-radius:inherit;background:#fa8943;transform-origin:left;animation:pm-launch-progress .65s ease-out both}
+@keyframes pm-launch-progress{from{transform:scaleX(.1)}to{transform:scaleX(1)}}
+/* A failed hydration must not leave a full-screen loader covering the page forever. */
+@keyframes pm-launch-dismiss{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.pm-launch-screen{animation:pm-launch-dismiss .01s linear .17s forwards}.pm-launch-progress>span{animation:none}}

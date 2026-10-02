@@ -1,33 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TentTree } from 'lucide-react';
 
-export default function AppSplash(){
-  const [visible,setVisible]=useState(true);
-  const [leaving,setLeaving]=useState(false);
-
-  useEffect(()=>{
-    const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // Keep the branded launch screen brief. It must mask the native/PWA startup,
-    // not make an already-ready app feel slower.
-    const leave=window.setTimeout(()=>setLeaving(true),reduced?120:420);
-    const hide=window.setTimeout(()=>setVisible(false),reduced?180:650);
-    return()=>{window.clearTimeout(leave);window.clearTimeout(hide)};
-  },[]);
-
-  if(!visible)return null;
-  return <div className={'app-splash'+(leaving?' is-leaving':'')} aria-label="Cargando Camporee" role="status">
-    <div className="app-splash-cloud cloud-left" />
-    <div className="app-splash-cloud cloud-right" />
-    <div className="app-splash-center">
-      <img className="app-splash-logo" src="/camporee-logo-v8.png?v=9" alt="Camporee" width="512" height="512" />
-      <div className="app-splash-title">CAMPOREE</div>
-      <div className="app-splash-tagline">MÁS QUE UN CAMPAMENTO,<br/>UNA HISTORIA JUNTOS</div>
-      <div className="app-splash-progress" aria-hidden="true"><span /></div>
-      <div className="app-splash-loading">Cargando tu aventura…</div>
-    </div>
-    <div className="app-splash-landscape" aria-hidden="true">
-      <span className="pine pine-one">▲</span><span className="pine pine-two">▲</span><span className="pine pine-three">▲</span><span className="pine pine-four">▲</span>
+export default function AppSplash() {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const timer = window.setTimeout(() => setVisible(false), reduced ? 180 : 850);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!visible) return null;
+  return <div className="pm-launch-screen" aria-label="Cargando Camporee" role="status">
+    <div className="pm-launch-content">
+      <span className="pm-launch-mark" aria-hidden="true"><TentTree size={36} strokeWidth={1.5}/></span>
+      <strong>Camporee</strong>
+      <p>Una historia juntos</p>
+      <span className="pm-launch-progress" aria-hidden="true"><span /></span>
+      <small>Preparando tu camporee…</small>
     </div>
   </div>;
 }

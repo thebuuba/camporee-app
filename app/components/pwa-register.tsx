@@ -22,7 +22,7 @@ export default function PwaRegister() {
     let cancelled = false;
 
     void navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js', { updateViaCache: 'none' })
       .then((registration) => {
         if (cancelled) return;
         // Do not block app startup waiting for an update check.

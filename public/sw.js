@@ -1,19 +1,20 @@
-const CACHE='camporee-shell-v13';
-const STATIC=['/offline','/manifest.webmanifest?v=12','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
+const CACHE='camporee-shell-v14';
+const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(
     caches.open(CACHE)
       .then(cache=>cache.addAll(STATIC))
+      .catch(()=>undefined)
       .then(()=>self.skipWaiting())
   );
 });
 
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
-    const keys=await caches.keys();
-    await Promise.all(keys.filter(k=>k.startsWith('camporee-shell-')&&k!==CACHE).map(k=>caches.delete(k)));
+    const keys=await caches.keys().catch(()=>[]);
+    await Promise.all(keys.filter(k=>k.startsWith('camporee-shell-')&&k!==CACHE).map(k=>caches.delete(k).catch(()=>undefined)));
     if(self.registration.navigationPreload){
       await self.registration.navigationPreload.enable().catch(()=>undefined);
     }
@@ -31,27 +32,20 @@ self.addEventListener('fetch',event=>{
     event.respondWith((async()=>{
       const isPrivate=PRIVATE_NAV_PREFIXES.some(prefix=>url.pathname===prefix||url.pathname.startsWith(prefix+'/'));
       const isAuth=url.pathname.startsWith('/login')||url.pathname.startsWith('/signup')||url.pathname.startsWith('/auth/');
-      const cached=!isAuth&&isPrivate?await caches.match(req):undefined;
-
-      const networkPromise=(async()=>{
-        const preloaded=await event.preloadResponse.catch(()=>undefined);
+      // Never launch an old deployment while online: its chunks may no longer exist.
+      try{
+        const preloaded=await Promise.resolve(event.preloadResponse).catch(()=>undefined);
         const response=preloaded||await fetch(req);
-        if(response.ok&&!isAuth&&isPrivate){
-          const cache=await caches.open(CACHE);
-          await cache.put(req,response.clone());
+        if(response.ok&&!response.redirected&&!isAuth&&isPrivate){
+          try{
+            const cache=await caches.open(CACHE);
+            await cache.put(req,response.clone());
+          }catch{/* Cache storage is optional, including on iOS with limited space. */}
         }
         return response;
-      })();
-
-      if(cached){
-        event.waitUntil(networkPromise.catch(()=>undefined));
-        return cached;
-      }
-
-      try{
-        return await networkPromise;
       }catch{
-        return (await caches.match('/offline'));
+        const cached=!isAuth&&isPrivate?await caches.match(req):undefined;
+        return cached||(await caches.match('/offline'))||Response.error();
       }
     })());
     return;
@@ -78,19 +72,19 @@ self.addEventListener('fetch',event=>{
 
   if(url.pathname.startsWith('/_next/static/')||url.pathname.endsWith('.css')||url.pathname.endsWith('.js')||url.pathname.endsWith('.svg')){
     event.respondWith((async()=>{
-      const cached=await caches.match(req);
-      const network=fetch(req).then(async res=>{
+      try{
+        const res=await fetch(req);
         if(res.ok){
-          const cache=await caches.open(CACHE);
-          await cache.put(req,res.clone());
+          try{
+            const cache=await caches.open(CACHE);
+            await cache.put(req,res.clone());
+          }catch{/* Do not fail a successful request when cache storage is unavailable. */}
         }
+        else return (await caches.match(req))||res;
         return res;
-      }).catch(()=>undefined);
-      if(cached){
-        event.waitUntil(network);
-        return cached;
+      }catch{
+        return (await caches.match(req))||Response.error();
       }
-      return (await network)||Response.error();
     })());
     return;
   }

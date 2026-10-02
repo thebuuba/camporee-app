@@ -6,15 +6,17 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-async function loadServiceWorker({ cachedResponse, networkResponse }) {
+async function loadServiceWorker({ cachedResponse, networkResponse, networkError, cacheError, installError }) {
   const source = await readFile(resolve(root, 'public/sw.js'), 'utf8');
   const listeners = new Map();
   const cacheNames = new Set(['camporee-shell-v11', 'unrelated-cache']);
   let networkRequests = 0;
+  let skippedWaiting = false;
+  const writes = [];
 
   const cache = {
-    addAll: async () => undefined,
-    put: async () => undefined,
+    addAll: async () => { if (installError) throw installError; },
+    put: async (request, response) => { if (cacheError) throw cacheError; writes.push({ request, response }); },
   };
   const caches = {
     open: async () => cache,
@@ -24,8 +26,9 @@ async function loadServiceWorker({ cachedResponse, networkResponse }) {
   };
   const self = {
     addEventListener: (type, listener) => listeners.set(type, listener),
-    skipWaiting: async () => undefined,
+    skipWaiting: async () => { skippedWaiting = true; },
     clients: { claim: async () => undefined },
+    registration: {},
   };
 
   vm.runInNewContext(source, {
@@ -34,16 +37,20 @@ async function loadServiceWorker({ cachedResponse, networkResponse }) {
     clients: {},
     fetch: async () => {
       networkRequests += 1;
+      if (networkError) throw networkError;
       return networkResponse;
     },
     location: { origin: 'https://camporee.test' },
     URL,
     Promise,
+    Response,
   });
 
   return {
     listeners,
     cacheNames,
+    writes,
+    get skippedWaiting() { return skippedWaiting; },
     get networkRequests() {
       return networkRequests;
     },
@@ -69,6 +76,64 @@ test('los estilos estaticos consultan la red antes de reutilizar una copia antig
 
   assert.equal((await response).source, 'network');
   assert.equal(worker.networkRequests, 1);
+});
+
+async function navigate(worker, preloadResponse) {
+  let response;
+  worker.listeners.get('fetch')({
+    request: { method: 'GET', mode: 'navigate', url: 'https://camporee.test/' },
+    preloadResponse,
+    respondWith(value) { response = value; },
+    waitUntil() {},
+  });
+  return response;
+}
+
+test('una apertura online usa HTML actual aunque exista una versión antigua en caché', async () => {
+  const stale = { source: 'old-build', ok: true, clone() { return this; } };
+  const fresh = { source: 'current-build', ok: true, clone() { return this; } };
+  const worker = await loadServiceWorker({ cachedResponse: stale, networkResponse: fresh });
+  assert.equal((await navigate(worker)).source, 'current-build');
+  assert.equal(worker.networkRequests, 1);
+});
+
+test('la apertura usa la página guardada solo cuando falla la conexión', async () => {
+  const stale = { source: 'offline-copy', ok: true, clone() { return this; } };
+  const worker = await loadServiceWorker({ cachedResponse: stale, networkError: new Error('offline') });
+  assert.equal((await navigate(worker)).source, 'offline-copy');
+});
+
+test('un navegador sin precarga y sin espacio de caché puede abrir la versión actual', async () => {
+  const fresh = { source: 'current-build', ok: true, clone() { return this; } };
+  const worker = await loadServiceWorker({ networkResponse: fresh, cacheError: new Error('quota') });
+  assert.equal((await navigate(worker)).source, 'current-build');
+});
+
+test('una redirección al login no reemplaza la página privada guardada', async () => {
+  const login = { source: 'login', ok: true, redirected: true, clone() { return this; } };
+  const worker = await loadServiceWorker({ networkResponse: login });
+  assert.equal((await navigate(worker, Promise.resolve(login))).source, 'login');
+  assert.equal(worker.writes.length, 0);
+});
+
+test('la actualización se instala aunque iOS no permita guardar los recursos iniciales', async () => {
+  const worker = await loadServiceWorker({ installError: new Error('quota') });
+  let installation;
+  worker.listeners.get('install')({ waitUntil(value) { installation = value; } });
+  await installation;
+  assert.equal(worker.skippedWaiting, true);
+});
+
+test('una precarga rechazada vuelve a solicitar la página por red', async () => {
+  const fresh = { source: 'current-build', ok: true, clone() { return this; } };
+  const worker = await loadServiceWorker({ networkResponse: fresh });
+  assert.equal((await navigate(worker, Promise.reject(new Error('preload failed')))).source, 'current-build');
+  assert.equal(worker.networkRequests, 1);
+});
+
+test('sin internet ni copia guardada se devuelve un error de red válido', async () => {
+  const worker = await loadServiceWorker({ networkError: new Error('offline') });
+  assert.equal((await navigate(worker)).type, 'error');
 });
 
 test('al activar una version nueva solo elimina caches anteriores de Camporee', async () => {

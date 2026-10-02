@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#F2EFE8",
-    theme_color: "#F2EFE8",
+    background_color: "#fdf8f5",
+    theme_color: "#fdf8f5",
     orientation: "portrait",
     icons: [
       { src: "/camporee-logo-v8.png", sizes: "512x512", type: "image/png", purpose: "any" },
