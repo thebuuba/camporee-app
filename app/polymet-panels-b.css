@@ -1,4 +1,4 @@
-﻿/* Compact Polymet-inspired panels. Imported by the shared layout. */
+/* Compact Polymet-inspired panels. Imported by the shared layout. */
 .polymet-panel{--pm-bg:#fdf8f5;--pm-ink:#2b211b;--pm-muted:#8b817a;--pm-orange:#ff8c47;--pm-green:#e1ebd6;background:var(--pm-bg);color:var(--pm-ink);min-height:100vh;max-width:440px!important;padding:20px 20px 120px!important;box-shadow:0 0 28px rgba(74,45,26,.05)}
 .polymet-panel .subpage-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .polymet-panel .subpage-top h1{font-size:20px;letter-spacing:-.035em;text-align:left;margin:0;line-height:1.15;color:var(--pm-ink)}
@@ -22,7 +22,7 @@
 .pm-participant-controls button:last-child{display:flex;gap:5px;align-items:center}
 .pm-unit-group{margin-bottom:20px}
 .pm-unit-head{display:flex;justify-content:space-between;align-items:center;color:#81746c;font-size:11px;font-weight:800;letter-spacing:.025em;margin:0 4px 9px}
-.pm-person-list{background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 3px 13px rgba(87,61,43,.045)}
+.pm-person-list{background:#fff;border-radius:22px;overflow:hidden;box-shadow:var(--pm-shadow)}
 .pm-person-row{position:relative;border-bottom:1px solid #f1eeeb}
 .pm-person-row:last-child{border-bottom:0}
 .pm-person-main{border:0;background:transparent;display:flex;align-items:center;width:100%;min-height:68px;padding:10px 16px;text-align:left;gap:11px;color:var(--pm-ink)}
@@ -35,7 +35,7 @@
 .pm-person-delete{position:absolute;right:3px;bottom:1px;border:0;background:transparent;color:#c4aaa0;padding:6px;opacity:.8}
 .pm-person-row:focus-within .pm-person-delete,.pm-person-row:hover .pm-person-delete{opacity:1}
 .pm-list-search{margin-bottom:10px}.pm-list-search .panel-search{background:#fff;border:0;border-radius:999px;min-height:45px;box-shadow:0 3px 12px rgba(89,63,45,.04)}
-.pm-list-card,.pm-meal-card,.pm-inventory-row{background:#fff;border-radius:23px;box-shadow:0 3px 13px rgba(87,61,43,.045);margin:0 0 11px;overflow:hidden}
+.pm-list-card,.pm-meal-card,.pm-inventory-row{background:#fff;border-radius:23px;box-shadow:var(--pm-shadow);margin:0 0 11px;overflow:hidden}
 .pm-list-card-main,.pm-meal-main{display:flex;align-items:center;gap:12px;width:100%;padding:16px;border:0;background:transparent;text-align:left;color:var(--pm-ink)}
 .pm-icon,.pm-meal-icon{width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;border-radius:50%;background:#fae8dd;color:#9d532e}
 .pm-list-card:nth-child(3n+2) .pm-icon{background:#e4ecd9;color:#537341}.pm-list-card:nth-child(3n) .pm-icon{background:#e2f2f9;color:#28779c}

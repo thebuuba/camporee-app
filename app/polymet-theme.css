@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
-:root{--pm-bg:#fdf8f5;--pm-ink:#2b211c;--pm-muted:#827973;--pm-orange:#fa8943;--pm-peach:#fde9dd;--pm-sage:#e2ebd6;--pm-line:#f0e9e3;--pm-shadow:0 3px 10px rgba(120,60,20,.055)}
+:root{--pm-bg:#fdf8f5;--pm-ink:#2b211c;--pm-muted:#827973;--pm-orange:#fa8943;--pm-peach:#fde9dd;--pm-sage:#e2ebd6;--pm-line:#f0e9e3;--pm-shadow:0 4px 14px -4px rgba(120,60,20,.16),0 1px 3px rgba(120,60,20,.08)}
 html,body{font-family:Poppins,ui-sans-serif,system-ui,sans-serif!important;color:var(--pm-ink)!important}
 body{background:#e9f0df!important;background-image:none!important}
 .app{width:100%!important;max-width:440px!important;min-height:100vh!important;margin:0 auto!important;padding:20px 20px calc(112px + env(safe-area-inset-bottom))!important;background:var(--pm-bg)!important;box-shadow:0 18px 55px rgba(62,57,44,.13)!important}

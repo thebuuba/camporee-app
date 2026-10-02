@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
+import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ReliableLink from "@/app/components/reliable-link";
 
@@ -31,6 +31,7 @@ export default async function MorePage() {
   if (membershipError || !membership?.is_active) redirect("/");
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
   const isAdmin = membership.role === "admin";
+  const { count: pendingUsers } = isAdmin ? await supabase.from("app_members").select("user_id", { count: "exact", head: true }).eq("is_active", false) : { count: 0 };
   const role = isAdmin ? "Administrador" : membership.role === "editor" ? "Editor" : "Solo lectura";
   const name = profile?.full_name || authData.user?.email || "Mi perfil";
   const dates = camporee ? `${new Date(`${camporee.starts_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long" })} – ${new Date(`${camporee.ends_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long", year: "numeric" })}` : "Próximamente";
@@ -45,9 +46,9 @@ export default async function MorePage() {
     {camporee ? <div className="polymet-event-banner"><img src="/polymet-camp-hero.svg" alt="" /><div><small>{state}</small><strong>{camporee.name}</strong><span>{dates}</span></div></div> : null}
     <section className="more-grid polymet-more-grid">{modules.map(([Icon, title, copy, href, tone]) => <ReliableLink className="more-card ios-card" href={href} key={title}><span className={`more-icon tone-${tone}`}><Icon size={22}/></span><div><strong>{title}</strong><small>{copy}</small></div></ReliableLink>)}</section>
     <div className="polymet-section-label">ADMINISTRACIÓN</div>
-    <section className="more-grid polymet-more-grid polymet-more-admin">
-      <ReliableLink href="/more/settings" className="more-card ios-card"><span className="more-icon tone-sage"><Settings size={22}/></span><div><strong>Ajustes</strong><small>Camporee y notificaciones</small></div></ReliableLink>
-      {isAdmin ? <ReliableLink href="/more/users" className="more-card ios-card"><span className="more-icon tone-pink"><ShieldCheck size={22}/></span><div><strong>Usuarios y permisos</strong><small>Aprobaciones y roles</small></div></ReliableLink> : null}
+    <section className="polymet-more-admin">
+      <ReliableLink href="/more/settings" className="more-card ios-card"><span className="more-icon"><Settings size={20}/></span><div><strong>Ajustes</strong><small>Camporee y notificaciones</small></div><ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink>
+      {isAdmin ? <ReliableLink href="/more/users" className="more-card ios-card"><span className="more-icon"><ShieldCheck size={20}/></span><div><strong>Usuarios y permisos</strong><small>Aprobaciones y roles</small></div>{pendingUsers ? <span className="polymet-admin-badge">{pendingUsers}</span> : null}<ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink> : null}
     </section>
     <form action="/auth/signout" method="post" className="polymet-signout"><button type="submit"><LogOut size={17}/> Cerrar sesión</button></form>
   </main>;

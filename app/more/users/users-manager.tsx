@@ -1,5 +1,7 @@
 'use client';
 
+import BottomSheet from '@/app/components/bottom-sheet';
+
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -162,19 +164,19 @@ export default function UsersManager({ users }: { users:UserRow[] }) {
             <ChevronDown size={19} className={`member-chevron ${isOpen?'open':''}`}/>
           </button>
 
-          {isOpen ? <form onSubmit={(event) => void saveAccess(event,user)} className='compact-member-editor'>
+          <BottomSheet open={isOpen} onClose={()=>setOpenId(null)} title={display} description={user.email || ""} busy={saving || deleting}><form onSubmit={(event) => void saveAccess(event,user)} className='compact-member-editor'>
             <input type='hidden' name='userId' value={user.user_id}/>
             <div className='member-editor-top'>
               <label><span>Acceso</span><span className='switch'><input type='checkbox' name='isActive' defaultChecked={user.is_active} disabled={user.is_self}/><i/></span></label>
               {user.is_self ? <input type='hidden' name='isActive' value='on'/> : null}
-              <label><span>Rol</span><select name='role' defaultValue={user.role} disabled={user.is_self}><option value='admin'>Administrador</option><option value='editor'>Editor</option><option value='viewer'>Solo lectura</option></select></label>
+              <fieldset className="pm-role-picker"><legend>Rol</legend><div>{[['admin','Administrador','Todo el control'],['editor','Editor','Puede editar'],['viewer','Solo lectura','Solo consultar']].map(([value,label,hint])=><label key={value}><input type="radio" name="role" value={value} defaultChecked={user.role===value} disabled={user.is_self}/><span><strong>{label}</strong><small>{hint}</small></span></label>)}</div></fieldset>
               {user.is_self ? <input type='hidden' name='role' value='admin'/> : null}
             </div>
             <div className='permission-title'><strong>Permisos específicos</strong><small>Activa solo los módulos que esta persona puede editar.</small></div>
             <div className='permission-grid'>{permissionLabels.map(([key,label]) => <label className='permission-chip' key={key}><input type='checkbox' name={key} defaultChecked={Boolean(user.permissions[key])}/><span>{label}</span></label>)}</div>
             <button className='primary-btn member-save' type='submit' disabled={saving}>{saving?<><Loader2 size={16} className='spin'/> Guardando…</>:saved?<><CheckCircle2 size={16}/> Guardado</>:<><ShieldCheck size={16}/> Guardar cambios</>}</button>
             {!user.is_self ? <div className='member-danger-zone'><div><strong>Eliminar cuenta</strong><small>Quita el acceso de forma permanente. El historial del camporee se conserva.</small></div><button className='member-delete-btn' type='button' onClick={() => void removeAccount(user)} disabled={deleting}>{deleting?<Loader2 size={16} className='spin'/>:<Trash2 size={16}/>} {deleting?'Eliminando…':'Eliminar'}</button></div> : null}
-          </form> : null}
+          </form></BottomSheet>
         </article>;
       })}
       {!filtered.length ? <div className='empty compact'>No hay usuarios que coincidan con este filtro.</div> : null}

@@ -1,64 +1,47 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-
 const require = createRequire(import.meta.url);
 const postcss = require('postcss');
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-async function sheetRules() {
-  const css = await readFile(resolve(root, 'app/task-sheet.css'), 'utf8');
-  const rules = new Map();
-
-  postcss.parse(css).walkRules((rule) => {
-    for (const selector of rule.selectors) {
-      const declarations = rules.get(selector.trim()) ?? {};
-      rule.walkDecls((declaration) => {
-        declarations[declaration.prop] = declaration.value;
-      });
-      rules.set(selector.trim(), declarations);
-    }
+const styles = () => readFile(new URL('../app/polymet-sheets.css', import.meta.url), 'utf8');
+function declarations(css, selector) {
+  const result = {};
+  postcss.parse(css).walkRules(rule => {
+    if (rule.parent.type === 'atrule' || !rule.selectors.includes(selector)) return;
+    rule.walkDecls(d => { result[d.prop] = d.value; });
   });
-
-  return rules;
+  return result;
 }
-
-async function desktopRules() {
-  const css = await readFile(resolve(root, 'app/desktop.css'), 'utf8');
-  const rules = new Map();
-  postcss.parse(css).walkRules((rule) => {
-    for (const selector of rule.selectors) {
-      const declarations = rules.get(selector.trim()) ?? {};
-      rule.walkDecls((declaration) => { declarations[declaration.prop] = declaration.value; });
-      rules.set(selector.trim(), declarations);
-    }
+test('el panel Polymet queda anclado abajo y limitado al ancho del teléfono', async () => {
+  const css = await styles();
+  const panel = declarations(css, '.pm-sheet');
+  assert.equal(panel['max-width'], '440px');
+  assert.equal(panel['max-height'], '92dvh');
+  assert.equal(panel['border-radius'], '32px 32px 0 0');
+  assert.equal(declarations(css, '.pm-sheet-frame[open]')['align-items'], 'flex-end');
+});
+test('el contenido del formulario se desplaza sin desplazar las acciones', async () => {
+  const css = await styles();
+  assert.equal(declarations(css, '.pm-sheet-fields')['overflow-y'], 'auto');
+  assert.equal(declarations(css, '.pm-sheet-footer')['flex-shrink'], '0');
+  assert.equal(declarations(css, '.pm-sheet-footer').background, '#fff');
+});
+test('el panel respeta la preferencia de reducir movimiento', async () => {
+  const css = postcss.parse(await styles());
+  let animation;
+  css.walkAtRules('media', rule => {
+    if (rule.params !== '(prefers-reduced-motion:reduce)') return;
+    rule.walkDecls('animation', d => { animation = d.value; });
   });
-  return rules;
-}
-
-test('los paneles de Más comparten el borde completo de tareas', async () => {
-  const rules = await sheetRules();
-
-  assert.deepEqual(rules.get('.more-route-shell .sheet-backdrop'), rules.get('.task-sheet-backdrop'));
-  assert.deepEqual(rules.get('.more-route-shell .sheet-card'), rules.get('.task-edit-sheet'));
-  assert.deepEqual(rules.get('.more-route-shell .sheet-card.is-dragging'), rules.get('.task-edit-sheet.is-dragging'));
+  assert.equal(animation, 'none');
 });
-
-test('el layout de Más activa el gesto compartido para todos sus paneles', async () => {
-  const layout = await readFile(resolve(root, 'app/more/layout.tsx'), 'utf8');
-
-  assert.match(layout, /import MoreSheetBehavior from/);
-  assert.match(layout, /<MoreSheetBehavior\s*\/>/);
-});
-
-test('en escritorio los paneles de Más vuelven a mostrarse centrados', async () => {
-  const rules = await desktopRules();
-
-  assert.equal(rules.get('.more-route-shell .sheet-backdrop')['align-items'], 'center');
-  assert.equal(rules.get('.more-route-shell .sheet-backdrop').padding, '28px');
-  assert.equal(rules.get('.more-route-shell .sheet-card')['border-radius'], '30px');
-  assert.equal(rules.get('.more-route-shell .sheet-card').margin, 'auto');
+test('la animación empieza con el diálogo visible y conserva los tiempos de Polymet', async () => {
+  const css = await styles();
+  assert.equal(declarations(css, '.pm-sheet').animation, undefined);
+  assert.equal(declarations(css, '.pm-sheet-frame[open][data-state=open] .pm-sheet').animation,
+    'pm-sheet-in .5s cubic-bezier(.4,0,.2,1)');
+  assert.equal(declarations(css, '.pm-sheet-frame[data-state=closed] .pm-sheet').animation,
+    'pm-sheet-out .3s cubic-bezier(.4,0,.2,1) forwards');
+  assert.equal(declarations(css, '.pm-sheet-frame::backdrop').animation, 'pm-backdrop-in .15s');
 });
