@@ -78,10 +78,10 @@ test('los estilos estaticos consultan la red antes de reutilizar una copia antig
   assert.equal(worker.networkRequests, 1);
 });
 
-async function navigate(worker, preloadResponse) {
+async function navigate(worker, preloadResponse, path = '/') {
   let response;
   worker.listeners.get('fetch')({
-    request: { method: 'GET', mode: 'navigate', url: 'https://camporee.test/' },
+    request: { method: 'GET', mode: 'navigate', url: `https://camporee.test${path}` },
     preloadResponse,
     respondWith(value) { response = value; },
     waitUntil() {},
@@ -89,12 +89,73 @@ async function navigate(worker, preloadResponse) {
   return response;
 }
 
+test('el cancionero guarda HTML al preparar su copia desde una navegación interna', async () => {
+  const fresh = new Response('<html>Cancionero</html>', {headers:{'Content-Type':'text/html'}});
+  const worker = await loadServiceWorker({networkResponse:fresh});
+  let response;
+  worker.listeners.get('fetch')({request:new Request('https://camporee.test/more/songs',{headers:{Accept:'text/html'}}),respondWith(value){response=value;},waitUntil(){}});
+  assert.ok(response, 'La preparación de la copia debe ser atendida por el service worker');
+  assert.equal(await (await response).text(),'<html>Cancionero</html>');
+  assert.equal(worker.writes.length,1);
+});
+
+test('el cancionero recupera la copia guardada cuando se pierde internet', async () => {
+  const worker = await loadServiceWorker({cachedResponse:new Response('<html>Letra guardada</html>'),networkError:new TypeError('offline')});
+  assert.equal(await (await navigate(worker,undefined,'/more/songs')).text(),'<html>Letra guardada</html>');
+});
+
+async function audioRequest(worker, range) {
+  let response;
+  worker.listeners.get('fetch')({request:new Request('https://camporee.test/audio/contracorriente.mp3',{headers:range?{Range:range}:{}}),respondWith(value){response=value;},waitUntil(){}});
+  return response;
+}
+
+test('Contracorriente se guarda completa aunque el reproductor pida solo un tramo', async()=>{
+  const worker=await loadServiceWorker({networkResponse:new Response('0123456789',{headers:{'Content-Type':'audio/mpeg'}})});
+  const response=await audioRequest(worker,'bytes=2-5');
+  assert.ok(response,'El audio del club debe ser atendido por el service worker');
+  assert.equal(response.status,206);
+  assert.equal(response.headers.get('Content-Range'),'bytes 2-5/10');
+  assert.equal(await response.text(),'2345');
+  assert.equal(await worker.writes[0].response.text(),'0123456789');
+});
+
+test('el audio guardado funciona sin internet y admite saltar a otro tramo', async()=>{
+  const worker=await loadServiceWorker({cachedResponse:new Response('0123456789',{headers:{'Content-Type':'audio/mpeg'}}),networkError:new TypeError('offline')});
+  assert.equal(await (await audioRequest(worker,'bytes=7-')).text(),'789');
+  assert.equal(worker.networkRequests,0);
+});
+
+test('un tramo fuera del audio devuelve 416', async()=>{
+  const worker=await loadServiceWorker({cachedResponse:new Response('0123456789')});
+  const response=await audioRequest(worker,'bytes=20-30');
+  assert.equal(response.status,416);
+  assert.equal(response.headers.get('Content-Range'),'bytes */10');
+});
+
 test('una apertura online usa HTML actual aunque exista una versión antigua en caché', async () => {
   const stale = { source: 'old-build', ok: true, clone() { return this; } };
   const fresh = { source: 'current-build', ok: true, clone() { return this; } };
   const worker = await loadServiceWorker({ cachedResponse: stale, networkResponse: fresh });
   assert.equal((await navigate(worker)).source, 'current-build');
   assert.equal(worker.networkRequests, 1);
+});
+
+test('una visita a Tareas se conserva para volver a abrirla sin internet', async () => {
+  const page = {source:'tasks',ok:true,clone(){return this}};
+  const online = await loadServiceWorker({networkResponse:page});
+  assert.equal((await navigate(online, undefined, '/tasks')).source,'tasks');
+  assert.equal(online.writes[0].request.url,'https://camporee.test/tasks');
+  const offline = await loadServiceWorker({cachedResponse:page,networkError:new Error('offline')});
+  assert.equal((await navigate(offline, undefined, '/tasks')).source,'tasks');
+});
+
+test('las ilustraciones guardadas siguen disponibles cuando falla la red', async () => {
+  const svg = {source:'saved-svg',ok:true,clone(){return this}};
+  const worker = await loadServiceWorker({cachedResponse:svg,networkError:new Error('offline')});
+  let response;
+  worker.listeners.get('fetch')({request:{method:'GET',mode:'same-origin',url:'https://camporee.test/polymet-camp-preparation.svg'},respondWith(value){response=value}});
+  assert.equal((await response).source,'saved-svg');
 });
 
 test('la apertura usa la página guardada solo cuando falla la conexión', async () => {

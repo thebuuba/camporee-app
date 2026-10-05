@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
+import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ReliableLink from "@/app/components/reliable-link";
 
 const modules = [
+  [Music2, "Canciones del club", "Himnos y camporee", "/more/songs", "yellow"],
   [Megaphone, "Avisos", "Mensajes al equipo", "/more/announcements", "peach"],
   [ClipboardCheck, "Pases de lista", "Asistencia y conteos", "/more/attendance", "sage"],
   [Trophy, "Competencias", "Resultados y puntos", "/more/activities", "yellow"],

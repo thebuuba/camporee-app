@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v14';
+const CACHE='camporee-shell-v16';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 
@@ -28,7 +28,32 @@ self.addEventListener('fetch',event=>{
   const url=new URL(req.url);
   if(url.origin!==location.origin)return;
 
-  if(req.mode==='navigate'){
+  if(url.pathname.startsWith('/audio/')&&url.pathname.endsWith('.mp3')){
+    event.respondWith((async()=>{
+      try{
+        let response=await caches.match(url.href);
+        if(!response){
+          // Request the whole file so cached playback can serve any byte range offline.
+          response=await fetch(url.href);
+          if(response.status!==200)return response;
+          try{await (await caches.open(CACHE)).put(url.href,response.clone())}catch{/* Playback still works if storage is full. */}
+        }
+        const range=req.headers.get('range');
+        if(!range)return response;
+        const match=/^bytes=(\d*)-(\d*)$/.exec(range);
+        if(!match||(!match[1]&&!match[2]))return response;
+        const buffer=await response.arrayBuffer(),size=buffer.byteLength;
+        const start=match[1]?Number(match[1]):Math.max(0,size-Number(match[2]));
+        const end=match[1]&&match[2]?Math.min(Number(match[2]),size-1):size-1;
+        if(start>=size||end<start)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${size}`}});
+        return new Response(buffer.slice(start,end+1),{status:206,headers:{'Content-Type':response.headers.get('Content-Type')||'audio/mpeg','Accept-Ranges':'bytes','Content-Range':`bytes ${start}-${end}/${size}`,'Content-Length':String(end-start+1)}});
+      }catch{return Response.error()}
+    })());
+    return;
+  }
+
+  const songSnapshot=url.pathname==='/more/songs'&&req.headers?.get('accept')?.includes('text/html');
+  if(req.mode==='navigate'||songSnapshot){
     event.respondWith((async()=>{
       const isPrivate=PRIVATE_NAV_PREFIXES.some(prefix=>url.pathname===prefix||url.pathname.startsWith(prefix+'/'));
       const isAuth=url.pathname.startsWith('/login')||url.pathname.startsWith('/signup')||url.pathname.startsWith('/auth/');

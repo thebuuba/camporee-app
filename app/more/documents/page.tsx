@@ -19,7 +19,8 @@ export default async function DocumentsPage() {
   const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
   const canEdit = membership.role === 'admin' || membership.role === 'editor' || Boolean(permissions.settings);
   const camporee = camporees?.find((item) => item.status !== 'archived') ?? camporees?.[0];
-  const { data: documents, error: documentsError } = camporee ? await supabase.from('camporee_documents').select('*').eq('camporee_id', camporee.id).order('created_at', { ascending: false }) : { data: [], error: null };
+  const { data: allDocuments, error: documentsError } = camporee ? await supabase.from('camporee_documents').select('*').eq('camporee_id', camporee.id).order('created_at', { ascending: false }) : { data: [], error: null };
+  const documents = allDocuments?.filter(item => !item.document_type?.startsWith('song:')) ?? [];
 
   const contentError = documentsError;
   if (contentError) throw contentError;

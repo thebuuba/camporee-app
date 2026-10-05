@@ -24,6 +24,7 @@ export default function ReliableLink({href,className='',children,ariaLabel}:Reli
 
   function open(event:React.MouseEvent<HTMLAnchorElement>){
     if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    if(!navigator.onLine)return; // Full navigation lets the service worker open saved HTML offline.
     if(pathname===href){event.preventDefault();return;}
     event.preventDefault();
     if(pending)return;

@@ -12,10 +12,6 @@ async function retryQuery<T>(query: () => PromiseLike<SupabaseResult<T>>, attemp
   return result;
 }
 
-async function withTimeout<T>(promise: PromiseLike<T>, ms: number, fallback: T) {
-  return Promise.race([Promise.resolve(promise), wait(ms).then(() => fallback)]);
-}
-
 export async function loadHomeData() {
   const supabase = await createClient();
   let authResult = await supabase.auth.getUser();
@@ -63,15 +59,18 @@ export async function loadHomeData() {
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
   const [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult] = await Promise.all([
-    withTimeout(retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at,phase").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
-    withTimeout(retryQuery(() => supabase.from("participants").select("id,attendance_status").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
-    withTimeout(retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
-    withTimeout(retryQuery(() => supabase.from("income_entries").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
-    withTimeout(retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true }), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
+    retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at,phase").eq("camporee_id", camporee.id)),
+    retryQuery(() => supabase.from("participants").select("id,attendance_status").eq("camporee_id", camporee.id)),
+    retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id)),
+    retryQuery(() => supabase.from("income_entries").select("amount").eq("camporee_id", camporee.id)),
+    retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true })),
     phase === "during"
-      ? withTimeout(retryQuery(() => supabase.from("announcements").select("id,title,message,created_at").eq("camporee_id", camporee.id).eq("priority", "urgent").order("created_at", { ascending: false }).limit(1), 1), 1200, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>)
+      ? retryQuery(() => supabase.from("announcements").select("id,title,message,created_at").eq("camporee_id", camporee.id).eq("priority", "urgent").order("created_at", { ascending: false }).limit(1))
       : Promise.resolve({ data: [], error: null } as SupabaseResult<any[]>),
   ]);
+
+  const contentError = [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult].find(result => result.error)?.error;
+  if (contentError) throw new Error(contentError.message || "No se pudieron cargar los datos del camporee.");
 
   const tasks = taskResult.data ?? [];
   const events = eventResult.data ?? [];

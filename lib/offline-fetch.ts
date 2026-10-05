@@ -94,7 +94,7 @@ export async function flushOfflineWrites(authOverride?: string): Promise<{ remai
     }
     const count = await getOfflineQueueCount();
     window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
-    if (count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
+    if (queued.length > 0 && count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
     if (failed) window.dispatchEvent(new CustomEvent('camporee:sync-error', { detail: { count } }));
     return { remaining:count, failed };
   } finally { flushing = false; }
