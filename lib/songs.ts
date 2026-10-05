@@ -20,6 +20,7 @@ export function songsFromDocuments(documents: SongDocument[]): Song[] {
     return { id: item.id, title: item.title, category: Object.hasOwn(songCategories, category) ? category : 'club', lyrics, chords, audioUrl: safeAudioUrl(item.external_url ?? ''), stored: true };
   });
   const starters: Song[] = [
+    { id: 'maranata', title: 'Maranata', category: 'club', lyrics: '', chords: '', audioUrl: '/audio/maranata.mp3', stored: false },
     { id: 'contracorriente', title: 'Contracorriente', category: 'club', lyrics: '', chords: '', audioUrl: '/audio/contracorriente.mp3', stored: false },
     { id: 'conquistadores', title: 'Himno de los Conquistadores', category: 'hymns', lyrics: '', chords: '', audioUrl: '', stored: false },
     { id: 'guias-mayores', title: 'Himno de los Guías Mayores', category: 'hymns', lyrics: '', chords: '', audioUrl: 'https://www.youtube.com/watch?v=HMxR70jNmlU', stored: false },
