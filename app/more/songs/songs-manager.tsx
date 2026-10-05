@@ -24,18 +24,6 @@ export default function SongsManager({ camporeeId, userId, canEdit, initialSongs
   const router = useRouter();
   const player = useMusicPlayer();
   useEffect(() => { setSongs(initialSongs); }, [initialSongs]);
-  useEffect(() => {
-    // Save the HTML snapshot even when this page was reached through client navigation.
-    const prepare = () => {
-      if (!navigator.onLine || !navigator.serviceWorker?.controller) return;
-      const resources = Array.from(document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>('script[src],link[rel="stylesheet"]')).map(element => element instanceof HTMLScriptElement ? element.src : element.href).filter(url => new URL(url).origin === location.origin);
-      void Promise.all([fetch('/more/songs', { headers: { Accept: 'text/html' } }), ...resources.map(url => fetch(url))]).catch(() => undefined);
-    };
-    prepare();
-    navigator.serviceWorker?.addEventListener('controllerchange', prepare);
-    window.addEventListener('online', prepare);
-    return () => { navigator.serviceWorker?.removeEventListener('controllerchange', prepare); window.removeEventListener('online', prepare); };
-  }, [initialSongs]);
   useEffect(() => { player.setSongs(songs, `${userId}:${camporeeId}`); }, [songs, userId, camporeeId, player.setSongs]);
   useEffect(() => { if (selected) void player.prepareSong(selected).catch(() => undefined); }, [selected, player.prepareSong]);
   const text = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();

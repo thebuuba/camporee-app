@@ -19,6 +19,7 @@ export default function BottomNav() {
   const fallbackTimer = useRef<number|null>(null);
 
   useEffect(() => {
+    if (!navigator.onLine) return;
     for (const [href] of items) router.prefetch(href);
   }, [router]);
 
@@ -30,6 +31,7 @@ export default function BottomNav() {
   useEffect(()=>()=>{if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current)},[]);
 
   function beginNavigation(href:string, routeActive:boolean){
+    if(!navigator.onLine)return;
     if(routeActive)return;
     setPendingHref(href);
     if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current);
@@ -52,7 +54,10 @@ export default function BottomNav() {
             aria-current={routeActive ? "page" : undefined}
             aria-busy={pendingHref===href||undefined}
             onPointerDown={() => beginNavigation(href,routeActive)}
-            onClick={() => beginNavigation(href,routeActive)}
+            onClick={event => {
+              if (!navigator.onLine) { event.preventDefault(); window.location.assign(href); return; }
+              beginNavigation(href,routeActive);
+            }}
           >
             <span className="nav-icon"><Icon size={22} strokeWidth={2.2} /></span>
             <span className="nav-label">{label}</span>

@@ -1,6 +1,24 @@
-const CACHE='camporee-shell-v17';
+const CACHE='camporee-shell-v18';
+const PAGES='camporee-pages-v1';
+const ASSETS='camporee-assets-v1';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
-const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
+const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search','/profile'];
+const isPrivatePage=path=>PRIVATE_NAV_PREFIXES.some(prefix=>path===prefix||path.startsWith(prefix+'/'));
+let privateEpoch=0;
+let privateClears=0;
+async function clearPrivatePages(){
+  privateEpoch++;
+  privateClears++;
+  try{
+    await caches.delete(PAGES).catch(()=>undefined);
+    for(const key of await caches.keys()){
+      if(!key.startsWith('camporee-shell-'))continue;
+      const cache=await caches.open(key);
+      for(const request of await cache.keys())if(isPrivatePage(new URL(request.url).pathname))await cache.delete(request);
+    }
+  }finally{privateClears--}
+}
+self.addEventListener('message',event=>{if(event.data?.type==='CLEAR_PRIVATE_PAGES')event.waitUntil(clearPrivatePages());});
 
 self.addEventListener('install',event=>{
   event.waitUntil(
@@ -13,8 +31,27 @@ self.addEventListener('install',event=>{
 
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
+    const migrationEpoch=privateEpoch;
     const keys=await caches.keys().catch(()=>[]);
-    await Promise.all(keys.filter(k=>k.startsWith('camporee-shell-')&&k!==CACHE).map(k=>caches.delete(k).catch(()=>undefined)));
+    // Preserve visited pages and their original chunks across app updates.
+    for(const key of keys.filter(k=>k.startsWith('camporee-shell-')&&k!==CACHE)){
+      try{
+        const previous=await caches.open(key);
+        for(const request of await previous.keys()){
+          const url=new URL(request.url);
+          const target=isPrivatePage(url.pathname)?PAGES:url.pathname.startsWith('/_next/static/')||/\.(css|js|svg)$/.test(url.pathname)?ASSETS:null;
+          if(!target)continue;
+          if(target===PAGES&&(migrationEpoch!==privateEpoch||privateClears))continue;
+          if(await caches.match(request,{cacheName:target}))continue;
+          const response=await previous.match(request);
+          if(response){
+            const destination=await caches.open(target);
+            if(target!==PAGES||(migrationEpoch===privateEpoch&&!privateClears))await destination.put(request,response);
+          }
+        }
+        await caches.delete(key);
+      }catch{/* Keep the old cache if migration cannot finish (for example, storage quota). */}
+    }
     if(self.registration.navigationPreload){
       await self.registration.navigationPreload.enable().catch(()=>undefined);
     }
@@ -24,9 +61,10 @@ self.addEventListener('activate',event=>{
 
 self.addEventListener('fetch',event=>{
   const req=event.request;
-  if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.origin!==location.origin)return;
+  if((req.mode==='navigate'&&/^\/(login|signup)(\/|$)/.test(url.pathname))||url.pathname.startsWith('/auth/'))event.waitUntil(clearPrivatePages());
+  if(req.method!=='GET')return;
 
   if(url.pathname.startsWith('/audio/')&&url.pathname.endsWith('.mp3')){
     event.respondWith((async()=>{
@@ -52,24 +90,27 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  const songSnapshot=url.pathname==='/more/songs'&&req.headers?.get('accept')?.includes('text/html');
-  if(req.mode==='navigate'||songSnapshot){
+  const pageSnapshot=isPrivatePage(url.pathname)&&req.headers?.get('accept')?.includes('text/html');
+  if(req.mode==='navigate'||pageSnapshot){
+    const requestEpoch=privateEpoch;
     event.respondWith((async()=>{
-      const isPrivate=PRIVATE_NAV_PREFIXES.some(prefix=>url.pathname===prefix||url.pathname.startsWith(prefix+'/'));
+      const isPrivate=isPrivatePage(url.pathname);
       const isAuth=url.pathname.startsWith('/login')||url.pathname.startsWith('/signup')||url.pathname.startsWith('/auth/');
       // Never launch an old deployment while online: its chunks may no longer exist.
       try{
         const preloaded=await Promise.resolve(event.preloadResponse).catch(()=>undefined);
         const response=preloaded||await fetch(req);
-        if(response.ok&&!response.redirected&&!isAuth&&isPrivate){
+        if(response.ok&&!response.redirected&&!isAuth&&isPrivate&&requestEpoch===privateEpoch&&!privateClears){
           try{
-            const cache=await caches.open(CACHE);
-            await cache.put(req,response.clone());
+            const cache=await caches.open(PAGES);
+            if(requestEpoch===privateEpoch&&!privateClears)await cache.put(req,response.clone());
           }catch{/* Cache storage is optional, including on iOS with limited space. */}
         }
         return response;
       }catch{
-        const cached=!isAuth&&isPrivate?await caches.match(req):undefined;
+        let cached;
+        if(!isAuth&&isPrivate&&!privateClears&&requestEpoch===privateEpoch)cached=(await caches.match(req,{cacheName:PAGES}))||(await caches.match(req));
+        if(privateClears||requestEpoch!==privateEpoch)cached=undefined;
         return cached||(await caches.match('/offline'))||Response.error();
       }
     })());
@@ -101,7 +142,7 @@ self.addEventListener('fetch',event=>{
         const res=await fetch(req);
         if(res.ok){
           try{
-            const cache=await caches.open(CACHE);
+            const cache=await caches.open(ASSETS);
             await cache.put(req,res.clone());
           }catch{/* Do not fail a successful request when cache storage is unavailable. */}
         }

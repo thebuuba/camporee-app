@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-async function loadServiceWorker({ cachedResponse, networkResponse, networkError, cacheError, installError }) {
+async function loadServiceWorker({ cachedResponse, networkResponse, networkError, cacheError, installError, oldEntries = new Map(), networkFetch, cacheMatch, cacheDelete }) {
   const source = await readFile(resolve(root, 'public/sw.js'), 'utf8');
   const listeners = new Map();
   const cacheNames = new Set(['camporee-shell-v11', 'unrelated-cache']);
@@ -16,13 +16,15 @@ async function loadServiceWorker({ cachedResponse, networkResponse, networkError
 
   const cache = {
     addAll: async () => { if (installError) throw installError; },
+    keys: async () => [],
+    delete: async () => true,
     put: async (request, response) => { if (cacheError) throw cacheError; writes.push({ request, response }); },
   };
   const caches = {
-    open: async () => cache,
-    match: async () => cachedResponse,
+    open: async (name) => ({ ...cache, keys: async () => name === 'camporee-shell-v11' ? [...oldEntries.keys()].map(url => new Request(url)) : [], match: async request => oldEntries.get(request.url)?.clone(), delete: async request => oldEntries.delete(request.url), put: async (request,response) => { if(cacheError) throw cacheError; writes.push({request,response,cacheName:name}); } }),
+    match: async (request,options) => cacheMatch ? cacheMatch(request,options) : cachedResponse,
     keys: async () => [...cacheNames],
-    delete: async (name) => cacheNames.delete(name),
+    delete: async (name) => cacheDelete ? cacheDelete(name) : cacheNames.delete(name),
   };
   const self = {
     addEventListener: (type, listener) => listeners.set(type, listener),
@@ -35,8 +37,9 @@ async function loadServiceWorker({ cachedResponse, networkResponse, networkError
     self,
     caches,
     clients: {},
-    fetch: async () => {
+    fetch: async (request) => {
       networkRequests += 1;
+      if (networkFetch) return networkFetch(request);
       if (networkError) throw networkError;
       return networkResponse;
     },
@@ -214,11 +217,13 @@ test('al activar una version nueva solo elimina caches anteriores de Camporee', 
 
 test('en desarrollo se desactiva el service worker y se limpia su cache', async () => {
   const source = await readFile(resolve(root, 'app/components/pwa-register.tsx'), 'utf8');
-  let effect;
+  const effects = [];
   let registrationActive = true;
   const cacheNames = new Set(['camporee-shell-v11', 'unrelated-cache']);
   const sandbox = {
-    useEffect: (callback) => { effect = callback; },
+    useEffect: (callback) => { effects.push(callback); },
+    usePathname: () => "/",
+    useRef: value => ({current:value}),
     navigator: {
       serviceWorker: {
         getRegistration: async () => ({
@@ -244,15 +249,68 @@ test('en desarrollo se desactiva el service worker y se limpia su cache', async 
   };
 
   const executable = source
+    .replace('new Set<AbortController>()', 'new Set()')
     .replace(/^['"]use client['"];\s*/m, '')
-    .replace(/^import \{ useEffect \} from ['"]react['"];\s*/m, '')
+    .replace(/^import \{ useEffect, useRef \} from ['"]react['"];\s*/m, '')
+    .replace(/^import \{ usePathname \} from ['"]next\/navigation['"];\s*/m, '')
     .replace('export default function PwaRegister', 'function PwaRegister')
     .concat('\nPwaRegister();');
   vm.runInNewContext(executable, sandbox);
-  effect();
+  effects[0]();
   await new Promise((resolvePromise) => setImmediate(resolvePromise));
   await new Promise((resolvePromise) => setImmediate(resolvePromise));
 
   assert.equal(registrationActive, false);
   assert.deepEqual([...cacheNames], ['unrelated-cache']);
+});
+
+test('las actualizaciones conservan las paginas visitadas y los chunks de su version anterior',async()=>{
+  const oldEntries=new Map([
+    ['https://camporee.test/',new Response('<html>Inicio guardado</html>',{headers:{'Content-Type':'text/html'}})],
+    ['https://camporee.test/_next/static/old.js',new Response('old bundle')],
+  ]);
+  const worker=await loadServiceWorker({oldEntries});let activation;
+  worker.listeners.get('activate')({waitUntil:promise=>{activation=promise}});await activation;
+  assert.equal(worker.writes.length,2);
+  assert.equal(worker.writes[0].cacheName,'camporee-pages-v1');assert.equal(await worker.writes[0].response.text(),'<html>Inicio guardado</html>');
+  assert.equal(worker.writes[1].cacheName,'camporee-assets-v1');assert.equal(worker.cacheNames.has('camporee-shell-v11'),false);
+});
+test('si no hay espacio para migrar una actualizacion no borra la copia anterior',async()=>{
+  const worker=await loadServiceWorker({oldEntries:new Map([['https://camporee.test/',new Response('Inicio')]]),cacheError:new Error('quota')});let activation;
+  worker.listeners.get('activate')({waitUntil:promise=>{activation=promise}});await activation;
+  assert.equal(worker.cacheNames.has('camporee-shell-v11'),true);
+});
+test('la preparacion de cualquier panel guarda HTML, no solo el cancionero',async()=>{
+  const worker=await loadServiceWorker({networkResponse:new Response('<html>Tareas</html>')});let response;
+  worker.listeners.get('fetch')({request:new Request('https://camporee.test/tasks',{headers:{Accept:'text/html'}}),respondWith:value=>{response=value}});
+  assert.ok(response);assert.equal(await (await response).text(),'<html>Tareas</html>');assert.equal(worker.writes[0].cacheName,'camporee-pages-v1');
+});
+
+test('cerrar sesion impide que una peticion privada pendiente vuelva a guardar datos',async()=>{
+  let finish;const pending=new Promise(resolve=>{finish=resolve});
+  const worker=await loadServiceWorker({networkFetch:request=>request.url.endsWith('/tasks')?pending:Promise.resolve(new Response('Login'))});
+  const oldPage=navigate(worker,undefined,'/tasks');
+  await navigate(worker,undefined,'/login');finish(new Response('PRIVATE OLD SESSION'));await oldPage;
+  assert.equal(worker.writes.length,0);
+});
+test('el cambio de sesion tambien borra paginas de una cache antigua retenida',async()=>{
+  const oldEntries=new Map([['https://camporee.test/tasks',new Response('Private')],['https://camporee.test/_next/static/old.js',new Response('bundle')]]);
+  const worker=await loadServiceWorker({oldEntries});let clearing;
+  worker.listeners.get('message')({data:{type:'CLEAR_PRIVATE_PAGES'},waitUntil:value=>{clearing=value}});await clearing;
+  assert.equal(oldEntries.has('https://camporee.test/tasks'),false);assert.equal(oldEntries.has('https://camporee.test/_next/static/old.js'),true);
+});
+
+test('una lectura de cache pendiente no devuelve datos privados si se cambia la sesion',async()=>{
+  let finish;const pending=new Promise(resolve=>{finish=resolve});
+  const worker=await loadServiceWorker({networkError:new Error('offline'),cacheMatch:request=>String(request.url??request).endsWith('/offline')?new Response('Offline fallback'):pending});
+  const oldPage=navigate(worker,undefined,'/tasks');await new Promise(resolve=>setImmediate(resolve));let clearing;
+  worker.listeners.get('message')({data:{type:'CLEAR_PRIVATE_PAGES'},waitUntil:value=>{clearing=value}});await clearing;
+  finish(new Response('PRIVATE OLD SESSION'));assert.equal(await (await oldPage).text(),'Offline fallback');
+});
+test('no recupera paginas privadas mientras se limpian las caches de otra sesion',async()=>{
+  let finish;const pending=new Promise(resolve=>{finish=resolve});let privateReads=0;
+  const worker=await loadServiceWorker({networkError:new Error('offline'),cacheDelete:()=>pending,cacheMatch:request=>{if(String(request.url??request).endsWith('/offline'))return new Response('Offline fallback');privateReads++;return new Response('PRIVATE OLD SESSION')}});let clearing;
+  worker.listeners.get('message')({data:{type:'CLEAR_PRIVATE_PAGES'},waitUntil:value=>{clearing=value}});
+  assert.equal(await (await navigate(worker,undefined,'/tasks')).text(),'Offline fallback');assert.equal(privateReads,0);
+  finish(true);await clearing;
 });

@@ -67,15 +67,6 @@ async function renderSongs({canEdit=true, controller=null, supabase, audioFile}=
   return {effects,listeners,requests,serviceWorker,form:find(tree,node=>node.type==='form')};
 }
 
-test('la primera visita prepara la copia al tomar control el service worker',async()=>{
-  const view=await renderSongs();
-  const cleanup=view.effects[1]();
-  assert.equal(view.requests.length,0);
-  view.serviceWorker.controller={};view.listeners.get('controllerchange')();
-  assert.deepEqual(view.requests,['/more/songs']);
-  cleanup();assert.equal(view.listeners.size,0);
-});
-
 test('un usuario de solo lectura no puede enviar el formulario de canciones',async()=>{
   let writes=0;const view=await renderSongs({canEdit:false,supabase:{from(){writes++}}});
   view.form.props.onSubmit({preventDefault(){},currentTarget:{}});
