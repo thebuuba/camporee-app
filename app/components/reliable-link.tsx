@@ -31,7 +31,7 @@ export default function ReliableLink({href,className='',children,ariaLabel}:Reli
     setPending(true);
     router.push(href);
     timerRef.current=window.setTimeout(()=>{
-      if(window.location.pathname!==href)window.location.assign(href);
+      if(window.location.pathname!==href&&!document.querySelector('audio[data-camporee-player][src]'))window.location.assign(href);
     },2200);
   }
 

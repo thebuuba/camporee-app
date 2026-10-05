@@ -34,6 +34,8 @@ import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";
 import AppSplash from "./components/app-splash";
+import MusicPlayer from "./components/music-player";
+import "./music-player.css";
 
 const appBackground = "#fdf8f5";
 
@@ -59,5 +61,5 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const launchStyle = { backgroundColor: appBackground, colorScheme: "light" as const };
-  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content={appBackground} /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=11" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=11" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=11" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness />{children}</body></html>;
+  return <html lang="es" style={launchStyle}><head><meta name="theme-color" content={appBackground} /><meta name="color-scheme" content="light" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=11" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=11" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=11" /></head><body style={launchStyle}><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness /><MusicPlayer>{children}</MusicPlayer></body></html>;
 }

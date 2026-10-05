@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Download, ExternalLink, Music2, Pencil, Plus, Search, X } from 'lucide-react';
 import BottomSheet from '@/app/components/bottom-sheet';
+import { useMusicPlayer } from '@/app/components/music-player';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 import { safeAudioUrl, songCategories, songPayload, songsFromDocuments, type Song } from '@/lib/songs';
@@ -18,6 +19,7 @@ export default function SongsManager({ camporeeId, userId, canEdit, initialSongs
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const player = useMusicPlayer();
   useEffect(() => { setSongs(initialSongs); }, [initialSongs]);
   useEffect(() => {
     // Save the HTML snapshot even when this page was reached through client navigation.
@@ -31,6 +33,7 @@ export default function SongsManager({ camporeeId, userId, canEdit, initialSongs
     window.addEventListener('online', prepare);
     return () => { navigator.serviceWorker?.removeEventListener('controllerchange', prepare); window.removeEventListener('online', prepare); };
   }, [initialSongs]);
+  useEffect(() => { player.setSongs(songs); }, [songs, player.setSongs]);
   const text = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const visible = songs.filter(song => (category === 'all' || song.category === category) && text(`${song.title} ${song.lyrics}`).includes(text(query)));
   function openEditor(song: Song | null) { setSelected(null); setEditing(song); setError(''); setOpen(true); }
@@ -57,7 +60,7 @@ export default function SongsManager({ camporeeId, userId, canEdit, initialSongs
     {canEdit ? <button type="button" className="panel-add" onClick={() => openEditor(null)}><Plus size={18} aria-hidden="true"/> Canción</button> : null}
     <section className="panel-list song-list" aria-label="Canciones">{visible.length ? visible.map(song => <button type="button" className="panel-row ios-card song-row" key={song.id} onClick={() => setSelected(song)}><span className={`more-icon tone-${song.category === 'hymns' ? 'yellow' : song.category === 'camporee' ? 'peach' : 'sage'}`}><Music2 size={22} aria-hidden="true"/></span><span className="panel-row-copy"><strong>{song.title}</strong><small>{songCategories[song.category]} · {song.lyrics ? 'Letra disponible' : song.audioUrl ? 'Audio disponible' : 'Por completar'}</small></span><ChevronRight size={18} aria-hidden="true"/></button>) : <div className="empty compact">{query ? 'No hay canciones que coincidan con tu búsqueda.' : 'Todavía no hay canciones en esta categoría.'}</div>}</section>
     <BottomSheet open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.title ?? ''} description={selected ? songCategories[selected.category] : ''} footer={canEdit ? <button type="button" className="primary-btn" onClick={() => openEditor(selected)}><Pencil size={16} aria-hidden="true"/> {selected?.stored ? 'Editar canción' : 'Completar canción'}</button> : undefined}>
-      {selected ? <div className="song-detail">{selected.lyrics ? <section><h3>Letra</h3><p className="song-lyrics">{selected.lyrics}</p></section> : <p className="empty compact">La letra aún no se ha agregado.</p>}{selected.chords ? <section><h3>Acordes</h3><pre className="song-chords">{selected.chords}</pre></section> : null}{safeAudioUrl(selected.audioUrl).startsWith('/audio/') ? <section className="song-player"><h3>Audio</h3><audio controls preload="none" src={selected.audioUrl} aria-label={`Reproducir ${selected.title}`}/><a className="primary-btn song-audio" href={selected.audioUrl} download><Download size={17} aria-hidden="true"/> Descargar MP3</a></section> : safeAudioUrl(selected.audioUrl) ? <a className="primary-btn song-audio" href={safeAudioUrl(selected.audioUrl)} target="_blank" rel="noopener noreferrer"><ExternalLink size={17} aria-hidden="true"/> Abrir audio</a> : null}</div> : null}
+      {selected ? <div className="song-detail">{selected.lyrics ? <section><h3>Letra</h3><p className="song-lyrics">{selected.lyrics}</p></section> : <p className="empty compact">La letra aún no se ha agregado.</p>}{selected.chords ? <section><h3>Acordes</h3><pre className="song-chords">{selected.chords}</pre></section> : null}{safeAudioUrl(selected.audioUrl).startsWith('/audio/') ? <section className="song-player"><h3>Audio</h3><button type="button" className="primary-btn song-audio" onClick={() => { if (player.current?.audioUrl === selected.audioUrl) player.showPlayer(); else player.playSong(selected); }}><Music2 size={18} aria-hidden="true"/> {player.current?.audioUrl === selected.audioUrl ? 'Ver reproductor' : 'Reproducir'}</button><a className="primary-btn song-audio" href={selected.audioUrl} download><Download size={17} aria-hidden="true"/> Descargar MP3</a></section> : safeAudioUrl(selected.audioUrl) ? <a className="primary-btn song-audio" href={safeAudioUrl(selected.audioUrl)} target="_blank" rel="noopener noreferrer"><ExternalLink size={17} aria-hidden="true"/> Abrir audio</a> : null}</div> : null}
     </BottomSheet>
     <BottomSheet open={open} onClose={() => { if (!saving) setOpen(false); }} title={editing ? 'Editar canción' : 'Nueva canción'} busy={saving}>
       <form className="panel-form pm-sheet-form" onSubmit={event => { event.preventDefault(); void save(new FormData(event.currentTarget)); }}>

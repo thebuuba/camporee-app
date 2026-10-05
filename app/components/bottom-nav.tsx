@@ -34,7 +34,7 @@ export default function BottomNav() {
     setPendingHref(href);
     if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current);
     fallbackTimer.current=window.setTimeout(()=>{
-      if(window.location.pathname!==href)window.location.assign(href);
+      if(window.location.pathname!==href&&!document.querySelector('audio[data-camporee-player][src]'))window.location.assign(href);
     },2200);
   }
 
