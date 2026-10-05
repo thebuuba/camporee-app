@@ -1,6 +1,6 @@
 export const songCategories = { hymns: 'Himnos', camporee: 'Camporee', club: 'Del club' } as const;
-export type Song = { id: string; title: string; category: keyof typeof songCategories; lyrics: string; chords: string; audioUrl: string; stored: boolean };
-type SongDocument = { id: string; title: string; document_type: string | null; notes?: string | null; external_url?: string | null };
+export type Song = { id: string; title: string; category: keyof typeof songCategories; lyrics: string; chords: string; audioUrl: string; filePath?: string; stored: boolean };
+type SongDocument = { id: string; title: string; document_type: string | null; notes?: string | null; external_url?: string | null; file_path?: string | null };
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 export function safeAudioUrl(value: string) {
   if (/^\/audio\/[a-z0-9-]+\.mp3$/.test(value)) return value;
@@ -17,7 +17,7 @@ export function songsFromDocuments(documents: SongDocument[]): Song[] {
       lyrics = typeof content?.lyrics === 'string' ? content.lyrics : '';
       chords = typeof content?.chords === 'string' ? content.chords : '';
     } catch { /* Older text documents can contain a plain lyric. */ }
-    return { id: item.id, title: item.title, category: Object.hasOwn(songCategories, category) ? category : 'club', lyrics, chords, audioUrl: safeAudioUrl(item.external_url ?? ''), stored: true };
+    return { id: item.id, title: item.title, category: Object.hasOwn(songCategories, category) ? category : 'club', lyrics, chords, audioUrl: safeAudioUrl(item.external_url ?? ''), stored: true, ...(item.file_path ? { filePath: item.file_path } : {}) };
   });
   const starters: Song[] = [
     { id: 'maranata', title: 'Maranata', category: 'club', lyrics: '', chords: '', audioUrl: '/audio/maranata.mp3', stored: false },
@@ -40,4 +40,16 @@ export function songPayload(fields: FormData) {
   if (!Object.hasOwn(songCategories, category)) throw new Error('Selecciona una categoría válida.');
   if (audio && !safeAudioUrl(audio)) throw new Error('El enlace de audio debe comenzar con https://.');
   return { title, document_type: `song:${category}`, notes: JSON.stringify({ lyrics: String(fields.get('lyrics') ?? '').trim(), chords: String(fields.get('chords') ?? '').trim() }), external_url: audio ? safeAudioUrl(audio) : null };
+}
+
+export function isPlayableSong(song: Pick<Song, 'audioUrl' | 'filePath'>) {
+  return Boolean(song.filePath) || safeAudioUrl(song.audioUrl).startsWith('/audio/') || /\.(mp3|m4a|ogg|wav|aac|opus|flac)(?:[?#]|$)/i.test(safeAudioUrl(song.audioUrl));
+}
+export function audioFileType(file: Pick<File, 'name' | 'type' | 'size'>) {
+  const types: Record<string, string> = { mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav', aac: 'audio/aac', opus: 'audio/ogg', flac: 'audio/flac' };
+  const mime = types[file.name.split('.').pop()?.toLowerCase() ?? ''];
+  if (!mime || (file.type && !file.type.startsWith('audio/') && file.type !== 'application/octet-stream')) throw new Error('Selecciona un archivo de audio MP3, M4A, OGG, WAV, AAC, OPUS o FLAC.');
+  if (!file.size) throw new Error('El archivo de audio está vacío.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('El audio debe pesar como máximo 15 MB.');
+  return mime;
 }

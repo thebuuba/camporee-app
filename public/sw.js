@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v16';
+const CACHE='camporee-shell-v17';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search'];
 

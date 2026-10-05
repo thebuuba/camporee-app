@@ -54,14 +54,14 @@ test('un título o categoría inválidos no se guardan', async () => {
   assert.throws(()=>songPayload(fields),/categoría/i);
 });
 
-async function renderSongs({canEdit=true, controller=null, supabase}={}) {
+async function renderSongs({canEdit=true, controller=null, supabase, audioFile}={}) {
   const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');await loadBindings();
   const {code}=await transform(await readFile(new URL('../app/more/songs/songs-manager.tsx',import.meta.url),'utf8'),{filename:'songs-manager.tsx',jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const effects=[],listeners=new Map(),requests=[];
   const serviceWorker={controller,addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:(name)=>listeners.delete(name)};
   const jsx=(type,props)=>({type,props});const module={exports:{}};
-  const modules={'react/jsx-runtime':{jsx,jsxs:jsx},react:{useEffect:fn=>effects.push(fn),useState:value=>[value,()=>{}]},'next/navigation':{useRouter:()=>({refresh(){}})},'lucide-react':{},'@/app/components/music-player':{useMusicPlayer:()=>({current:null,setSongs(){}})},'@/app/components/bottom-sheet':()=>null,'@/lib/supabase/client':{createClient:()=>supabase},'@/lib/client-ui':{reportMutationError:()=>'',reportMutationSuccess:()=>{}},'@/lib/songs':await library()};
-  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:true,serviceWorker},window:{addEventListener(){},removeEventListener(){}},document:{querySelectorAll:()=>[]},fetch:async url=>{requests.push(url)},FormData:class{constructor(){const fields=new FormData();fields.set('title','Canción del club');fields.set('category','club');fields.set('lyrics','Nuestra letra');return fields}}});
+  const modules={'react/jsx-runtime':{jsx,jsxs:jsx},react:{useEffect:fn=>effects.push(fn),useState:value=>[value,()=>{}]},'next/navigation':{useRouter:()=>({refresh(){}})},'lucide-react':{},'@/app/components/music-player':{useMusicPlayer:()=>({current:null,downloads:[],downloading:'',setSongs(){}})},'@/app/components/bottom-sheet':()=>null,'@/lib/supabase/client':{createClient:()=>supabase},'@/lib/client-ui':{reportMutationError:()=>'',reportMutationSuccess:()=>{}},'@/lib/songs':await library(),'@/lib/song-downloads':await import('../lib/song-downloads.ts')};
+  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:true,serviceWorker},window:{addEventListener(){},removeEventListener(){}},document:{querySelectorAll:()=>[]},fetch:async url=>{requests.push(url)},crypto,FormData:class{constructor(){const fields=new FormData();fields.set('title','Canción del club');fields.set('category','club');fields.set('lyrics','Nuestra letra');if(audioFile)fields.set('audio_file',audioFile);return fields}}});
   const tree=module.exports.default({camporeeId:'event',userId:'user',canEdit,initialSongs:[]});
   function find(node,predicate){if(!node||typeof node!=='object')return;if(predicate(node))return node;for(const child of [node.props?.children].flat()){const result=find(child,predicate);if(result)return result}}
   return {effects,listeners,requests,serviceWorker,form:find(tree,node=>node.type==='form')};
@@ -87,4 +87,28 @@ test('el formulario guarda la letra en el camporee compartido',async()=>{
   const view=await renderSongs({supabase:{from(table){assert.equal(table,'camporee_documents');return {insert(value){payload=value;return this},select(){return this},async single(){done();return {data:{id:'new',...payload},error:null}}}}}});
   view.form.props.onSubmit({preventDefault(){},currentTarget:{}});await saved;
   assert.equal(payload.camporee_id,'event');assert.equal(payload.created_by,'user');assert.equal(payload.document_type,'song:club');assert.equal(JSON.parse(payload.notes).lyrics,'Nuestra letra');
+});
+
+test('archivos de audio compartidos se reproducen y conservan su ruta privada', async () => {
+  const {songsFromDocuments,isPlayableSong,audioFileType}=await library();
+  const song=songsFromDocuments([{id:'upload',title:'Audio del teléfono',document_type:'song:club',file_path:'event/songs/audio.m4a'}]).find(s=>s.id==='upload');
+  assert.equal(song.filePath,'event/songs/audio.m4a');assert.equal(isPlayableSong(song),true);
+  assert.equal(audioFileType({name:'grabacion.m4a',type:'audio/mp4',size:100}),'audio/mp4');
+  assert.throws(()=>audioFileType({name:'texto.txt',type:'text/plain',size:100}),/audio/i);
+  assert.throws(()=>audioFileType({name:'grande.mp3',type:'audio/mpeg',size:16*1024*1024}),/15 MB/);
+});
+
+
+test('el audio del teléfono se sube y se guarda en el documento compartido',async()=>{
+  const file=new File(['audio original'],'club.mp3',{type:'audio/mpeg'});let payload,path,done;const saved=new Promise(resolve=>{done=resolve});
+  const supabase={storage:{from(bucket){assert.equal(bucket,'camporee-files');return {async upload(key,blob,options){path=key;assert.equal(blob.name,'club.mp3');assert.equal(options.contentType,'audio/mpeg');return {error:null}}}}},from(){return {insert(value){payload=value;return this},select(){return this},async single(){done();return {data:{id:'phone',...payload},error:null}}}}};
+  const view=await renderSongs({supabase,audioFile:file});view.form.props.onSubmit({preventDefault(){},currentTarget:{}});await saved;
+  assert.match(path,/^event\/songs\/.+\.mp3$/);assert.equal(payload.file_path,path);assert.equal(payload.external_url,null);
+});
+
+test('si falla el documento elimina la subida nueva para no dejar archivos huérfanos',async()=>{
+  const file=new File(['audio original'],'club.mp3',{type:'audio/mpeg'});let uploaded,removed,done;const cleanup=new Promise(resolve=>{done=resolve});
+  const supabase={storage:{from(){return {async upload(path){uploaded=path;return {error:null}},async remove(paths){removed=paths;done();return {error:null}}}}},from(){return {insert(){return this},select(){return this},async single(){return {error:new Error('fallo'),data:null}}}}};
+  const view=await renderSongs({supabase,audioFile:file});view.form.props.onSubmit({preventDefault(){},currentTarget:{}});await cleanup;
+  assert.equal(removed.length,1);assert.equal(removed[0],uploaded);
 });
