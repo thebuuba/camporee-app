@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150" preserveAspectRatio="xMidYMax slice">
+<defs><linearGradient id="dawn" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFD9C7"/><stop offset="1" stop-color="#FFF1E6"/></linearGradient><g id="tree"><rect x="-2.5" y="-6" width="5" height="14" rx="2" fill="#9E7472"/><path d="M0 -46 15 -16 -15 -16Z" fill="#B98A86"/><path d="M0 -58 12 -30 -12 -30Z" fill="#9E7472"/></g></defs>
+<path fill="url(#dawn)" d="M0 0H360V150H0Z"/><g fill="white"><circle cx="36" cy="24" r="2"/><circle cx="72" cy="44" r="1.4"/><circle cx="120" cy="18" r="1.4"/><circle cx="168" cy="36" r="2"/><circle cx="214" cy="22" r="1.4"/><circle cx="254" cy="40" r="1.4"/><circle cx="320" cy="30" r="2"/></g><circle cx="286" cy="52" r="26" fill="#FF9E6D"/>
+<path d="M0 108C46 70 92 70 132 100C168 126 208 74 252 92C296 110 330 84 360 96V150H0Z" fill="#E7B6A6"/>
+<path d="M0 126C60 100 112 112 160 126C214 142 286 112 360 124V150H0Z" fill="#D59A8B"/>
+<use href="#tree" transform="translate(26 118)"/><use href="#tree" transform="translate(58 112) scale(.82)"/><use href="#tree" transform="translate(330 116) scale(.95)"/><use href="#tree" transform="translate(300 110) scale(.76)"/>
+<rect x="246" y="78" width="3" height="48" rx="1.5" fill="#9E7472"/><path d="m249 80 23 7-23 7Z" fill="#FF9E6D"/>
+<path d="m196 128 32-42 32 42Z" fill="white"/><path d="m228 86 32 42h-20Z" fill="#FFE6DA"/><path d="m228 102 12 26h-24Z" fill="#D59A8B"/>
+<path d="m78 128 22-30 22 30Z" fill="white"/><path d="m100 98 22 30h-12Z" fill="#FFE6DA"/><path d="m100 110 9 18H91Z" fill="#D59A8B"/>
+<g transform="translate(160 122)"><path d="m-11 6 22-4m-22 0 22 4" stroke="#9E7472" stroke-width="3.5" stroke-linecap="round"/><path d="M0-20C7-12 9-8 9-4C9 2 4.5 5 0 5S-9 2-9-4C-9-8-7-12 0-20Z" fill="#FB923C"/><path d="M0-11C4-7 5-4 5-2C5 1.5 2.5 3 0 3S-5 1.5-5-2C-5-4-4-7 0-11Z" fill="#FDE68A"/></g>
+</svg>

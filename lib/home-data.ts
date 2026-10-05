@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
+import { camporeePhase, preparationProgress } from "@/lib/camporee-preparation";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -56,15 +57,13 @@ export async function loadHomeData() {
 
   const now = new Date();
   const todayKey = dateKeyInTimeZone(now);
-  const isDuring = todayKey >= camporee.starts_on && todayKey <= camporee.ends_on;
-  const isAfter = todayKey > camporee.ends_on || camporee.status === "finished";
-  const phase: "before" | "during" | "after" = isAfter ? "after" : isDuring || camporee.status === "active" ? "during" : "before";
-  const dayNumber = phase === "during" ? Math.max(1, dateOnlyDistance(camporee.starts_on, todayKey) + 1) : null;
+  const phase = camporeePhase(camporee.status);
   const totalDays = Math.max(1, dateOnlyDistance(camporee.starts_on, camporee.ends_on) + 1);
+  const dayNumber = phase === "during" ? Math.min(totalDays, Math.max(1, dateOnlyDistance(camporee.starts_on, todayKey) + 1)) : null;
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
   const [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult] = await Promise.all([
-    withTimeout(retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
+    withTimeout(retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at,phase").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     withTimeout(retryQuery(() => supabase.from("participants").select("id,attendance_status").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     withTimeout(retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
     withTimeout(retryQuery(() => supabase.from("income_entries").select("amount").eq("camporee_id", camporee.id), 1), 1400, { data: [], error: { message: "timeout" } } as SupabaseResult<any[]>),
@@ -90,6 +89,7 @@ export async function loadHomeData() {
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {
+    preparation: preparationProgress(tasks), initialNow: now.getTime(),
     userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee, pendingTasks, completedTasks: completed, totalTasks: progressTasks.length, todayPendingTasks: pendingToday.length, progress, totalExpenses, totalIncome,
     participants: (participantResult.data ?? []).length, presentParticipants: (participantResult.data ?? []).filter((person) => person.attendance_status === "checked_in").length, days, phase, dayNumber, totalDays, programCount: events.length,
     todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,

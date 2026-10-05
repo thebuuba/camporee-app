@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadTaskAssignees } from "@/lib/task-assignees";
 import BottomNav from "../components/bottom-nav";
 import TaskManager from "./task-manager";
 
-export default async function TasksPage() {
+export default async function TasksPage({ searchParams }: { searchParams: Promise<{ phase?: string | string[] }> }) {
+  const requestedPhase = (await searchParams).phase;
+  const initialPhase = typeof requestedPhase === "string" && ["before", "during", "after"].includes(requestedPhase) ? requestedPhase : "all";
   const supabase = await createClient();
   const auth = await supabase.auth.getClaims();
   const userId = auth.data?.claims?.sub;
@@ -19,23 +22,18 @@ export default async function TasksPage() {
   const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.tasks);
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
 
-  const [{ data: tasks, error: tasksError }, { data: areas, error: areasError }, { data: activeMembers, error: membersError }] = camporee ? await Promise.all([
+  const [{ data: tasks, error: tasksError }, { data: areas, error: areasError }, { data: profiles, error: profilesError }] = camporee ? await Promise.all([
     supabase.from("tasks").select("id,title,description,status,priority,due_at,area_id,phase,assigned_to,task_checklist_items(id,label,is_done,sort_order)").eq("camporee_id", camporee.id).order("created_at", { ascending: false }),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order", { ascending: true }),
-    supabase.from("app_members").select("user_id").eq("is_active", true),
+    loadTaskAssignees(supabase),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
 
-  const activeUserIds = (activeMembers ?? []).map((member) => member.user_id);
-  const { data: profiles, error: profilesError } = activeUserIds.length
-    ? await supabase.from("profiles").select("id,full_name,email").in("id", activeUserIds).order("full_name", { ascending: true })
-    : { data: [], error: null };
-
-  const contentError = tasksError ?? areasError ?? membersError ?? profilesError;
+  const contentError = tasksError ?? areasError ?? profilesError;
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
     <header className="polymet-panel-heading"><h1>Tareas</h1><p>{(tasks ?? []).filter((task) => task.status === "done").length} de {(tasks ?? []).length} completadas</p></header>
-    {camporee ? <TaskManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    {camporee ? <TaskManager camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []} initialPhase={initialPhase}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;
 }

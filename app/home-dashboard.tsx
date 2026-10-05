@@ -1,14 +1,16 @@
 import Link from "next/link";
-import { AlertTriangle, BellRing, CalendarDays, ChevronRight, ClipboardCheck, HeartPulse, ListChecks, MapPin, Play, Search, Soup, Users, WalletCards } from "lucide-react";
+import { AlertTriangle, BellRing, CalendarDays, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, MapPin, NotebookPen, Package, Play, Search, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import BottomNav from "./components/bottom-nav";
 import NotificationControls from "./components/notification-controls";
+import PreparationCard from "./components/preparation-card";
+import ClosingCard from "./components/closing-card";
 
 type EventRow = { id:string; title:string; starts_at:string; ends_at:string|null; location:string|null };
 type TaskRow = { id:string; title:string; priority:string; due_at:string|null };
 type UrgentAnnouncement = { id:string; title:string; message:string; created_at:string };
 
-export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, days, progress, pendingTasks, completedTasks, totalTasks, todayPendingTasks, participants, presentParticipants, totalExpenses, totalIncome, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement }: {
-  userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null;
+export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, days, progress, pendingTasks, completedTasks, totalTasks, todayPendingTasks, participants, presentParticipants, totalExpenses, totalIncome, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement, preparation, initialNow }: {
+  userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string;starts_on:string;ends_on:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null; preparation:{completed:number;total:number;percent:number}; initialNow:number;
 }) {
   const active = phase === "during";
   const after = phase === "after";
@@ -22,7 +24,17 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
     { href:"/program", label:"Programa", value:active ? todayProgramCount : programCount, detail:active ? "actividades hoy" : "actividades", icon:CalendarDays, tone:"sky", percent:Math.min(100,programCount ? 75 : 0) },
     { href:"/more/budget", label:"Gastos", value:formatMoney(totalExpenses), detail:`saldo ${formatMoney(totalIncome-totalExpenses)}`, icon:WalletCards, tone:"pink", percent:totalIncome ? Math.min(100,Math.round(totalExpenses/totalIncome*100)) : 0 },
   ] as const;
-  const quick = [
+  const quick = phase === "before" ? [
+    { href:"/more/lists", label:"Listas", icon:ListChecks, tone:"sage" },
+    { href:"/more/participants", label:"Participantes", icon:Users, tone:"sky" },
+    { href:"/more/budget", label:"Presupuesto", icon:WalletCards, tone:"mint" },
+    { href:"/more/documents", label:"Documentos", icon:FileText, tone:"lavender" },
+  ] : after ? [
+    { href:"/more/inventory", label:"Inventario", icon:Package, tone:"peach" },
+    { href:"/more/activities", label:"Competencias", icon:Trophy, tone:"gold" },
+    { href:"/more/budget", label:"Presupuesto", icon:WalletCards, tone:"mint" },
+    { href:"/more/notes", label:"Apuntes", icon:NotebookPen, tone:"gold" },
+  ] : [
     { href:"/more/announcements", label:"Avisos", icon:BellRing, tone:"peach" },
     { href:"/more/attendance", label:"Pases de lista", icon:ClipboardCheck, tone:"sage" },
     { href:"/more/meals", label:"Comidas", icon:Soup, tone:"pink" },
@@ -37,7 +49,7 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
     <Link href="/search" className="polymet-home-search"><span>Buscar actividades, personas, tareas...</span><span className="polymet-search-icon"><Search size={20}/></span></Link>
     <NotificationControls camporeeId={camporee.id} userId={userId} mode="prompt" />
 
-    <section className="polymet-home-hero">
+    {phase === "before" ? <PreparationCard camporee={camporee} preparation={preparation} initialNow={initialNow}/> : after ? <ClosingCard camporee={camporee}/> : <section className="polymet-home-hero">
       <img src={after ? "/polymet-camp-closing.svg" : "/polymet-camp-hero.svg"} alt="" />
       <div className="polymet-hero-content">
         <div className="polymet-hero-top"><span>● {active ? `Día ${dayNumber} de ${totalDays}` : after ? "Evento completado" : `Faltan ${days} días`}</span><span>{now}</span></div>
@@ -47,7 +59,7 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
         <div className="polymet-hero-progress"><i style={{width:`${active && currentEvent?.ends_at ? Math.min(100,Math.max(0,(Date.now()-new Date(currentEvent.starts_at).getTime())/(new Date(currentEvent.ends_at).getTime()-new Date(currentEvent.starts_at).getTime())*100)) : progress}%`}}/></div>
         <div className="polymet-hero-times"><span>{active && currentEvent ? formatTime(currentEvent.starts_at) : after ? "100%" : `${progress}% listo`}</span><span>{active && currentEvent?.ends_at ? formatTime(currentEvent.ends_at) : ""}</span></div>
       </div>
-    </section>
+    </section>}
     {active && nextEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>Próxima · {formatTime(nextEvent.starts_at)}</small><strong>{nextEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
     {active && urgentAnnouncement ? <Link href="/more/announcements" className="polymet-urgent"><span className="polymet-urgent-icon"><AlertTriangle size={22}/></span><span><small>AVISO URGENTE</small><strong>{urgentAnnouncement.title}</strong><span>{urgentAnnouncement.message}</span></span></Link> : null}
 

@@ -101,23 +101,34 @@
 .polymet-notification-card{margin-top:18px}
 .polymet-notification-card .section-head{display:none}
 
-/* Users */
-.users-app{padding:20px 20px calc(112px + env(safe-area-inset-bottom))!important;background:var(--pm-bg)!important;max-width:440px!important;margin:auto!important;min-height:100vh!important}
-.users-app .permission-intro,.users-app .pending-callout,.users-app .user-list-head{display:none!important}
-.users-app .user-search{margin-bottom:13px!important}
-.users-app .user-admin-summary{display:flex;gap:8px;margin:0 0 14px}
-.users-app .user-filter{display:flex!important;gap:6px!important;min-height:38px!important;padding:7px 15px!important;border:0!important;border-radius:99px!important;background:#fff!important;box-shadow:var(--pm-shadow)!important;color:#766b65!important;font-size:12px!important}
-.users-app .user-filter:first-child span{font-size:0}.users-app .user-filter:first-child span:before{content:'Por aprobar';font-size:12px}
-.users-app .user-filter svg{display:none}.users-app .user-filter b{font-size:11px;color:inherit;background:#f6f0ec;padding:3px 6px;border-radius:99px}
-.users-app .user-filter.active{background:#30241e!important;color:#fff!important}.users-app .user-filter.active b{background:#51413a;color:white}
-.polymet-pending-member{padding:16px!important;border-radius:25px!important}
+/* Users: layout measured from Polymet /mas/usuarios. */
+.users-app{--pm-bg:#fcf7f3;--pm-orange:#f78645;padding:20px 20px calc(112px + env(safe-area-inset-bottom))!important;background:var(--pm-bg)!important;max-width:440px!important;margin:auto!important;min-height:100vh!important}
+.users-app .subpage-top{grid-template-columns:44px minmax(0,1fr)!important;gap:12px!important;min-height:44px!important;margin-bottom:12px!important}
+.users-app .subpage-top .back-btn{width:44px!important;height:44px!important;box-shadow:0 2px 8px -2px rgb(120 60 20 / .08),0 1px 2px -1px rgb(120 60 20 / .06)!important}
+.users-app .subpage-top h1{font-size:20px!important;font-weight:600!important;line-height:28px!important;letter-spacing:-.025em!important;white-space:nowrap}
+.users-app .polymet-subtitle{margin:0;font-size:12px;line-height:16px}
+.users-app .user-admin-summary{display:flex;gap:8px;margin:0 0 16px}
+.users-app .user-filter{display:flex!important;align-items:center!important;gap:6px!important;min-height:36px!important;padding:8px 16px!important;border:0!important;border-radius:999px!important;background:#fff!important;box-shadow:0 1px 2px rgb(120 60 20 / .05)!important;color:var(--pm-muted)!important;font-size:14px!important;font-weight:500!important;line-height:20px!important;cursor:pointer}
+.users-app .user-filter b{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;font-size:10px;line-height:14px;font-weight:600;color:inherit;background:var(--pm-bg);border-radius:999px}
+.users-app .user-filter.active{background:var(--pm-ink)!important;color:#fff!important;box-shadow:none!important}.users-app .user-filter.active b{background:rgb(255 255 255 / .2);color:white}
+.users-app .compact-member-list{display:flex!important;flex-direction:column;gap:12px}
+.users-app .compact-member-list>article{width:100%!important;min-width:0}
+.users-app .compact-member,.users-app .polymet-pending-member{border-radius:24px!important;box-shadow:0 2px 8px -2px rgb(120 60 20 / .08),0 1px 2px -1px rgb(120 60 20 / .06)!important}
+.users-app .compact-member-summary{grid-template-columns:44px minmax(0,1fr) auto;gap:12px;padding:12px 16px 12px 12px;min-height:68px;cursor:pointer}
+.users-app .compact-member .member-avatar,.polymet-pending-main .member-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%!important;background:var(--pm-peach)!important;color:#93491f!important;font-size:12px;font-weight:600;overflow:hidden}
+.users-app .member-avatar img{width:100%;height:100%;object-fit:cover}
+.users-app .compact-member-copy strong{font-size:14px;font-weight:600;line-height:20px}
+.users-app .compact-member-copy small{margin:0;font-size:12px;line-height:16px}
+.users-app .member-role{font-size:10px;font-weight:500;line-height:15px;padding:2px 10px;white-space:nowrap;max-width:100%;color:var(--pm-muted);background:#f5eee9}
+.users-app .member-role-admin{background:var(--pm-peach);color:#8e461f}.users-app .member-role-editor{background:var(--pm-sage);color:#455331}
+.polymet-pending-member{padding:16px!important}
 .polymet-pending-main{display:flex;align-items:center;gap:12px}
-.polymet-pending-main .member-avatar{width:43px;height:43px;border-radius:50%;background:#fde9dd;color:#a14f23;flex:0 0 43px;font-size:12px}
-.polymet-pending-main>div{min-width:0}.polymet-pending-main strong,.polymet-pending-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.polymet-pending-main strong{font-size:14px!important}.polymet-pending-main small{font-size:10px;color:var(--pm-muted)}
-.polymet-pending-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}
-.polymet-pending-actions button{min-height:45px;border:1px solid #eee5dd;border-radius:99px;background:#fdf8f5;font-size:12px;font-weight:500}
+.polymet-pending-main>div{min-width:0}.polymet-pending-main strong,.polymet-pending-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.polymet-pending-main strong{font-size:16px!important;font-weight:600;line-height:24px}.polymet-pending-main small{font-size:12px;line-height:16px;color:var(--pm-muted)}
+.polymet-pending-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.polymet-pending-actions button{display:flex;align-items:center;justify-content:center;gap:12px;min-height:44px;padding:8px 12px;border:1px solid #eee5dd;border-radius:999px;background:var(--pm-bg);font-size:14px;line-height:20px;font-weight:500;cursor:pointer}
 .polymet-pending-actions button:last-child{background:var(--pm-orange);border-color:var(--pm-orange);color:#fff}
-.users-app .compact-member{border-radius:23px!important}.users-app .compact-member .member-avatar{border-radius:50%!important;background:#fde9dd!important;color:#a14f23!important}
+.users-app :is(.user-filter,.compact-member-summary,.polymet-pending-actions button):focus-visible{outline:2px solid var(--pm-orange);outline-offset:3px}
+@media(max-width:360px){.users-app .subpage-top h1{font-size:18px!important}.users-app .compact-member-summary{gap:8px;padding-right:12px}.users-app .member-role{padding-inline:7px}}
 
 /* Profile */
 .profile-page{padding-bottom:calc(112px + env(safe-area-inset-bottom))!important}

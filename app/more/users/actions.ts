@@ -19,6 +19,8 @@ export async function updateMemberAccess(formData: FormData) {
   const targetUserId = String(formData.get("userId") ?? "");
   const role = String(formData.get("role") ?? "viewer");
   const isActive = formData.get("isActive") === "on";
+  const directiveRole = String(formData.get("directiveRole") ?? "").trim();
+  if (directiveRole.length > 80) return { ok:false, error:"El cargo no puede superar 80 caracteres." };
   if (!targetUserId || !["admin","editor","viewer"].includes(role)) {
     return { ok:false, error:"Los datos del usuario no son válidos." };
   }
@@ -32,6 +34,7 @@ export async function updateMemberAccess(formData: FormData) {
 
   const { error } = await supabase.from("app_members").update({
     role,
+    ...(formData.has('directiveRole') ? { directive_role: directiveRole || null } : {}),
     is_active: isActive,
     permissions,
     updated_at: new Date().toISOString(),
