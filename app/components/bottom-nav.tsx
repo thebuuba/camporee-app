@@ -1,8 +1,8 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { CalendarClock, House, LayoutGrid, ListChecks } from "lucide-react";
 
 const items = [
@@ -14,30 +14,16 @@ const items = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const fallbackTimer = useRef<number|null>(null);
-
-  useEffect(() => {
-    if (!navigator.onLine) return;
-    for (const [href] of items) router.prefetch(href);
-  }, [router]);
 
   useEffect(() => {
     setPendingHref(null);
-    if(fallbackTimer.current!==null){window.clearTimeout(fallbackTimer.current);fallbackTimer.current=null;}
   }, [pathname]);
-
-  useEffect(()=>()=>{if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current)},[]);
 
   function beginNavigation(href:string, routeActive:boolean){
     if(!navigator.onLine)return;
     if(routeActive)return;
     setPendingHref(href);
-    if(fallbackTimer.current!==null)window.clearTimeout(fallbackTimer.current);
-    fallbackTimer.current=window.setTimeout(()=>{
-      if(window.location.pathname!==href&&!document.querySelector('audio[data-camporee-player][src]'))window.location.assign(href);
-    },2200);
   }
 
   return (
@@ -53,8 +39,8 @@ export default function BottomNav() {
             key={href}
             aria-current={routeActive ? "page" : undefined}
             aria-busy={pendingHref===href||undefined}
-            onPointerDown={() => beginNavigation(href,routeActive)}
             onClick={event => {
+              if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
               if (!navigator.onLine) { event.preventDefault(); window.location.assign(href); return; }
               beginNavigation(href,routeActive);
             }}

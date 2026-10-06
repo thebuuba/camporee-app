@@ -101,10 +101,11 @@ test('la sincronizacion escucha cambios publicados y refresca la ruta activa', a
   cleanups.forEach((cleanup) => cleanup());
 });
 
-test('las tarjetas de Mas no precargan todos los paneles al abrir la pantalla', async () => {
+test('las tarjetas de Mas delegan la precarga al enlace sin lanzar una precarga manual masiva', async () => {
   const effects = [];
   let prefetches = 0;
   const ReliableLink = await loadTsx('app/components/reliable-link.tsx', {
+    'next/link': 'next-link',
     react: {
       useEffect(callback) { effects.push(callback); },
       useRef(value) { return { current: value }; },
@@ -116,10 +117,12 @@ test('las tarjetas de Mas no precargan todos los paneles al abrir la pantalla', 
     },
   }, { window: { clearTimeout() {} } });
 
-  ReliableLink({ href: '/more/tasks', children: 'Tareas' });
+  const link = ReliableLink({ href: '/more/tasks', children: 'Tareas' });
   effects.map((effect) => effect());
 
   assert.equal(prefetches, 0);
+  assert.equal(link.type, 'next-link');
+  assert.equal(link.props.prefetch, true);
 });
 
 test('Intentar de nuevo recarga la ruta completa cuando el panel queda en error', async () => {

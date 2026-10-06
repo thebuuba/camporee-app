@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 
-async function splash(reduced = false) {
+async function splash(reduced = false, pathname = '/') {
   await loadBindings();
   const { code } = await transform(await readFile(new URL('../app/components/app-splash.tsx', import.meta.url), 'utf8'), {
     filename: 'app-splash.tsx', jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022', transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' },
@@ -14,6 +14,7 @@ async function splash(reduced = false) {
   let cursor = 0;
   const jsx = (type, props) => ({ type, props });
   const modules = {
+    'next/navigation': { usePathname: () => pathname },
     react: { useState(initial) { const index = cursor++; if (!(index in states)) states[index] = initial; return [states[index], value => { states[index] = value; }]; }, useEffect: callback => effects.push(callback) },
     'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react': { Tent: 'tent', TentTree: 'tent-tree' },
   };
@@ -29,6 +30,13 @@ test('la bienvenida usa el paisaje y los textos de Polymet sin botón de comenza
   assert.match(tree, /polymet-camp-preparation.svg/);
   assert.match(tree, /Club de Conquistadores/);
   assert.doesNotMatch(tree, /Comenzar|"type":"button"|"type":"a"/);
+});
+
+test('el registro y su confirmación entran directamente sin repetir la bienvenida', async () => {
+  const ui = await splash(false, '/signup');
+  assert.equal(ui.render(), null);
+  ui.effects.forEach(effect => effect());
+  assert.equal(ui.timers.length, 0);
 });
 
 test('la pantalla pasa a lista y se retira sola sin cambiar la ruta de la sesión', async () => {

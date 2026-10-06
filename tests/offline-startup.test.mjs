@@ -48,7 +48,7 @@ test('el menu inferior usa navegacion completa offline para recuperar HTML guard
   const modules={react:{useEffect:fn=>effects.push(fn),useRef:value=>({current:value}),useState:value=>[value,()=>{}]},'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':'link','next/navigation':{usePathname:()=> '/',useRouter:()=>({prefetch(){prefetched++}})},'lucide-react':{}};
   vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:false},window:{location:{assign:href=>navigations.push(href)},setTimeout(){timers++},clearTimeout(){}}});
   const nav=module.exports.default();for(const effect of effects)effect();
-  const tasks=nav.props.children.find(node=>node.props.href==='/tasks');tasks.props.onPointerDown();tasks.props.onClick({button:0,preventDefault(){prevented=true}});
+  const tasks=nav.props.children.find(node=>node.props.href==='/tasks');tasks.props.onClick({button:0,preventDefault(){prevented=true}});
   assert.equal(prevented,true);assert.deepEqual(navigations,['/tasks']);assert.equal(prefetched,0);assert.equal(timers,0);
 });
 

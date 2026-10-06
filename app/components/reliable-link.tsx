@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 type ReliableLinkProps = {
   href:string;
@@ -11,29 +12,20 @@ type ReliableLinkProps = {
 };
 
 export default function ReliableLink({href,className='',children,ariaLabel}:ReliableLinkProps){
-  const router=useRouter();
   const pathname=usePathname();
   const [pending,setPending]=useState(false);
-  const timerRef=useRef<number|null>(null);
 
   useEffect(()=>{
     setPending(false);
-    if(timerRef.current!==null){window.clearTimeout(timerRef.current);timerRef.current=null}
-    return()=>{if(timerRef.current!==null)window.clearTimeout(timerRef.current)};
   },[pathname]);
 
   function open(event:React.MouseEvent<HTMLAnchorElement>){
     if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-    if(!navigator.onLine)return; // Full navigation lets the service worker open saved HTML offline.
+    if(!navigator.onLine){event.preventDefault();window.location.assign(href);return;}
     if(pathname===href){event.preventDefault();return;}
-    event.preventDefault();
-    if(pending)return;
+    if(pending){event.preventDefault();return;}
     setPending(true);
-    router.push(href);
-    timerRef.current=window.setTimeout(()=>{
-      if(window.location.pathname!==href&&!document.querySelector('audio[data-camporee-player][src]'))window.location.assign(href);
-    },2200);
   }
 
-  return <a href={href} className={`${className}${pending?' is-opening':''}`} onClick={open} aria-label={ariaLabel} aria-busy={pending||undefined}>{children}{pending?<span className='panel-opening-indicator' aria-hidden='true'/>:null}</a>;
+  return <Link prefetch href={href} className={`${className}${pending?' is-opening':''}`} onClick={open} aria-label={ariaLabel} aria-busy={pending||undefined}>{children}{pending?<span className='panel-opening-indicator' aria-hidden='true'/>:null}</Link>;
 }
