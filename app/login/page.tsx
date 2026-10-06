@@ -1,23 +1,31 @@
 import Link from "next/link";
-import { LockKeyhole, Mail } from "lucide-react";
-import { login } from "./actions";
+import { Mail } from "lucide-react";
+import { login, requestPasswordReset, updatePassword } from "./actions";
+import PasswordField from "./password-field";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; reset?: string }> }) {
   const params = await searchParams;
-  return <main className="auth-shell auth-shell-clean">
-    <section className="auth-wrap">
-      <div className="auth-brand-row"><div className="brand-badge brand-image"><img src="/camporee-logo-v8.png?v=9" alt="Camporee" width="54" height="54" /></div><div><div className="eyebrow">CAMPOREE</div><strong>Club de Conquistadores</strong></div></div>
-      <section className="auth-card auth-card-ios">
-        <div className="auth-heading"><span className="auth-kicker">BIENVENIDO</span><h1>Todo el camporee en un mismo lugar.</h1><p className="auth-copy">Entra al espacio compartido del equipo para organizar tareas, programa, participantes, comidas, listas y presupuesto.</p></div>
-        {params.error ? <div className="auth-alert error">{params.error}</div> : null}{params.message ? <div className="auth-alert success">{params.message}</div> : null}
-        <form className="auth-form auth-form-ios">
-          <label>Correo<div className="field-card"><span><Mail size={18}/></span><input name="email" type="email" inputMode="email" autoComplete="email" placeholder="tu@correo.com" required /></div></label>
-          <label>Contraseña<div className="field-card"><span><LockKeyhole size={18}/></span><input name="password" type="password" autoComplete="current-password" placeholder="Tu contraseña" minLength={6} required /></div></label>
-          <button className="primary-btn auth-primary" formAction={login}>Entrar al camporee</button>
-        </form>
-        <div className="auth-divider"><span>¿Primera vez?</span></div><Link className="secondary-btn auth-link-btn" href="/signup">Crear una cuenta</Link>
-      </section>
-      <p className="auth-footnote">Pensado para usarlo rápido desde el teléfono, antes y durante la aventura.</p>
+  const resetting = params.reset === "1";
+  return <main className="pm-login-shell">
+    <header className="pm-login-header">
+      <img src="/polymet-camp-preparation.svg" alt="" aria-hidden="true" />
+      <div className="pm-login-heading">
+        <span className="pm-login-mark"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 21 14 3"/><path d="M20.5 21 10 3"/><path d="M15.5 21 12 15l-3.5 6"/><path d="M2 21h20"/></svg></span>
+        <h1>{resetting ? "Nueva contraseña" : "¡Bienvenido!"}</h1>
+        <p>{resetting ? "Elige una clave para volver a entrar." : "Inicia sesión para seguir organizando."}</p>
+      </div>
+    </header>
+    <section className="pm-login-content" aria-label={resetting ? "Cambiar contraseña" : "Iniciar sesión"}>
+      {params.error ? <div className="auth-alert error" role="alert">{params.error}</div> : null}
+      {params.message ? <div className="auth-alert success" role="status">{params.message}</div> : null}
+      <form className="pm-login-form" action={resetting ? updatePassword : login}>
+        {!resetting ? <label className="pm-login-field">Correo electrónico<div className="pm-login-input"><Mail size={16} aria-hidden="true" /><input name="email" type="email" inputMode="email" autoComplete="email" placeholder="tu@correo.com" required /></div></label> : null}
+        <PasswordField resetting={resetting} />
+        {!resetting ? <div className="pm-login-options"><label><input name="remember" type="checkbox" defaultChecked />Recordarme</label><button type="submit" formAction={requestPasswordReset} formNoValidate>¿Olvidaste tu clave?</button></div> : null}
+        <button className="pm-login-submit">{resetting ? "Guardar contraseña" : "Iniciar sesión"}</button>
+      </form>
+      <p className="pm-login-register">{resetting ? <Link href="/login">Volver al inicio de sesión</Link> : <>¿No tienes cuenta? <Link href="/signup">Crear cuenta</Link></>}</p>
+      <aside className="pm-login-notice">Las cuentas nuevas deben ser aprobadas por un administrador del club antes de poder entrar.</aside>
     </section>
   </main>;
 }

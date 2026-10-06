@@ -1,12 +1,19 @@
-.pm-launch-screen{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:#fdf8f5;color:#2b211c;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;pointer-events:none;animation:pm-launch-dismiss .2s ease .65s forwards}
-.pm-launch-content{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px}
-.pm-launch-mark{display:grid;place-items:center;width:80px;height:80px;background:#fff;color:#fa8943;border-radius:24px;box-shadow:0 4px 14px -4px rgb(120 60 20 / .16),0 1px 3px rgb(120 60 20 / .08)}
-.pm-launch-content strong{margin-top:20px;font-size:28px;font-weight:600;line-height:1.3;letter-spacing:-.5px}
-.pm-launch-content p{margin:6px 0 28px;font-size:13px;font-weight:400;color:#827973}
-.pm-launch-content small{margin-top:12px;font-size:11px;color:#827973}
-.pm-launch-progress{display:block;width:160px;height:4px;border-radius:999px;background:#f0e9e3;overflow:clip}
-.pm-launch-progress>span{display:block;width:100%;height:100%;border-radius:inherit;background:#fa8943;transform-origin:left;animation:pm-launch-progress .65s ease-out both}
-@keyframes pm-launch-progress{from{transform:scaleX(.1)}to{transform:scaleX(1)}}
-/* A failed hydration must not leave a full-screen loader covering the page forever. */
+.pm-launch-screen{position:fixed;inset:0;z-index:99999;display:flex;justify-content:center;background:#e8eedc;color:#9c461c;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;pointer-events:none;animation:pm-launch-dismiss .2s ease 1.65s forwards}
+.pm-launch-panel{position:relative;display:flex;flex-direction:column;width:100%;max-width:440px;min-height:100%;overflow:hidden;background:#feeadd;box-shadow:0 25px 50px -12px rgb(45 33 27 / .25)}
+.pm-launch-scene{position:absolute;bottom:0;left:0;width:100%;height:50%;object-fit:cover;object-position:center bottom;opacity:.9}
+.pm-launch-glow{position:absolute;top:-64px;left:-64px;width:224px;height:224px;border-radius:50%;background:rgb(247 134 69 / .15);filter:blur(40px)}
+.pm-launch-content{position:relative;display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:max(24px,env(safe-area-inset-top)) 32px 24px}
+.pm-launch-mark{display:grid;place-items:center;width:92px;height:92px;flex-shrink:0;background:#f78645;color:#fff;border-radius:28%;box-shadow:0 0 0 4px rgb(247 134 69 / .2),0 10px 15px -3px rgb(247 134 69 / .3);animation:pm-launch-mark .7s ease-out both}
+.pm-launch-content h1{margin:24px 0 0;font-size:34px;font-weight:700;line-height:1;letter-spacing:-.85px;color:#9c461c!important}
+.pm-launch-content>p{max-width:260px;margin:8px 0 0;font-size:14px;font-weight:500;line-height:20px;color:#915332}
+.pm-launch-loading{width:100%;max-width:260px;margin-top:40px}
+.pm-launch-progress{display:block;width:100%;height:10px;border-radius:999px;background:rgb(255 255 255 / .7);overflow:hidden}
+.pm-launch-progress>span{display:block;width:100%;height:100%;border-radius:inherit;background:#f78645;transform-origin:left;animation:pm-launch-progress 1.2s ease-out both}
+.pm-launch-loading small{display:block;height:20px;margin-top:12px;font-size:12px;font-weight:600;line-height:20px;color:#915332}
+.pm-launch-footer{position:relative;margin:0;padding:0 16px max(32px,env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:16.5px;color:#915332}
+@keyframes pm-launch-mark{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+@keyframes pm-launch-progress{from{transform:scaleX(.08)}to{transform:scaleX(1)}}
+/* CSS also clears the cover when hydration fails. */
 @keyframes pm-launch-dismiss{to{opacity:0;visibility:hidden}}
-@media(prefers-reduced-motion:reduce){.pm-launch-screen{animation:pm-launch-dismiss .01s linear .17s forwards}.pm-launch-progress>span{animation:none}}
+@media(max-height:440px){.pm-launch-content{padding-top:16px;padding-bottom:16px}.pm-launch-mark{width:64px;height:64px}.pm-launch-mark svg{width:36px;height:36px}.pm-launch-content h1{margin-top:16px;font-size:30px}.pm-launch-loading{margin-top:20px}.pm-launch-footer{padding-bottom:max(16px,env(safe-area-inset-bottom))}}
+@media(prefers-reduced-motion:reduce){.pm-launch-screen{animation:pm-launch-dismiss .01s linear .17s forwards}.pm-launch-mark,.pm-launch-progress>span{animation:none}}

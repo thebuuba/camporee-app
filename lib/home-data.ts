@@ -23,7 +23,7 @@ export async function loadHomeData() {
 
   const [profileResult, memberResult, initialCamporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name,avatar_url").eq("id", userId).maybeSingle()),
-    retryQuery(() => supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(), 3),
+    retryQuery(() => supabase.from("app_members").select("role,is_active,permissions,created_at").eq("user_id", userId).maybeSingle(), 3),
     retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }), 3),
   ]);
 

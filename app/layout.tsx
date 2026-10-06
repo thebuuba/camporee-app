@@ -30,6 +30,8 @@ import "./polymet-panels-b.css";
 import "./polymet-panels-c.css";
 import "./polymet-sheets.css";
 import "./polymet-launch.css";
+import "./account-status.css";
+import "./login.css";
 import PwaRegister from "./components/pwa-register";
 import ConnectionStatus from "./components/connection-status";
 import DataFreshness from "./components/data-freshness";

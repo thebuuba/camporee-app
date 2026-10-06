@@ -13,7 +13,7 @@ export default async function HomeRoute() {
     return <HomeSetup firstName={data.firstName} isActive={Boolean(data.member?.is_active)} isAdmin={Boolean(data.member?.is_active && data.member.role === "admin")} role={data.member?.role} camporeeLoadError />;
   }
   if (!data.camporee || !data.member?.is_active) {
-    return <HomeSetup firstName={data.firstName} isActive={Boolean(data.member?.is_active)} isAdmin={Boolean(data.member?.is_active && data.member.role === "admin")} role={data.member?.role} accessRejected={data.member?.permissions?.access_rejected === true}/>;
+    return <HomeSetup firstName={data.firstName} isActive={Boolean(data.member?.is_active)} isAdmin={Boolean(data.member?.is_active && data.member.role === "admin")} role={data.member?.role} requestedAt={data.member?.created_at} accessRejected={data.member?.permissions?.access_rejected === true}/>;
   }
   return <HomeDashboard {...data} camporee={data.camporee}/>;
 }

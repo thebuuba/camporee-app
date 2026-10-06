@@ -18,7 +18,10 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const sessionOnly = cookieStore.get("camporee-remember")?.value === "no" && options.maxAge !== 0;
+            cookieStore.set(name, value, sessionOnly ? { ...options, maxAge: undefined, expires: undefined } : options);
+          });
           } catch {
             // Server Components cannot always mutate cookies. proxy.ts refreshes sessions.
           }

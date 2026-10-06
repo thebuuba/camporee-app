@@ -138,8 +138,44 @@ test('una persona sin sesión todavía puede registrarse', async () => {
   const client = { auth: { getClaims: async () => ({ data: null, error: null }), signUp: async () => { registrations++; return { data: { session: null }, error: null }; } } };
   const { signup } = await load('app/login/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect: url => { throw new Error(url); } } });
   const form = new FormData(); form.set('fullName', 'Nueva persona'); form.set('email', 'new@example.com'); form.set('password', 'Password123');
-  await assert.rejects(signup(form), /\/login\?message=/);
+  await assert.rejects(signup(form), /\/signup\?created=1&confirm=1/);
   assert.equal(registrations, 1);
+});
+
+test('el registro con sesión muestra la confirmación antes del estado de revisión', async () => {
+  const client = { auth: { getClaims: async () => ({ data: null, error: null }), signUp: async () => ({ data: { session: {} }, error: null }) } };
+  const { signup } = await load('app/login/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect: url => { throw new Error(url); } } });
+  const form = new FormData(); form.set('fullName', 'Nueva persona'); form.set('email', 'new@example.com'); form.set('password', 'Password123');
+  await assert.rejects(signup(form), error => error.message === '/signup?created=1');
+});
+
+test('la confirmación lleva al estado de solicitud y muestra el correo de la sesión', async () => {
+  const jsx = (type, props) => ({ type, props });
+  const { default: SignupPage } = await load('app/signup/page.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/link': 'link', 'lucide-react': {}, '../login/actions': {},
+    '@/lib/supabase/server': { createClient: async () => ({ auth: { getClaims: async () => ({ data: { claims: { sub: 'applicant', email: 'ana@example.com' } } }) } }) },
+  });
+  const tree = await SignupPage({ searchParams: Promise.resolve({ created: '1' }) });
+  const output = JSON.stringify(tree);
+  assert.match(output, /¡Cuenta creada!/);
+  assert.match(output, /ana@example.com/);
+  assert.match(output, /"href":"\/"/);
+  assert.doesNotMatch(output, /Te avisaremos por correo/);
+});
+
+test('la pantalla de espera muestra fecha real y etapas sin llamada ni plazo inventado', async () => {
+  const jsx = (type, props) => ({ type, props });
+  const { default: HomeSetup } = await load('app/home-setup.tsx', {
+    react: { useEffect() {}, useRef: value => ({ current: value }) },
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({}) }, 'lucide-react': {}, './setup-form': {}, '@/lib/supabase/client': {},
+  });
+  const output = JSON.stringify(HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false, requestedAt: '2026-10-05T12:00:00Z' }));
+  assert.match(output, /Cuenta en revisión/);
+  assert.match(output, /Solicitud enviada/);
+  assert.match(output, /5 de octubre de 2026/);
+  assert.match(output, /automáticamente/);
+  assert.doesNotMatch(output, /Llamar|tel:|24 horas|Hola,/);
+  assert.match(output, /\/auth\/signout/);
 });
 
 test('recargar Usuarios con Auth temporalmente caído no redirige al login', async () => {

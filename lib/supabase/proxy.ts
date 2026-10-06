@@ -19,7 +19,10 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const sessionOnly = request.cookies.get("camporee-remember")?.value === "no" && options.maxAge !== 0;
+            response.cookies.set(name, value, sessionOnly ? { ...options, maxAge: undefined, expires: undefined } : options);
+          });
         },
       },
     }
