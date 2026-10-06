@@ -127,7 +127,7 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, requeste
         </ol>
         <aside className="account-review-notice"><h2><Bell size={18} aria-hidden="true" />Te avisaremos</h2><p>Esta pantalla se actualizará automáticamente en cuanto tu cuenta sea aprobada.</p></aside>
         {requestDate ? <p className="account-request-date"><Clock3 size={14} aria-hidden="true" />Solicitud enviada el {requestDate}</p> : null}
-        <form action="/auth/signout" method="post"><button className="account-status-secondary">Volver al inicio de sesión</button></form>
+        <button type="button" className="account-status-secondary" onClick={() => router.refresh()}>Actualizar estado de mi solicitud</button>
       </section>
     </main>;
   }

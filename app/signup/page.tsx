@@ -18,7 +18,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <p>Un administrador debe aprobar tu cuenta antes de que puedas entrar.{email ? <> Tu solicitud está registrada con <strong>{email}</strong>.</> : null}</p>
         {params.confirm === "1" && needsLogin ? <p>Revisa tu correo para confirmar la cuenta y después inicia sesión para ver tu solicitud.</p> : null}
         <Link className="account-status-primary" href={needsLogin ? "/login" : "/"}>Ver estado de mi solicitud</Link>
-        <form action="/auth/signout" method="post"><button className="account-status-text">Volver al inicio de sesión</button></form>
+        <Link className="account-status-text" href={needsLogin ? "/login" : "/"}>{needsLogin ? "Volver al inicio de sesión" : "Volver al inicio"}</Link>
       </section>
     </main>;
   }

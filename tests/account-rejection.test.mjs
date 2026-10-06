@@ -161,21 +161,29 @@ test('la confirmación lleva al estado de solicitud y muestra el correo de la se
   assert.match(output, /ana@example.com/);
   assert.match(output, /"href":"\/"/);
   assert.doesNotMatch(output, /Te avisaremos por correo/);
+  assert.match(output, /Volver al inicio/);
+  assert.doesNotMatch(output, /\/auth\/signout|Volver al inicio de sesión/);
 });
 
 test('la pantalla de espera muestra fecha real y etapas sin llamada ni plazo inventado', async () => {
   const jsx = (type, props) => ({ type, props });
+  let refreshes = 0;
   const { default: HomeSetup } = await load('app/home-setup.tsx', {
     react: { useEffect() {}, useRef: value => ({ current: value }) },
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({}) }, 'lucide-react': {}, './setup-form': {}, '@/lib/supabase/client': {},
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({ refresh() { refreshes++; } }) }, 'lucide-react': {}, './setup-form': {}, '@/lib/supabase/client': {},
   });
-  const output = JSON.stringify(HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false, requestedAt: '2026-10-05T12:00:00Z' }));
+  const tree = HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false, requestedAt: '2026-10-05T12:00:00Z' });
+  const output = JSON.stringify(tree);
   assert.match(output, /Cuenta en revisión/);
   assert.match(output, /Solicitud enviada/);
   assert.match(output, /5 de octubre de 2026/);
   assert.match(output, /automáticamente/);
   assert.doesNotMatch(output, /Llamar|tel:|24 horas|Hola,/);
-  assert.match(output, /\/auth\/signout/);
+  assert.doesNotMatch(output, /\/auth\/signout|Volver al inicio de sesión/);
+  const button = tree.props.children[1].props.children.find(child => child?.type === 'button');
+  assert.equal(button.props.children, 'Actualizar estado de mi solicitud');
+  button.props.onClick();
+  assert.equal(refreshes, 1);
 });
 
 test('recargar Usuarios con Auth temporalmente caído no redirige al login', async () => {
