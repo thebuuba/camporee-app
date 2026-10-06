@@ -27,3 +27,11 @@
 .pm-login-shell button:focus-visible,.pm-login-shell a:focus-visible,.pm-login-shell input[type=checkbox]:focus-visible{outline:3px solid #9c461c;outline-offset:3px}
 .pm-login-content>.auth-alert{margin-bottom:16px}
 @media(max-width:360px){.pm-login-content{padding-left:20px;padding-right:20px}.pm-login-options,.pm-login-options>button{font-size:12px}}
+.pm-signup-header{display:flex;align-items:center;gap:12px;padding:max(24px,env(safe-area-inset-top)) 20px 0}
+.pm-signup-header>a{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;border-radius:50%;background:#fff;color:#2d211b;text-decoration:none;box-shadow:0 2px 5px #70503504}
+.pm-signup-header h1{margin:0;color:#2d211b!important;font-size:20px!important;font-weight:700;line-height:28px;letter-spacing:-.5px}
+.pm-signup-header p{margin:0;color:#7b6c65;font-size:12px;line-height:16px}
+.pm-signup-content{padding:32px 20px}
+.pm-signup-content>.auth-alert{margin-bottom:16px}
+.pm-signup-content input[name=fullName],.pm-signup-content input[name=email]{padding-left:16px;padding-right:16px}
+.pm-signup-content .pm-login-submit{margin-top:8px}

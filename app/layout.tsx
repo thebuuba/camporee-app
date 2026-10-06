@@ -38,6 +38,7 @@ import DataFreshness from "./components/data-freshness";
 import AppSplash from "./components/app-splash";
 import MusicPlayer from "./components/music-player";
 import "./music-player.css";
+import "./page-motion.css";
 
 const appBackground = "#fdf8f5";
 

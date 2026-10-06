@@ -1,0 +1,54 @@
+/* Keep fixed navigation and the persistent player in their original positions. */
+.page-motion{display:contents}
+.page-motion>main>:not(.nav):not(.panel-add):not(dialog){animation:page-panel-arrive 460ms cubic-bezier(.22,.8,.3,1) backwards!important}
+.page-motion>main>:nth-child(2):not(.nav):not(.panel-add):not(dialog){animation-delay:45ms!important}
+.page-motion>main>:nth-child(3):not(.nav):not(.panel-add):not(dialog){animation-delay:80ms!important}
+.page-motion>main h1{animation:page-title-arrive 460ms cubic-bezier(.22,.8,.3,1) backwards}
+.page-motion :is(.pm-login-form>.pm-login-field,.more-grid>.more-card,.polymet-summary>.polymet-summary-card,.account-review-steps>li){animation:page-item-arrive 420ms cubic-bezier(.22,.8,.3,1) backwards}
+.page-motion :is(.pm-login-form,.more-grid,.polymet-summary,.account-review-steps)>:nth-child(2){animation-delay:65ms}
+.page-motion :is(.pm-login-form,.more-grid,.polymet-summary,.account-review-steps)>:nth-child(3){animation-delay:110ms}
+.page-motion :is(.pm-login-form,.more-grid,.polymet-summary,.account-review-steps)>:nth-child(n+4){animation-delay:145ms}
+.page-motion :is(.pm-login-mark,.account-status-icon){animation:page-icon-hop 560ms cubic-bezier(.22,.8,.3,1) backwards}
+.page-motion .nav .active .nav-icon{animation:page-nav-pop 300ms ease-out both}
+.page-motion :is(button,a){-webkit-tap-highlight-color:transparent}
+.page-motion :is(.pm-login-submit,.account-status-primary,.account-status-secondary,.primary-btn,.icon-btn,.pm-signup-header>a){transition:scale 160ms ease,box-shadow 180ms ease}
+.page-motion :is(.pm-login-submit,.account-status-primary,.account-status-secondary,.primary-btn,.icon-btn,.pm-signup-header>a):active{scale:.97}
+.page-motion :is(.more-card,.pm-login-password-toggle){transition:scale 160ms ease}
+.page-motion :is(.more-card,.pm-login-password-toggle):active{scale:.97}
+.page-motion .more-card:active .more-icon svg,.page-motion .pm-login-password-toggle[aria-pressed=true] svg{animation:page-control-wiggle 320ms ease-out}
+@keyframes page-content-arrive{from{opacity:.65}to{opacity:1}}
+@keyframes page-panel-arrive{0%{opacity:0;translate:0 18px}75%{opacity:1;translate:0 -2px}100%{opacity:1;translate:none}}
+@keyframes page-item-arrive{from{opacity:0;translate:0 12px}to{opacity:1;translate:none}}
+@keyframes page-icon-hop{0%{opacity:0;scale:.78;rotate:-8deg}60%{opacity:1;scale:1.07;rotate:3deg}100%{opacity:1;scale:none;rotate:none}}
+@keyframes page-title-arrive{0%{translate:0 6px}72%{translate:0 -1px}100%{translate:none}}
+@keyframes page-nav-pop{0%{scale:.9}65%{scale:1.08}100%{scale:1}}
+@keyframes page-control-wiggle{0%{rotate:0deg}35%{rotate:-10deg;scale:1.12}70%{rotate:5deg}100%{rotate:none;scale:none}}
+/* Native transitions also cover full navigation to saved pages offline. */
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:page-document-leave 120ms ease-out both}
+::view-transition-new(root){animation:page-content-arrive 220ms ease-out both}
+@keyframes page-document-leave{to{opacity:0}}
+/* Account creation celebrates success before revealing the next steps. */
+.page-motion>.account-created-shell{animation:account-created-background 380ms ease-out 220ms both}
+.page-motion>main.account-created-shell>section.account-created-content{animation:none!important}
+.page-motion .account-created-shell .account-status-icon{animation:account-created-check 360ms cubic-bezier(.22,.8,.3,1) backwards}
+.page-motion .account-created-shell .account-status-icon svg path{stroke-dasharray:60;stroke-dashoffset:0;animation:account-created-draw 220ms ease-out 120ms backwards}
+.page-motion .account-created-content>:not(.account-status-icon){animation:account-created-copy 340ms ease-out 360ms backwards}
+.page-motion .account-created-shell .account-created-content>p{animation-delay:420ms}
+.page-motion .account-created-shell .account-created-content>a{animation-delay:480ms}
+.page-motion .account-created-shell .account-created-content>form{animation-delay:530ms}
+@keyframes account-created-background{from{background-color:#fcf7f3}to{background-color:#feeadd}}
+@keyframes account-created-check{0%{opacity:0;scale:.55}70%{opacity:1;scale:1.08}100%{opacity:1;scale:none}}
+@keyframes account-created-draw{from{stroke-dashoffset:60}to{stroke-dashoffset:0}}
+@keyframes account-created-copy{from{opacity:0;translate:0 8px}to{opacity:1;translate:none}}
+@media(prefers-reduced-motion:reduce){
+  .page-motion>main>:not(.nav):not(.panel-add):not(dialog),.page-motion>main h1,.page-motion .nav .active .nav-icon{animation:none!important}
+  .page-motion :is(.pm-login-form>.pm-login-field,.more-grid>.more-card,.polymet-summary>.polymet-summary-card,.account-review-steps>li,.pm-login-mark,.account-status-icon){animation:none!important}
+  .page-motion :is(.pm-login-submit,.account-status-primary,.account-status-secondary,.primary-btn,.icon-btn,.pm-signup-header>a){transition:none}
+  .page-motion :is(.pm-login-submit,.account-status-primary,.account-status-secondary,.primary-btn,.icon-btn,.pm-signup-header>a):active{scale:1}
+  .page-motion :is(.more-card,.pm-login-password-toggle){transition:none}
+  .page-motion :is(.more-card,.pm-login-password-toggle):active{scale:1}
+  .page-motion .more-card:active .more-icon svg,.page-motion .pm-login-password-toggle[aria-pressed=true] svg{animation:none}
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
+  .page-motion>.account-created-shell,.page-motion .account-created-shell .account-status-icon,.page-motion .account-created-shell .account-status-icon svg path,.page-motion .account-created-content>:not(.account-status-icon){animation:none!important}
+}
