@@ -2,11 +2,11 @@
 
 import BottomSheet from '@/app/components/bottom-sheet';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, CheckCircle2, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
-import { updateMemberAccess } from './actions';
+import { rejectMemberAccess, updateMemberAccess } from './actions';
 import { createClient } from '@/lib/supabase/client';
 
 type UserRow = {
@@ -72,6 +72,8 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
   const router = useRouter();
   const supabase = createClient();
 
+  useEffect(() => { setMembers(users); }, [users]);
+
   const counts = useMemo(() => ({
     pending:members.filter((user) => !user.is_active).length,
     active:members.filter((user) => user.is_active).length,
@@ -123,12 +125,13 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
   }
 
   async function approveAccount(user:UserRow) {
-    if (savingId) return;
+    if (savingId || deletingId) return;
     setSavingId(user.user_id); setSaveError(null);
     const formData = new FormData();
     formData.set('userId',user.user_id);
     formData.set('role',user.role === 'admin' ? 'editor' : user.role);
     formData.set('isActive','on');
+    formData.set('approvePending','on');
     if (directiveRolesAvailable) formData.set('directiveRole',user.directive_role ?? '');
     for (const [key] of permissionLabels) if (user.permissions[key]) formData.set(key,'on');
     try {
@@ -141,7 +144,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
   }
 
   async function removeAccount(user:UserRow) {
-    if (user.is_self || deletingId) return;
+    if (user.is_self || !user.is_active || deletingId || savingId) return;
     const display = user.full_name || user.email || 'esta cuenta';
     const confirmed = window.confirm(`¿Eliminar la cuenta de ${display}?\n\nPerderá el acceso inmediatamente. Su historial del camporee se conservará como registro y esta acción no se puede deshacer.`);
     if (!confirmed) return;
@@ -161,6 +164,21 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
     }
   }
 
+  async function rejectAccount(user:UserRow) {
+    if (user.is_self || user.is_active || deletingId || savingId) return;
+    if (!window.confirm(`¿Rechazar la solicitud de ${user.full_name || user.email || 'esta persona'}?\n\nNo podrá acceder al camporee y verá un mensaje de rechazo al entrar.`)) return;
+    setDeleteError(null);
+    setDeletingId(user.user_id);
+    try {
+      const formData = new FormData(); formData.set('userId', user.user_id);
+      const result = await rejectMemberAccess(formData);
+      if (!result.ok) throw new Error(result.error);
+      setMembers(current => current.filter(member => member.user_id !== user.user_id));
+      router.refresh();
+    } catch (error) { setDeleteError(error instanceof Error ? error.message : 'No se pudo rechazar la solicitud'); }
+    finally { setDeletingId(null); }
+  }
+
   return <>
     <section className='user-admin-summary'>
       <button className={`user-filter ${filter==='pending'?'active':''}`} type='button' onClick={() => setFilter('pending')} aria-pressed={filter==='pending'}><span>Por aprobar</span><b>{counts.pending}</b></button>
@@ -176,7 +194,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
         const deleting = deletingId === user.user_id;
         const saving = savingId === user.user_id;
         const saved = savedId === user.user_id;
-        if (!user.is_active) return <article className='polymet-pending-member ios-card' key={user.user_id}><div className='polymet-pending-main'><span className='member-avatar'>{display.split(' ').map((part) => part[0]).slice(0,2).join('').toUpperCase()}</span><div><strong>{display}</strong><small>{user.email || 'Correo no disponible'} · solicitó {new Date(user.created_at).toLocaleDateString('es-DO',{day:'numeric',month:'short'})}</small></div></div><div className='polymet-pending-actions'><button type='button' onClick={() => void removeAccount(user)} disabled={deleting}><X size={16}/>Rechazar</button><button type='button' onClick={() => void approveAccount(user)} disabled={saving}><Check size={16}/>Aprobar</button></div></article>;
+        if (!user.is_active) return <article className='polymet-pending-member ios-card' key={user.user_id}><div className='polymet-pending-main'><span className='member-avatar'>{display.split(' ').map((part) => part[0]).slice(0,2).join('').toUpperCase()}</span><div><strong>{display}</strong><small>{user.email || 'Correo no disponible'} · solicitó {new Date(user.created_at).toLocaleDateString('es-DO',{day:'numeric',month:'short'})}</small></div></div><div className='polymet-pending-actions'><button type='button' onClick={() => void rejectAccount(user)} disabled={deleting || saving}><X size={16}/>{deleting?'Rechazando…':'Rechazar'}</button><button type='button' onClick={() => void approveAccount(user)} disabled={saving || deleting}><Check size={16}/>Aprobar</button></div></article>;
         return <article className={`compact-member ios-card ${!user.is_active?'pending-user':''}`} key={user.user_id}>
           <button className='compact-member-summary' type='button' onClick={() => setOpenId(isOpen ? null : user.user_id)} aria-expanded={isOpen}>
             <div className='member-avatar'>{user.avatar_url ? <img src={user.avatar_url} alt=""/> : display.split(' ').filter(Boolean).map((part)=>part[0]).slice(0,2).join('').toUpperCase()}</div>

@@ -6,12 +6,12 @@ import { LogOut, TentTree } from "lucide-react";
 import SetupForm from "./setup-form";
 import { createClient } from "@/lib/supabase/client";
 
-export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLoadError = false, camporeeLoadError = false }: { firstName: string; isActive: boolean; isAdmin: boolean; role?: string; accessLoadError?: boolean; camporeeLoadError?: boolean }) {
+export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLoadError = false, camporeeLoadError = false, accessRejected = false }: { firstName: string; isActive: boolean; isAdmin: boolean; role?: string; accessLoadError?: boolean; camporeeLoadError?: boolean; accessRejected?: boolean }) {
   const router = useRouter();
   const refreshingRef = useRef(false);
 
   useEffect(() => {
-    if (isActive || accessLoadError) return;
+    if (isActive || accessLoadError || accessRejected) return;
 
     const supabase = createClient();
     let cancelled = false;
@@ -27,11 +27,11 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLo
 
       const { data: member } = await supabase
         .from("app_members")
-        .select("is_active")
+        .select("is_active,permissions")
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (member?.is_active && !cancelled) {
+      if ((member?.is_active || member?.permissions?.access_rejected === true) && !cancelled) {
         refreshingRef.current = true;
         router.refresh();
       }
@@ -48,8 +48,8 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLo
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "app_members", filter: `user_id=eq.${userId}` },
           (payload: unknown) => {
-            const next = (payload as { new?: { is_active?: boolean } }).new;
-            if (next?.is_active && !refreshingRef.current) {
+            const next = (payload as { new?: { is_active?: boolean; permissions?: { access_rejected?: boolean } } }).new;
+            if ((next?.is_active || next?.permissions?.access_rejected === true) && !refreshingRef.current) {
               refreshingRef.current = true;
               router.refresh();
             }
@@ -77,7 +77,7 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLo
       window.removeEventListener("focus", onFocus);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [accessLoadError, isActive, router]);
+  }, [accessLoadError, accessRejected, isActive, router]);
 
   useEffect(() => {
     if (!isActive || accessLoadError) return;
@@ -108,10 +108,10 @@ export default function HomeSetup({ firstName, isActive, isAdmin, role, accessLo
       if (intervalId) window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
     };
-  }, [accessLoadError, isActive, router]);
+  }, [accessLoadError, accessRejected, isActive, router]);
 
   return <main className="app setup-app">
     <header className="top"><div><div className="eyebrow">CAMPOREE</div><h1>Hola, {firstName} 👋</h1></div><form action="/auth/signout" method="post"><button className="icon-btn" aria-label="Cerrar sesión"><LogOut size={19}/></button></form></header>
-    {accessLoadError ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">CONEXIÓN INESTABLE</span><h2>No pudimos verificar tu acceso.</h2></div><p>La app no pudo consultar tus permisos en este momento. Tu cuenta no ha sido marcada como pendiente.</p><div className="auth-alert">Vuelve a intentarlo. Si eres administrador, la app conservará tu acceso cuando la consulta responda correctamente.</div><a className="primary-btn" href="/">Reintentar</a></section> : camporeeLoadError ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">RECUPERANDO DATOS</span><h2>Tu camporee sigue guardado.</h2></div><p>No pudimos cargar el evento en esta consulta. La app está intentando recuperarlo automáticamente.</p><div className="auth-alert">No crees otro camporee. Tus datos existentes no se han borrado.</div><a className="primary-btn" href="/">Reintentar ahora</a></section> : !isActive ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">SOLICITUD RECIBIDA</span><h2>Tu acceso está pendiente.</h2></div><p>Un administrador debe activar tu cuenta antes de que puedas consultar la información del camporee.</p><div className="auth-alert">Esta pantalla se actualizará automáticamente en cuanto un administrador apruebe tu acceso.</div></section> : !isAdmin ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">ACCESO LISTO</span><h2>Ya eres parte del equipo.</h2></div><p>Todos trabajan sobre el mismo camporee. Cuando un administrador cree el evento, aparecerá aquí automáticamente para ti.</p><div className="auth-alert success">Acceso activo como {role === "editor" ? "editor" : "solo lectura"}.</div></section> : <><section className="setup-intro ios-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">EMPECEMOS</span><h2>Prepara la próxima aventura.</h2><p>Crea el evento compartido y después todo el equipo podrá organizar tareas, programa, participantes, comidas, listas y presupuesto desde el mismo lugar.</p></div><div className="setup-steps"><span className="active">1</span><i/><span>2</span><i/><span>3</span></div><div className="setup-step-labels"><span>Evento</span><span>Equipo</span><span>Listo</span></div></section><section className="setup-card ios-card"><div className="section-head inside"><div><div className="eyebrow">PASO 1 DE 3</div><h3>Datos del camporee</h3></div><span>Podrás editarlos luego</span></div><SetupForm /></section></>}
+    {accessLoadError ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">CONEXIÓN INESTABLE</span><h2>No pudimos verificar tu acceso.</h2></div><p>La app no pudo consultar tus permisos en este momento. Tu cuenta no ha sido marcada como pendiente.</p><div className="auth-alert">Vuelve a intentarlo. Si eres administrador, la app conservará tu acceso cuando la consulta responda correctamente.</div><a className="primary-btn" href="/">Reintentar</a></section> : camporeeLoadError ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">RECUPERANDO DATOS</span><h2>Tu camporee sigue guardado.</h2></div><p>No pudimos cargar el evento en esta consulta. La app está intentando recuperarlo automáticamente.</p><div className="auth-alert">No crees otro camporee. Tus datos existentes no se han borrado.</div><a className="primary-btn" href="/">Reintentar ahora</a></section> : accessRejected && !isActive ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">SOLICITUD RECHAZADA</span><h2>Tu solicitud de acceso fue rechazada.</h2></div><p>No tienes acceso a la información del camporee. Contacta con la directiva si crees que se trata de un error o necesitas solicitar una revisión.</p></section> : !isActive ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">SOLICITUD RECIBIDA</span><h2>Tu acceso está pendiente.</h2></div><p>Un administrador debe activar tu cuenta antes de que puedas consultar la información del camporee.</p><div className="auth-alert">Esta pantalla se actualizará automáticamente en cuanto un administrador apruebe tu acceso.</div></section> : !isAdmin ? <section className="setup-intro ios-card waiting-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">ACCESO LISTO</span><h2>Ya eres parte del equipo.</h2></div><p>Todos trabajan sobre el mismo camporee. Cuando un administrador cree el evento, aparecerá aquí automáticamente para ti.</p><div className="auth-alert success">Acceso activo como {role === "editor" ? "editor" : "solo lectura"}.</div></section> : <><section className="setup-intro ios-card"><div className="setup-icon"><TentTree size={25}/></div><div><span className="auth-kicker">EMPECEMOS</span><h2>Prepara la próxima aventura.</h2><p>Crea el evento compartido y después todo el equipo podrá organizar tareas, programa, participantes, comidas, listas y presupuesto desde el mismo lugar.</p></div><div className="setup-steps"><span className="active">1</span><i/><span>2</span><i/><span>3</span></div><div className="setup-step-labels"><span>Evento</span><span>Equipo</span><span>Listo</span></div></section><section className="setup-card ios-card"><div className="section-head inside"><div><div className="eyebrow">PASO 1 DE 3</div><h3>Datos del camporee</h3></div><span>Podrás editarlos luego</span></div><SetupForm /></section></>}
   </main>;
 }

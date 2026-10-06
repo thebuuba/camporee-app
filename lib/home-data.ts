@@ -17,12 +17,13 @@ export async function loadHomeData() {
   let authResult = await supabase.auth.getUser();
   for (let attempt = 1; (authResult.error || !authResult.data.user) && attempt < 3; attempt += 1) { await wait(100 * attempt); authResult = await supabase.auth.getUser(); }
   const user = authResult.data.user;
+  if (authResult.error && (authResult.error.name === 'AuthRetryableFetchError' || (authResult.error.status ?? 0) >= 500)) throw authResult.error;
   if (authResult.error || !user) return null;
   const userId = user.id;
 
   const [profileResult, memberResult, initialCamporeeResult] = await Promise.all([
     retryQuery(() => supabase.from("profiles").select("full_name,avatar_url").eq("id", userId).maybeSingle()),
-    retryQuery(() => supabase.from("app_members").select("role,is_active").eq("user_id", userId).maybeSingle(), 3),
+    retryQuery(() => supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(), 3),
     retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }), 3),
   ]);
 

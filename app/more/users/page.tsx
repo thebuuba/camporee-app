@@ -7,7 +7,8 @@ import UsersManager from "./users-manager";
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError && (claimsError.name === 'AuthRetryableFetchError' || (claimsError.status ?? 0) >= 500)) throw claimsError;
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
 
@@ -22,7 +23,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   if (membersError || profilesError) throw membersError ?? profilesError;
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-  const users = (members ?? []).map((member) => {
+  const users = (members ?? []).filter(member => member.permissions?.access_rejected !== true).map((member) => {
     const profile = profileMap.get(member.user_id);
     return {
       user_id:member.user_id,

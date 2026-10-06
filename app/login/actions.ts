@@ -27,6 +27,9 @@ export async function signup(formData: FormData) {
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) redirect(`/signup?error=${encodeURIComponent("Usa al menos una letra y un número en la contraseña")}`);
 
   const supabase = await createClient();
+  const { data: existingAuth, error: existingAuthError } = await supabase.auth.getClaims();
+  if (existingAuth?.claims?.sub) redirect(`/signup?error=${encodeURIComponent("Ya tienes una sesión abierta. Para registrar otra cuenta usa otro navegador o cierra tu sesión primero.")}`);
+  if (existingAuthError && existingAuthError.name !== 'AuthSessionMissingError') redirect(`/signup?error=${encodeURIComponent("No pudimos verificar la sesión. Inténtalo de nuevo.")}`);
   const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
   if (error) {
     const message = error.message.toLowerCase().includes("already") ? "Ya existe una cuenta con ese correo" : error.message;

@@ -53,6 +53,20 @@ test('Inicio comunica un error de datos en vez de mostrar un resumen vacío', as
   await assert.rejects(loadHomeData(), /network unavailable/);
 });
 
+test('un fallo temporal de autenticación no convierte una sesión en cierre de sesión', async () => {
+  const client = homeClient();
+  client.auth.getUser = async () => ({ data: { user: null }, error: Object.assign(new Error('Auth unavailable'), { name: 'AuthRetryableFetchError', status: 503 }) });
+  const { loadHomeData } = await loadHome(client);
+  await assert.rejects(loadHomeData(), /Auth unavailable/);
+});
+
+test('Inicio sin una sesión sigue solicitando iniciar sesión', async () => {
+  const client = homeClient();
+  client.auth.getUser = async () => ({ data: { user: null }, error: null });
+  const { loadHomeData } = await loadHome(client);
+  assert.equal(await loadHomeData(), null);
+});
+
 async function offlineQueue(initialRows, status = 204) {
   const rows = [...initialRows];
   const events = [];

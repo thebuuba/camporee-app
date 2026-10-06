@@ -32,7 +32,7 @@ export default async function MorePage() {
   if (membershipError || !membership?.is_active) redirect("/");
   const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
   const isAdmin = membership.role === "admin";
-  const { count: pendingUsers } = isAdmin ? await supabase.from("app_members").select("user_id", { count: "exact", head: true }).eq("is_active", false) : { count: 0 };
+  const { count: pendingUsers } = isAdmin ? await supabase.from("app_members").select("user_id", { count: "exact", head: true }).eq("is_active", false).or("permissions->>access_rejected.is.null,permissions->>access_rejected.neq.true") : { count: 0 };
   const role = isAdmin ? "Administrador" : membership.role === "editor" ? "Editor" : "Solo lectura";
   const name = profile?.full_name || authData.user?.email || "Mi perfil";
   const dates = camporee ? `${new Date(`${camporee.starts_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long" })} – ${new Date(`${camporee.ends_on}T00:00:00`).toLocaleDateString("es-DO", { day: "numeric", month: "long", year: "numeric" })}` : "Próximamente";
