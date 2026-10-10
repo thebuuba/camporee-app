@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import NotificationControls from '@/app/components/notification-controls';
 import SettingsForm from './settings-form';
+import ThemeSettings from '@/app/components/theme-settings';
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -23,6 +24,7 @@ export default async function SettingsPage() {
   return <main className='app panel-page'>
     <header className='subpage-top'><Link href='/more' className='back-btn' aria-label='Volver'>‹</Link><div><div className='eyebrow'>CONFIGURACIÓN</div><h1>Ajustes</h1><p className='polymet-subtitle'>Camporee y notificaciones</p></div><span className='avatar'><Settings size={22}/></span></header>
     <div className='panel-intro'><div><strong>Datos generales del camporee</strong><small>Cambia el nombre, lugar, fechas y etapa del evento.</small></div></div>
+    <ThemeSettings/>
     {camporee ? <>
       <SettingsForm camporee={camporee} canEdit={canEdit}/>
       <section className='polymet-settings-card polymet-notification-card'><h2>Notificaciones</h2><NotificationControls camporeeId={camporee.id} userId={userId} mode='settings'/></section>

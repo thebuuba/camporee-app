@@ -5,6 +5,7 @@ import { Camera, ImagePlus, Trash2, UserRound, Moon, WifiOff, LogOut } from 'luc
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
+import { useTheme } from '@/app/components/theme-provider';
 
 type Props = {
   userId: string;
@@ -18,6 +19,7 @@ const MAX_SIZE = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg','image/png','image/webp','image/heic','image/heif']);
 
 export default function ProfileClient({ userId, fullName, email, role, initialAvatarUrl }: Props) {
+  const { dark, setPreference } = useTheme();
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -97,7 +99,7 @@ export default function ProfileClient({ userId, fullName, email, role, initialAv
     </div>
     <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
     <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>
-    <section className='polymet-profile-preferences' aria-label='Preferencias futuras'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' disabled aria-label='Modo oscuro: aún no disponible'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>Los cambios se sincronizan al instante</small></span><input type='checkbox' disabled aria-label='Modo sin conexión: aún no disponible'/></div></section>
+    <section className='polymet-profile-preferences' aria-label='Preferencias'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' checked={dark} onChange={(event) => setPreference(event.target.checked ? 'dark' : 'light')} role='switch' aria-label='Modo oscuro'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>Los cambios se sincronizan al instante</small></span><input type='checkbox' disabled aria-label='Modo sin conexión: aún no disponible'/></div></section>
     <form action='/auth/signout' method='post' className='polymet-profile-signout'><button type='submit'><LogOut size={16}/> Cerrar sesión</button></form>
   </section>;
 }

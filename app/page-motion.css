@@ -3,6 +3,8 @@
 .page-motion>main>:not(.nav):not(.panel-add):not(dialog){animation:page-panel-arrive 460ms cubic-bezier(.22,.8,.3,1) backwards!important}
 .page-motion>main>:nth-child(2):not(.nav):not(.panel-add):not(dialog){animation-delay:45ms!important}
 .page-motion>main>:nth-child(3):not(.nav):not(.panel-add):not(dialog){animation-delay:80ms!important}
+/* Translating a parent temporarily anchors its fixed button to that parent. */
+.page-motion>main>:not(.nav):not(.panel-add):has(.panel-add){animation:none!important}
 .page-motion>main h1{animation:page-title-arrive 460ms cubic-bezier(.22,.8,.3,1) backwards}
 .page-motion :is(.pm-login-form>.pm-login-field,.more-grid>.more-card,.polymet-summary>.polymet-summary-card,.account-review-steps>li){animation:page-item-arrive 420ms cubic-bezier(.22,.8,.3,1) backwards}
 .page-motion :is(.pm-login-form,.more-grid,.polymet-summary,.account-review-steps)>:nth-child(2){animation-delay:65ms}
