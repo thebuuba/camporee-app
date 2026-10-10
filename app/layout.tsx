@@ -40,6 +40,7 @@ import MusicPlayer from "./components/music-player";
 import "./music-player.css";
 import "./page-motion.css";
 import "./dark-theme.css";
+import "./color-theme.css";
 import ThemeProvider from "./components/theme-provider";
 import { themeInitScript } from "@/lib/theme";
 

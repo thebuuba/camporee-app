@@ -1,0 +1,37 @@
+/* The component color rules are shared with dark-theme.css; palettes only change tokens. */
+:root[data-palette]:not([data-palette="original"]){
+  --dark-orange:var(--palette-accent);
+  --dark-orange-soft:var(--palette-soft);
+  --dark-orange-text:var(--palette-text);
+}
+:root[data-theme="light"][data-palette]:not([data-palette="original"]){
+  --theme-color-scheme:light;
+  --theme-on-accent:#ffffff;
+  --dark-bg:var(--palette-bg);--dark-surface:#ffffff;--dark-surface-soft:var(--palette-soft);
+  --dark-text:#28212b;--dark-muted:#635969;--dark-line:#8b8290;
+  --dark-green:#245c41;--dark-green-soft:#e1f2e7;--dark-green-text:#245c41;
+  --dark-blue:#244f75;--dark-blue-soft:#e3edfc;--dark-blue-text:#244f75;
+  --dark-red:#8a3038;--dark-red-soft:#fbe4e8;--dark-red-text:#8a3038;
+  --dark-gold:#5d4b15;--dark-gold-soft:#fff1bd;--dark-gold-text:#6b5312;
+  --dark-purple:#63376f;--dark-purple-soft:#eee4fa;--dark-purple-text:#63376f;
+  --shadow:0 10px 30px #28212b0a;--shadow-soft:0 6px 18px #28212b08;--pm-shadow:0 4px 14px #28212b0a;
+}
+:root[data-theme="light"][data-palette]:not([data-palette="original"]) .pm-login-options input:checked::after{
+  border-color:var(--theme-on-accent)!important;
+}
+
+.theme-palette-picker{min-width:0;margin:4px 0 0;padding:0;border:0}
+.theme-palette-picker legend{padding:0;margin-bottom:12px;font-size:14px;font-weight:600}
+.theme-palette-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.theme-palette-option{position:relative;min-width:0;cursor:pointer}
+.theme-palette-option input{position:absolute;opacity:0;width:1px;height:1px}
+.theme-palette-tile{min-height:76px;padding:12px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:16px;background:var(--surface-soft);color:var(--ink);font-size:12px;font-weight:500}
+.theme-palette-dot{width:23px;height:23px;border-radius:50%;box-shadow:inset 0 0 0 1px #0002}
+.theme-palette-option input:checked+.theme-palette-tile{outline:2px solid var(--dark-orange-text,#a33d13);outline-offset:-2px;font-weight:700}
+.theme-palette-option input:checked+.theme-palette-tile .theme-palette-dot::after{content:'✓';display:grid;place-items:center;height:100%;color:#171412;font-weight:800;text-shadow:0 0 3px #fff}
+.theme-palette-option input:focus-visible+.theme-palette-tile{outline:3px solid var(--dark-orange-text,#a33d13);outline-offset:3px}
+.ios-card,.notification-settings,.notification-settings .secondary-btn{transition-property:transform,scale,box-shadow,opacity!important}
+:root[data-theme="light"][data-palette]:not([data-palette="original"]) .budget-balance .polymet-budget-usage small{color:var(--theme-on-accent)!important}
+:root[data-theme="light"][data-palette]:not([data-palette="original"]) .budget-summary .budget-balance{background:transparent!important;box-shadow:none!important}
+:root[data-theme="light"][data-palette]:not([data-palette="original"]) .program-row.is-ongoing .row-icon-btn{background:transparent!important}
+:root[data-palette]:not([data-palette="original"]) .polymet-home-hero>img{opacity:.18!important}
