@@ -21,17 +21,18 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
     const read = () => {
       try {
         const saved = localStorage.getItem(themeStorageKey);
-        current = saved === 'dark' || saved === 'light' ? saved : 'system';
+        current = saved === 'dark' || saved === 'warm' || saved === 'light' ? saved : 'system';
       } catch {}
       setPreferenceState(current);
       apply(current);
     };
     const apply = (value: ThemePreference) => {
       const theme = resolveTheme(value, media.matches);
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-      document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', theme === 'dark' ? '#171412' : '#fdf8f5'));
-      setDark(theme === 'dark');
+      document.documentElement.dataset.theme = theme === 'warm' ? 'dark' : theme;
+      document.documentElement.dataset.themeTone = theme;
+      document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+      document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', theme === 'warm' ? '#171412' : theme === 'dark' ? '#000000' : '#fdf8f5'));
+      setDark(theme !== 'light');
     };
     const onSystemChange = () => apply(current);
     const onStorage = (event: StorageEvent) => { if (event.key === themeStorageKey || event.key === null) read(); };

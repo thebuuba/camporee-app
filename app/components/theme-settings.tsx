@@ -11,7 +11,8 @@ export default function ThemeSettings() {
     <select id="theme-preference" value={preference} onChange={(event) => setPreference(event.target.value as ThemePreference)}>
       <option value="system">Según el dispositivo</option>
       <option value="light">Claro</option>
-      <option value="dark">Oscuro</option>
+      <option value="warm">Oscuro cálido</option>
+      <option value="dark">Negro</option>
     </select>
     <p>Se guarda en este dispositivo y se aplica a todas las pantallas.</p>
   </section>;

@@ -1,7 +1,7 @@
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --dark-bg:#171412;--dark-surface:#231e1b;--dark-surface-soft:#2e2723;
-  --dark-text:#f5ece6;--dark-muted:#c0b2a8;--dark-line:#66564a;
+  --dark-bg:#000000;--dark-surface:#121212;--dark-surface-soft:#1e1e1e;
+  --dark-text:#f5f5f5;--dark-muted:#bdbdbd;--dark-line:#7c7c7c;
   --dark-orange:#b44718;--dark-orange-soft:#3b281e;--dark-orange-text:#ffad7a;
   --dark-green:#245c41;--dark-green-soft:#203329;--dark-green-text:#96d7ab;
   --dark-blue:#244f75;--dark-blue-soft:#20303e;--dark-blue-text:#9acbf0;
@@ -16,6 +16,11 @@
   --red:var(--dark-red-text);--red-soft:var(--dark-red-soft);
   --gold:var(--dark-gold-text);--gold-soft:var(--dark-gold-soft);--blue:var(--dark-blue-text);--blue-soft:var(--dark-blue-soft);
   --shadow:0 10px 30px #0005;--shadow-soft:0 6px 18px #0004;--pm-shadow:0 4px 14px #0005;
+}
+
+:root[data-theme="dark"][data-theme-tone="warm"]{
+  --dark-bg:#171412;--dark-surface:#231e1b;--dark-surface-soft:#2e2723;
+  --dark-text:#f5ece6;--dark-muted:#c0b2a8;--dark-line:#958276;
 }
 /* Color counterparts for all existing components; geometry and motion stay in their original stylesheets. */
 :root[data-theme="dark"] .search-icon{color:var(--dark-muted)!important}
@@ -457,9 +462,9 @@
 :root[data-theme="dark"] .auth-form input:focus{background:color-mix(in srgb,var(--dark-surface) 90%,transparent)!important;border-color:color-mix(in srgb,var(--dark-orange-text) 42%,transparent)!important;box-shadow:0 0 0 4px rgb(0 0 0 / 0.14)!important}
 :root[data-theme="dark"] .field-card:focus-within{background:color-mix(in srgb,var(--dark-surface) 90%,transparent)!important;border-color:color-mix(in srgb,var(--dark-orange-text) 42%,transparent)!important;box-shadow:0 0 0 4px rgb(0 0 0 / 0.14)!important}
 :root[data-theme="dark"] .secondary-btn{border:1px solid color-mix(in srgb,var(--dark-line) 82%,transparent)!important;background:var(--dark-surface)!important;color:var(--dark-orange-text)!important}
-:root[data-theme="dark"] .nav{background:color-mix(in srgb,var(--dark-surface) 76%,transparent)!important;border:1px solid color-mix(in srgb,var(--dark-line) 92%,transparent)!important;box-shadow:0 14px 34px rgb(0 0 0 / 0.13),inset 0 1px 0 rgb(0 0 0 / 0.92)!important}
-:root[data-theme="dark"] .nav.nav-four{background:color-mix(in srgb,var(--dark-surface) 76%,transparent)!important;border:1px solid color-mix(in srgb,var(--dark-line) 92%,transparent)!important;box-shadow:0 14px 34px rgb(0 0 0 / 0.13),inset 0 1px 0 rgb(0 0 0 / 0.92)!important}
-:root[data-theme="dark"] .nav.nav-reference{border:1px solid color-mix(in srgb,var(--dark-line) 92%,transparent)!important;background:color-mix(in srgb,var(--dark-surface) 97%,transparent)!important;border-top:1px solid var(--dark-line)!important}
+:root[data-theme="dark"] .nav{background:color-mix(in srgb,var(--dark-surface) 76%,transparent)!important;border:0!important;box-shadow:0 14px 34px rgb(0 0 0 / 0.13)!important}
+:root[data-theme="dark"] .nav.nav-four{background:color-mix(in srgb,var(--dark-surface) 76%,transparent)!important;border:0!important;box-shadow:0 14px 34px rgb(0 0 0 / 0.13)!important}
+:root[data-theme="dark"] .nav.nav-reference{border:0!important;background:color-mix(in srgb,var(--dark-surface) 97%,transparent)!important}
 :root[data-theme="dark"] .nav a{color:var(--dark-muted)!important}
 :root[data-theme="dark"] .nav button{color:var(--dark-muted)!important}
 :root[data-theme="dark"] .sheet-handle{background:color-mix(in srgb,var(--dark-surface-soft) 20%,transparent)!important}
@@ -1092,15 +1097,21 @@
 :root[data-theme="dark"] .song-file-field small{color:var(--dark-muted)!important}
 :root[data-theme="dark"] .song-file-field input::file-selector-button{background:var(--dark-orange-soft)!important;color:var(--dark-text)!important}
 /* Persistent chrome and native controls follow the selected theme. */
+:root[data-theme="dark"] .polymet-detail-page .polymet-detail-filters button span{opacity:1!important}
+:root[data-theme="dark"] .program-row .program-actions{opacity:1!important}
+:root[data-theme="dark"] :is(.pm-sheet,.panel-form,.polymet-profile-form,.theme-settings,.pm-login-field) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){border:1px solid var(--dark-line)!important}
+:root[data-theme="dark"] :is(.panel-search,.search-card){box-shadow:inset 0 0 0 1px var(--dark-line)!important}
+:root[data-theme="dark"] :is(.app,.pm-login-shell,.account-status-shell,.auth-shell,.auth-page,.offline-page){background:var(--dark-bg)!important}
 :root[data-theme="dark"],:root[data-theme="dark"] body{background:var(--dark-bg)!important;color:var(--dark-text)!important}
 :root[data-theme="dark"] :is(input,textarea,select){color-scheme:dark!important}
 :root[data-theme="dark"] :is(input,textarea)::placeholder{color:var(--dark-muted)!important;opacity:1}
 :root[data-theme="dark"] :is(button,a,input,textarea,select):focus-visible{outline:2px solid var(--dark-orange-text);outline-offset:3px}
 :root[data-theme="dark"] :is(.sheet-backdrop,.pm-sheet-backdrop){background:rgb(0 0 0 / .65)!important}
 :root[data-theme="dark"] .pm-sheet-frame::backdrop{background:rgb(0 0 0 / .72)!important}
-:root[data-theme="dark"] .pm-launch-scene{opacity:.45}
+:root[data-theme="dark"] .pm-launch-scene{opacity:.22}
 :root[data-theme="dark"] :is(.preparation-scene,.polymet-hero-scene,.pm-login-header){background:var(--dark-surface)!important}
 :root[data-theme="dark"] :is(.preparation-scene,.polymet-hero-scene,.pm-login-header)>img{opacity:.5}
+:root[data-theme="dark"] .pm-login-header>img{opacity:.22}
 :root[data-theme="dark"] .preparation-ring circle:first-child{stroke:var(--dark-line)}
 :root[data-theme="dark"] .preparation-ring circle:last-child{stroke:var(--dark-orange-text)}
 :root[data-theme="dark"] .polymet-phase-options label.selected :is(strong,small){color:var(--dark-text)!important;opacity:1}
@@ -1111,7 +1122,7 @@
 :root[data-theme="dark"] .pm-launch-content h1{color:var(--dark-orange-text)!important}
 :root[data-theme="dark"] .pm-launch-content>p,:root[data-theme="dark"] .pm-launch-loading small,:root[data-theme="dark"] .pm-launch-footer{color:var(--dark-muted)!important}
 :root[data-theme="dark"] .account-created-shell{animation-name:account-created-dark-background!important}
-@keyframes account-created-dark-background{from{background-color:#171412}to{background-color:#3b281e}}
+@keyframes account-created-dark-background{from{background-color:var(--dark-bg)}to{background-color:var(--dark-surface)}}
 .theme-settings{display:grid;gap:12px}
 .theme-settings label{font-size:14px;font-weight:600}
 .theme-settings select{width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--pm-line);border-radius:16px;background:var(--surface);color:var(--ink);font:inherit}
