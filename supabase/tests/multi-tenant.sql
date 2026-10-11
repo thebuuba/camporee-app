@@ -1,0 +1,97 @@
+select no_plan();
+select has_table('public','organizations','organizations exist');
+select has_table('public','organization_members','organization membership exists');
+select ok(not has_function_privilege('anon','public.create_organization(text,uuid)','EXECUTE'),'anonymous cannot execute privileged organization RPC');
+select ok(not has_function_privilege('authenticated','private.is_app_admin()','EXECUTE'),'old global admin helper revoked');
+select is((select count(*) from camporees where organization_id='00000000-0000-4000-8000-000000000001'),2::bigint,'all legacy camporees belong to initial organization');
+select is((select count(*) from tasks),(select count(*) from legacy_tasks),'legacy tasks preserved');
+select is((select title from tasks where id='30000000-0000-4000-8000-000000000001'),'Tarea intacta','legacy task ID and content preserved');
+select is((select count(*) from organization_members),4::bigint,'all legacy access states preserved');
+select is((select count(*) from organization_members m join legacy_members l using(user_id) where m.role=l.role and m.permissions=l.permissions and m.is_active=l.is_active and m.directive_role is not distinct from l.directive_role),4::bigint,'roles, permissions, activity and duties preserved exactly');
+select is((select camporee_id::text from task_checklist_items limit 1),'20000000-0000-4000-8000-000000000001','child camporee backfilled');
+do $$ declare r record; n bigint; missing bigint; begin
+ for r in select * from legacy_counts loop
+  execute format('select count(*) from public.%I',r.table_name) into n;
+  execute format('select count(*) from legacy_rows old where old.table_name=%L and not exists(select 1 from public.%I current_row where to_jsonb(current_row) @> old.data)',r.table_name,r.table_name) into missing;
+  if n<>r.row_count or missing<>0 then raise exception 'Historical row lost or changed in %',r.table_name; end if;
+ end loop;
+end $$;
+select pass('all original columns, IDs and row counts retained in every module');
+-- A second organization controlled by another account.
+insert into auth.users(id,email,email_confirmed_at) values ('10000000-0000-4000-8000-000000000005','other@club.test',now());
+select is((select count(*) from app_members),4::bigint,'new signup does not receive global membership');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select is((select count(*) from tasks),0::bigint,'outsider cannot read legacy tasks');
+do $$ declare tbl text; n bigint; begin
+ foreach tbl in array array['areas','task_checklist_items','schedule_events','lists','list_items','meals','meal_ingredients','participants','expenses','income_entries','notes','inventory_items','emergency_contacts','camporee_documents','announcements','attendance_sessions','attendance_marks','camporee_activities','camporee_activity_participants'] loop
+  execute format('select count(*) from public.%I',tbl) into n;
+  if n<>0 then raise exception 'Outsider leaked % rows from %',n,tbl; end if;
+ end loop;
+end $$;
+select pass('outsider denied in every populated module');
+select is((select count(*) from profiles),1::bigint,'outsider sees only own profile');
+select create_organization('Otro club','50000000-0000-4000-8000-000000000001');
+select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001');
+select lives_ok($$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$,'camporee creation retries are idempotent');
+select is((select count(*) from areas where camporee_id='60000000-0000-4000-8000-000000000001'),10::bigint,'areas seeded once atomically');
+select create_camporee('50000000-0000-4000-8000-000000000001','Año siguiente','2028-01-01','2028-01-05','60000000-0000-4000-8000-000000000002');
+select is((select count(*) from camporees),2::bigint,'organization can create several camporees');
+insert into tasks(id,camporee_id,title,created_by) values ('70000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','Otra tarea','10000000-0000-4000-8000-000000000005');
+select is((select count(*) from tasks),1::bigint,'other organization sees only its task');
+select is((select count(*) from storage.objects),0::bigint,'other organization cannot read legacy file');
+select throws_ok($$insert into tasks(camporee_id,area_id,title,created_by) values('60000000-0000-4000-8000-000000000001','41000000-0000-4000-8000-000000000001','Cross-area','10000000-0000-4000-8000-000000000005')$$,'23503',null,'cross-camp area denied');
+select throws_ok($$insert into camporee_documents(camporee_id,title,file_path,created_by) values('60000000-0000-4000-8000-000000000001','Cross-file','20000000-0000-4000-8000-000000000001/documents/legacy.pdf','10000000-0000-4000-8000-000000000005')$$,'23514',null,'document cannot point to another camporee storage path');
+select throws_ok($$insert into tasks(camporee_id,title,assigned_to,created_by) values('60000000-0000-4000-8000-000000000001','Wrong assignee','10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000005')$$,'23514',null,'task assignee must be active in the organization');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select is((select count(*) from tasks),1::bigint,'legacy member sees only legacy task');
+select lives_ok($$update tasks set title='Editada' where id='30000000-0000-4000-8000-000000000001'$$,'granular tasks permission retained');
+select throws_ok($$update tasks set created_by='10000000-0000-4000-8000-000000000002' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'editing cannot rewrite original author');
+select throws_ok($$insert into notes(camporee_id,body,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000002')$$,'42501',null,'viewer cannot write another module');
+select throws_ok($$insert into task_checklist_items(task_id,camporee_id,label) values('70000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','Cross-camp')$$,'23503',null,'cross-camp child reference denied');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select is((select count(*) from tasks),0::bigint,'pending legacy user still cannot read');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select throws_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001')$$,'23514',null,'cannot remove organization owner');
+select throws_ok($$update tasks set camporee_id='60000000-0000-4000-8000-000000000001' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'cannot move data to another camporee');
+select is((select count(*) from organization_task_assignees('00000000-0000-4000-8000-000000000001')),2::bigint,'directory includes only active members of this organization');
+-- Invitation tokens never appear in table reads; only admin creation returns them.
+select create_organization_invitation('00000000-0000-4000-8000-000000000001','other@club.test','viewer','{}',null) as invite_token \gset
+select set_config('test.invite_token', :'invite_token', true);
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'42501',null,'invitation cannot be claimed by different email');
+select throws_ok($$select create_organization_invitation('00000000-0000-4000-8000-000000000001','stranger@club.test','admin','{}',null)$$,'42501',null,'nonadmin cannot invite');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select lives_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'verified intended user can accept');
+select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'23514',null,'invitation is one use');
+select is((select count(*) from tasks),2::bigint,'same account can read both organizations after invitation');
+select is((select role from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()),'viewer','account has independent role in legacy organization');
+select throws_ok($$insert into tasks(camporee_id,title,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000005')$$,'42501',null,'admin elsewhere is only viewer here');
+select throws_ok($$update tasks set camporee_id='20000000-0000-4000-8000-000000000001' where id='70000000-0000-4000-8000-000000000001'$$,'23514',null,'reparent forbidden even with membership in both organizations');
+select throws_ok($$update organization_members set role='admin' where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'cannot escalate own membership directly');
+select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'second owner cannot remove own membership');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select lives_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000005')$$,'admin removes only organization membership');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select is((select count(*) from tasks),1::bigint,'revocation hides legacy data immediately');
+select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,'other membership survives removal');
+update camporees set status='archived' where id='60000000-0000-4000-8000-000000000001';
+select is((select count(*) from tasks),1::bigint,'archived history remains readable');
+select throws_ok($$insert into tasks(camporee_id,title,created_by) values('60000000-0000-4000-8000-000000000001','Archived write','10000000-0000-4000-8000-000000000005')$$,'42501',null,'archived event is read only');
+select is((select count(*) from storage.objects where bucket_id='profile-avatars'),0::bigint,'unrelated avatars not exposed');
+reset role;
+-- A legacy organization without an owner cannot be claimed via a retry UUID.
+update organizations set owner_user_id=null where id='00000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select throws_ok($$select create_organization('Claim existing','00000000-0000-4000-8000-000000000001')$$,'23505',null,'creation retry cannot claim ownerless legacy organization');
+reset role;
+update organizations set owner_user_id='10000000-0000-4000-8000-000000000001' where id='00000000-0000-4000-8000-000000000001';
+select is((select count(*) from auth.users),5::bigint,'membership removal never deletes Auth account');
+select is((select public from storage.buckets where id='profile-avatars'),false,'avatar bucket private');
+select is((select count(*) from app_members),4::bigint,'legacy authorization snapshot retained');
+-- Deleting a non-owner Auth account must not cascade through authored history.
+insert into tasks(id,camporee_id,title,created_by) values('90000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','Author history','10000000-0000-4000-8000-000000000002');
+select lives_ok($$delete from auth.users where id='10000000-0000-4000-8000-000000000002'$$,'non-owner account deletion is possible without history deletion');
+select is((select count(*) from tasks where id='90000000-0000-4000-8000-000000000001'),1::bigint,'Auth deletion retains historical task');
+select is((select created_by from tasks where id='90000000-0000-4000-8000-000000000001'),null::uuid,'deleted historical author is cleared by FK');
+select finish();
