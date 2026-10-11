@@ -167,10 +167,13 @@ test('las ilustraciones guardadas siguen disponibles cuando falla la red', async
   assert.equal((await response).source,'saved-svg');
 });
 
-test('la apertura usa la página guardada solo cuando falla la conexión', async () => {
+test('la apertura utiliza la pantalla sin conexión, no un HTML anterior', async () => {
   const stale = { source: 'offline-copy', ok: true, clone() { return this; } };
-  const worker = await loadServiceWorker({ cachedResponse: stale, networkError: new Error('offline') });
-  assert.equal((await navigate(worker)).source, 'offline-copy');
+  const worker = await loadServiceWorker({
+    networkError:new Error('offline'),
+    cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):stale,
+  });
+  assert.equal(await (await navigate(worker)).text(),'Sin conexión');
 });
 
 test('un navegador sin precarga y sin espacio de caché puede abrir la versión actual', async () => {
