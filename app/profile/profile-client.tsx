@@ -1,3 +1,4 @@
+import SafeSignoutForm from '@/app/components/safe-signout-form';
 'use client';
 
 import { ChangeEvent, useRef, useState } from 'react';
@@ -104,6 +105,6 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
     <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
     <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>
     <section className='polymet-profile-preferences' aria-label='Preferencias'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' checked={dark} onChange={(event) => setPreference(event.target.checked ? 'dark' : 'light')} role='switch' aria-label='Modo oscuro'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>Los cambios se sincronizan al instante</small></span><input type='checkbox' disabled aria-label='Modo sin conexión: aún no disponible'/></div></section>
-    <form action='/auth/signout' method='post' className='polymet-profile-signout'><button type='submit'><LogOut size={16}/> Cerrar sesión</button></form>
+    <SafeSignoutForm className='polymet-profile-signout'><button type='submit'><LogOut size={16}/> Cerrar sesión</button></SafeSignoutForm>
   </section>;
 }
