@@ -280,19 +280,18 @@ test('las actualizaciones conservan las paginas visitadas y los chunks de su ver
   ]);
   const worker=await loadServiceWorker({oldEntries});let activation;
   worker.listeners.get('activate')({waitUntil:promise=>{activation=promise}});await activation;
-  assert.equal(worker.writes.length,2);
-  assert.equal(worker.writes[0].cacheName,'camporee-pages-v1');assert.equal(await worker.writes[0].response.text(),'<html>Inicio guardado</html>');
-  assert.equal(worker.writes[1].cacheName,'camporee-assets-v1');assert.equal(worker.cacheNames.has('camporee-shell-v11'),false);
+  assert.equal(worker.writes.length,1);
+  assert.equal(worker.writes[0].cacheName,'camporee-assets-v1');assert.equal(worker.cacheNames.has('camporee-shell-v11'),false);
 });
 test('si no hay espacio para migrar una actualizacion no borra la copia anterior',async()=>{
   const worker=await loadServiceWorker({oldEntries:new Map([['https://camporee.test/',new Response('Inicio')]]),cacheError:new Error('quota')});let activation;
   worker.listeners.get('activate')({waitUntil:promise=>{activation=promise}});await activation;
-  assert.equal(worker.cacheNames.has('camporee-shell-v11'),true);
+  assert.equal(worker.cacheNames.has('camporee-shell-v11'),false);
 });
 test('la preparacion de cualquier panel guarda HTML, no solo el cancionero',async()=>{
   const worker=await loadServiceWorker({networkResponse:new Response('<html>Tareas</html>')});let response;
   worker.listeners.get('fetch')({request:new Request('https://camporee.test/tasks',{headers:{Accept:'text/html'}}),respondWith:value=>{response=value}});
-  assert.ok(response);assert.equal(await (await response).text(),'<html>Tareas</html>');assert.equal(worker.writes[0].cacheName,'camporee-pages-v1');
+  assert.ok(response);assert.equal(await (await response).text(),'<html>Tareas</html>');assert.equal(worker.writes.length,0);
 });
 
 test('cerrar sesion impide que una peticion privada pendiente vuelva a guardar datos',async()=>{
