@@ -2,6 +2,7 @@ import Link from '@/app/components/tenant-link';
 import { WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import BudgetManager from "./budget-manager";
+import { formatCamporeeMoney } from '@/lib/camporee-locale';
 
 export default async function BudgetPage({ params }: { params?: TenantPageParams } = {}) {
   const context = await requireCamporeeContext(params, '/more/budget');
@@ -21,8 +22,8 @@ export default async function BudgetPage({ params }: { params?: TenantPageParams
   if (contentError) throw contentError;
 
   return <main className="app panel-page">
-    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1><p className="polymet-subtitle">Montos en pesos dominicanos</p></div><span className="avatar"><WalletCards size={22}/></span></header>
-    <div className="panel-intro"><div><strong>RD${available.toLocaleString("es-DO", { maximumFractionDigits: 0 })} disponibles</strong><small>Cuotas y aportes menos los gastos registrados.</small></div></div>
-    {camporee ? <BudgetManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialExpenses={expenses ?? []} initialIncome={income ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">FINANZAS</div><h1>Presupuesto</h1><p className="polymet-subtitle">Montos en {camporee.currency}</p></div><span className="avatar"><WalletCards size={22}/></span></header>
+    <div className="panel-intro"><div><strong>{formatCamporeeMoney(available,camporee.currency)} disponibles</strong><small>Cuotas y aportes menos los gastos registrados.</small></div></div>
+    {camporee ? <BudgetManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} userId={userId} canEdit={canEdit} currency={camporee.currency} timeZone={camporee.time_zone} initialExpenses={expenses ?? []} initialIncome={income ?? []} areas={areas ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;
 }
