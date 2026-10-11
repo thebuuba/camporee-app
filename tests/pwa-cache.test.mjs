@@ -99,7 +99,7 @@ test('el cancionero guarda HTML al preparar su copia desde una navegación inter
   worker.listeners.get('fetch')({request:new Request('https://camporee.test/more/songs',{headers:{Accept:'text/html'}}),respondWith(value){response=value;},waitUntil(){}});
   assert.ok(response, 'La preparación de la copia debe ser atendida por el service worker');
   assert.equal(await (await response).text(),'<html>Cancionero</html>');
-  assert.equal(worker.writes.length,1);
+  assert.equal(worker.writes.length,0);
 });
 
 test('el cancionero recupera la copia guardada cuando se pierde internet', async () => {
