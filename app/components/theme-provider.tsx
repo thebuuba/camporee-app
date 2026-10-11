@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { resolveTheme, resolvePalette, themePalettes, themeStorageKey, paletteStorageKey, type ThemePreference, type ThemePalette } from '@/lib/theme';
 
 const ThemeContext = createContext({
-  preference: 'system' as ThemePreference,
+  preference: 'light' as ThemePreference,
   dark: false,
   palette: 'original' as ThemePalette,
   setPreference: (_preference: ThemePreference) => {},
@@ -14,18 +14,18 @@ const ThemeContext = createContext({
 export function useTheme() { return useContext(ThemeContext); }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [preference, setPreferenceState] = useState<ThemePreference>('light');
   const [dark, setDark] = useState(false);
   const [palette, setPaletteState] = useState<ThemePalette>('original');
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    let current: ThemePreference = 'system';
+    let current: ThemePreference = 'light';
     let currentPalette: ThemePalette = 'original';
     const read = () => {
       try {
         const saved = localStorage.getItem(themeStorageKey);
-        current = saved === 'dark' || saved === 'warm' || saved === 'light' ? saved : 'system';
+        current = saved === 'dark' || saved === 'warm' || saved === 'light' || saved === 'system' ? saved : 'light';
         currentPalette = resolvePalette(localStorage.getItem(paletteStorageKey));
       } catch {}
       setPreferenceState(current);
