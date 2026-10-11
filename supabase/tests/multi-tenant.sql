@@ -33,7 +33,7 @@ select pass('outsider denied in every populated module');
 select is((select count(*) from profiles),1::bigint,'outsider sees only own profile');
 select create_organization('Otro club','50000000-0000-4000-8000-000000000001');
 select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001');
-select lives_ok($$$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$$,'camporee creation retries are idempotent');
+select lives_ok($$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$,'camporee creation retries are idempotent');
 select is((select count(*) from areas where camporee_id='60000000-0000-4000-8000-000000000001'),10::bigint,'areas seeded once atomically');
 select throws_ok($$select create_camporee('50000000-0000-4000-8000-000000000001','Año siguiente','2028-01-01','2028-01-05','60000000-0000-4000-8000-000000000002')$$,'23505',null,'the director cannot create a second current camporee in the same club');
 select is((select count(*) from camporees),1::bigint,'club member has only one current camporee');
@@ -72,7 +72,7 @@ select throws_ok($$update organization_members set role='admin' where organizati
 select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'club owner cannot remove their own membership');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select is((select count(*) from organization_members where user_id='10000000-0000-4000-8000-000000000005'),1::bigint,'other club membership is unchanged');
-select throws_ok($$$select create_organization('No second club','50000000-0000-4000-8000-000000000003')$$$,'23505',null,'existing member cannot create a second club');
+select throws_ok($$select create_organization('No second club','50000000-0000-4000-8000-000000000003')$$,'23505',null,'existing member cannot create a second club');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
 update camporees set status='archived' where id='60000000-0000-4000-8000-000000000001';
 select is((select count(*) from tasks),1::bigint,'archived history remains readable');
@@ -82,7 +82,7 @@ reset role;
 -- A legacy organization without an owner cannot be claimed via a retry UUID.
 update organizations set owner_user_id=null where id='00000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select throws_ok($$$select create_organization('Claim existing','00000000-0000-4000-8000-000000000001')$$$,'23505',null,'creation retry cannot claim ownerless legacy organization');
+select throws_ok($$select create_organization('Claim existing','00000000-0000-4000-8000-000000000001')$$,'23505',null,'creation retry cannot claim ownerless legacy organization');
 reset role;
 update organizations set owner_user_id='10000000-0000-4000-8000-000000000001' where id='00000000-0000-4000-8000-000000000001';
 select is((select count(*) from auth.users),5::bigint,'membership removal never deletes Auth account');
