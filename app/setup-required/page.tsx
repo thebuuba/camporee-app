@@ -14,7 +14,7 @@ export default function SetupRequiredPage(){
         <p><ShieldCheck size={16} aria-hidden="true"/> Por seguridad, no se ha modificado la base de datos ni se han ejecutado migraciones automáticamente.</p>
         <p>Un administrador debe comprobar las migraciones en un entorno de pruebas y autorizar el despliegue coordinado antes de utilizar esta versión.</p>
       </div>
-      <Link className="primary-btn" href="/login">Volver al inicio de sesión</Link>
+      <Link className="primary-btn" href="/">Comprobar de nuevo</Link>
     </section>
   </main>;
 }
