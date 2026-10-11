@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SyncStatus from '@/app/components/sync-status';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import ProfileClient from './profile-client';
@@ -24,7 +25,7 @@ export default async function ProfilePage() {
     <header className='subpage-top'>
       <Link href='/organizations' className='back-btn' aria-label='Volver a organizaciones'>‹</Link>
       <div><div className='eyebrow'>TU CUENTA</div><h1>Mi perfil</h1></div>
-      <span className='polymet-sync'>☁ Sincronizado</span>
+      <SyncStatus/>
     </header>
     <ProfileClient key={user.id} userId={user.id} fullName={fullName} email={email} initialAvatarUrl={avatarUrl} initialAvatarPath={profile?.avatar_path??null}/>
     <section className="organization-list"><h2>Mis organizaciones</h2>{(memberships??[]).map(member=><Link key={member.organization_id} href={`/o/${member.organization_id}`} className="ios-card"><strong>{organizations?.find(org=>org.id===member.organization_id)?.name??'Organización'}</strong><span>{!member.is_active?'Sin acceso activo':member.role==='admin'?'Administrador':member.role==='editor'?'Editor':'Solo lectura'}</span></Link>)}</section>
