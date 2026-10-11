@@ -41,8 +41,9 @@ select '00000000-0000-4000-8000-000000000001','Organización inicial',
  (select user_id from public.app_members where is_active and role='admin' order by created_at,user_id limit 1)
 where exists(select 1 from public.app_members) or exists(select 1 from public.camporees);
 insert into public.organization_members(organization_id,user_id,role,permissions,is_active,directive_role,created_at,updated_at)
-select '00000000-0000-4000-8000-000000000001',user_id,role,permissions,is_active,directive_role,created_at,updated_at
-from public.app_members;
+select '00000000-0000-4000-8000-000000000001',legacy.user_id,legacy.role,legacy.permissions,
+       legacy.is_active,nullif(to_jsonb(legacy)->>'directive_role',''),legacy.created_at,legacy.updated_at
+from public.app_members legacy;
 update public.camporees set organization_id='00000000-0000-4000-8000-000000000001';
 alter table public.camporees alter column organization_id set not null;
 create index camporees_organization_idx on public.camporees(organization_id,starts_on);
