@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
-import { resolveCamporeeContext } from '../lib/tenant-context.ts';
+import { resolveCamporeeContext, parseTenantPath } from '../lib/tenant-context.ts';
 import {signedAvatar} from '../lib/avatars.ts';
 
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
@@ -73,42 +73,68 @@ test('Inicio sin una sesión sigue solicitando iniciar sesión', async () => {
   await assert.rejects(resolveCamporeeContext(client,{organizationId:'50000000-0000-4000-8000-000000000001',camporeeId:'60000000-0000-4000-8000-000000000001'}), /Authentication required/);
 });
 
+const offlineOwner = '10000000-0000-4000-8000-000000000001';
+const offlineOrg = '50000000-0000-4000-8000-000000000001';
+const offlineCamp = '60000000-0000-4000-8000-000000000001';
+const offlineAuth = 'Bearer aa.' + Buffer.from(JSON.stringify({sub:offlineOwner})).toString('base64url') + '.sig';
 async function offlineQueue(initialRows, status = 204) {
-  const rows = [...initialRows];
+  const rows = initialRows.map(row => row.legacy ? row : {
+    ownerId:offlineOwner,organizationId:offlineOrg,camporeeId:offlineCamp,...row,
+  });
   const events = [];
   const request = value => {const req={}; queueMicrotask(()=>{req.result=value;req.onsuccess?.()});return req};
   const db = {close(){},transaction(){
     const tx={objectStore:()=>({getAll:()=>request([...rows]),count:()=>request(rows.length),delete(id){rows.splice(rows.findIndex(row=>row.id===id),1);queueMicrotask(()=>tx.oncomplete?.())}})};
     return tx;
   }};
-  const api = await loadModule('lib/offline-fetch.ts', {}, {
+  const api = await loadModule('lib/offline-fetch.ts', {'@/lib/tenant-context':{parseTenantPath}}, {
     indexedDB:{open:()=>request(db)}, navigator:{onLine:true},
-    window:{addEventListener(){},dispatchEvent:event=>events.push(event.type)},
+    window:{location:{pathname:`/o/${offlineOrg}/c/${offlineCamp}/tasks`},addEventListener(){},dispatchEvent:event=>events.push(event.type)},
+    atob,
     CustomEvent:class {constructor(type){this.type=type}}, Headers,
     fetch:async()=>new Response(null,{status}),
   });
-  return {api,events};
+  return {api,events,rows};
 }
 
 test('sin cambios pendientes no se dispara un refresco de sincronización', async () => {
   const {api,events} = await offlineQueue([]);
-  await api.flushOfflineWrites('Bearer test');
+  await api.flushOfflineWrites(offlineAuth);
   assert.equal(events.includes('camporee:queue-flushed'),false);
 });
 
 test('una cola real completada avisa para recargar los datos una vez', async () => {
   const {api,events} = await offlineQueue([{id:'one',url:'https://test.supabase.co/rest/v1/tasks',method:'PATCH',headers:[],body:'{}',createdAt:1}]);
-  assert.equal((await api.flushOfflineWrites('Bearer test')).remaining,0);
+  assert.equal((await api.flushOfflineWrites(offlineAuth)).remaining,0);
   assert.equal(events.filter(type=>type==='camporee:queue-flushed').length,1);
 });
 
 test('un error del servidor conserva los cambios pendientes para reintentar', async () => {
   const {api,events} = await offlineQueue([{id:'one',url:'https://test.supabase.co/rest/v1/tasks',method:'PATCH',headers:[],body:'{}',createdAt:1}], 503);
-  const result = await api.flushOfflineWrites('Bearer test');
+  const result = await api.flushOfflineWrites(offlineAuth);
   assert.equal(result.remaining,1);
   assert.equal(result.failed,true);
   assert.equal(events.includes('camporee:queue-flushed'),false);
   assert.equal(events.includes('camporee:sync-error'),true);
+});
+
+
+test('el conflicto POST 409 no se descarta como escritura exitosa', async () => {
+  const {api,rows}=await offlineQueue([{id:'post',url:'https://test.supabase.co/rest/v1/tasks',method:'POST',headers:[],body:'{}',createdAt:1}],409);
+  const result=await api.flushOfflineWrites(offlineAuth);
+  assert.equal(result.remaining,1);
+  assert.equal(result.failed,true);
+  assert.equal(rows.length,1);
+});
+test('las escrituras offline de otra cuenta y la cola heredada no se reproducen', async () => {
+  const {api,rows}=await offlineQueue([
+    {id:'foreign',ownerId:'10000000-0000-4000-8000-000000000002',url:'https://test.supabase.co/rest/v1/tasks',method:'PATCH',headers:[],body:'{}',createdAt:1},
+    {id:'legacy',legacy:true,url:'https://test.supabase.co/rest/v1/tasks',method:'PATCH',headers:[],body:'{}',createdAt:2},
+  ]);
+  const result=await api.flushOfflineWrites(offlineAuth);
+  assert.equal(result.remaining,2);
+  assert.equal(rows.length,2);
+  assert.equal(result.failed,true);
 });
 
 function findElement(node, predicate) {
