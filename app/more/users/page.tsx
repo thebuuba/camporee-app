@@ -1,4 +1,5 @@
 import Link from '@/app/components/tenant-link';
+import {headers} from 'next/headers';
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requireOrganizationContext, redirectLegacyPanel } from '@/lib/tenant-server';
@@ -23,6 +24,11 @@ export default async function UsersPage({ params, searchParams }: { params?:Prom
     ?await supabase.rpc('read_camporee_join_code',{target_camporee:camporee.id})
     :{data:null,error:null};
   if(joinCodeError)throw joinCodeError;
+  const requestHeaders=await headers();
+  const host=requestHeaders.get('x-forwarded-host')||requestHeaders.get('host');
+  const protocol=requestHeaders.get('x-forwarded-proto')||(host?.startsWith('localhost')?'http':'https');
+  const siteUrl=(process.env.NEXT_PUBLIC_SITE_URL || (host?`${protocol}://${host}`:'' )).replace(/\/$/,'');
+  const shareUrl=joinCode?`${siteUrl}/join/${joinCode}`:'';
   const ids=(members??[]).map(member=>member.user_id);
   const {data:profiles,error:profilesError}=ids.length?await supabase.from('profiles').select('id,full_name,email,avatar_path').in('id',ids):{data:[],error:null};
   if(profilesError)throw profilesError;
@@ -53,7 +59,7 @@ export default async function UsersPage({ params, searchParams }: { params?:Prom
       <p>Comparte un solo código o enlace con los miembros de tu club. Cada persona se registra una vez y entra directamente, sin elegir camporee.</p>
       {joinCode?<div className="organization-invite-result">
         <label>Código del camporee<input readOnly value={joinCode}/></label>
-        <label>Enlace de invitación<input readOnly value={`${process.env.NEXT_PUBLIC_SITE_URL??''}/join/${joinCode}`}/></label>
+        <label>Enlace de invitación<input readOnly value={shareUrl}/></label>
         <p>Este enlace es reutilizable. Cualquier persona con él y una cuenta verificada puede unirse al club.</p>
       </div>:<OrganizationForm kind="create-join-code" submitLabel="Generar código y enlace">
         <input type="hidden" name="camporeeId" value={camporee.id}/>
