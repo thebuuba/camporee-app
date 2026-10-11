@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { requireOrganizationContext, redirectLegacyPanel } from '@/lib/tenant-server';
 import UsersManager from "./users-manager";
-import OrganizationForm from '@/app/organizations/organization-form';
+import CamporeeInviteCard from '@/app/components/camporee-invite-card';
 import MemberActionForm from './member-action-form';
 import {signedAvatar} from '@/lib/avatars';
 
@@ -20,16 +20,18 @@ export default async function UsersPage({ params, searchParams }: { params?:Prom
     supabase.from('camporees').select('id,name').eq('organization_id',organizationId).neq('status','archived').maybeSingle(),
   ]);
   if(membersError||camporeeError)throw membersError??camporeeError;
-  const {data:joinCode,error:joinCodeError}=camporee
-    ?await supabase.rpc('read_camporee_join_code',{target_camporee:camporee.id})
+  const {data:invitation,error:invitationError}=camporee
+    ?await supabase.rpc('read_camporee_invitation',{target_camporee:camporee.id})
     :{data:null,error:null};
-  if(joinCodeError)throw joinCodeError;
+  if(invitationError)throw invitationError;
+  const joinCode=typeof invitation?.code==='string'?invitation.code:null;
+  const joinToken=typeof invitation?.token==='string'?invitation.token:null;
   const requestHeaders=await headers();
   const host=requestHeaders.get('x-forwarded-host')||requestHeaders.get('host');
   const protocol=requestHeaders.get('x-forwarded-proto')||(host?.startsWith('localhost')?'http':'https');
   const localHost=Boolean(host&&/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host));
   const siteUrl=((localHost?`${protocol}://${host}`:process.env.NEXT_PUBLIC_SITE_URL) || (host?`${protocol}://${host}`:'')).replace(/\/$/,'');
-  const shareUrl=joinCode?`${siteUrl}/join/${joinCode}`:'';
+  const shareUrl=joinToken?`${siteUrl}/join/${joinToken}`:'';
   const ids=(members??[]).map(member=>member.user_id);
   const {data:profiles,error:profilesError}=ids.length?await supabase.from('profiles').select('id,full_name,email,avatar_path').in('id',ids):{data:[],error:null};
   if(profilesError)throw profilesError;
@@ -57,14 +59,9 @@ export default async function UsersPage({ params, searchParams }: { params?:Prom
     <UsersManager key={`${userId}:${organizationId}`} organizationId={organizationId} ownerUserId={organization.owner_user_id} users={users} directiveRolesAvailable/>
     {camporee?<section className="organization-section ios-card">
       <h2>Invitar a mi camporee</h2>
-      <p>Comparte un solo código o enlace con los miembros de tu club. Cada persona se registra una vez y entra directamente, sin elegir camporee.</p>
-      {joinCode?<div className="organization-invite-result">
-        <label>Código del camporee<input readOnly value={joinCode}/></label>
-        <label>Enlace de invitación<input readOnly value={shareUrl}/></label>
-        <p>Este enlace es reutilizable. Cualquier persona con él y una cuenta verificada puede unirse al club.</p>
-      </div>:<OrganizationForm kind="create-join-code" submitLabel="Generar código y enlace">
-        <input type="hidden" name="camporeeId" value={camporee.id}/>
-      </OrganizationForm>}
+      <p>Comparte el enlace para que los nuevos miembros entren automáticamente después de confirmar su correo. Con el código de cuatro dígitos podrán solicitar acceso; el director debe aprobar la solicitud.</p>
+      {joinCode && shareUrl ? <CamporeeInviteCard code={joinCode} url={shareUrl}/>
+        :<p role="alert">La invitación aún no está disponible. Actualiza la página o contacta con soporte.</p>}
     </section>:<p className="empty compact">Crea primero tu camporee para poder invitar al equipo.</p>}
     {organization.owner_user_id===userId?<details className="organization-create"><summary>Transferir la propiedad</summary><p>Elige otro administrador activo. Tu acceso se conserva; después el nuevo propietario podrá administrarlo.</p><MemberActionForm kind="transfer" label="Transferir propiedad"><input type="hidden" name="organizationId" value={organizationId}/><label>Nuevo propietario<select name="newOwner" required defaultValue=""><option value="" disabled>Selecciona un administrador</option>{users.filter(user=>user.is_active&&user.role==='admin'&&!user.is_self).map(user=><option key={user.user_id} value={user.user_id}>{user.full_name||user.email}</option>)}</select></label></MemberActionForm></details>:null}
   </main>;
