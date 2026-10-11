@@ -155,13 +155,11 @@ reset role;
 -- Four-digit codes are allocated automatically (including preexisting events).
 select is((select count(*) from camporee_join_codes),(select count(*) from camporees)::bigint,
   'every camporee has invite details, without clicking Generate');
-select is((select count(*) from camporee_join_codes where numeric_code ~ '^[0-9]{4}
-),
+select is((select count(*) from camporee_join_codes where numeric_code ~ '^[0-9]{4}$'),
  (select count(*) from camporees)::bigint,'every code has exactly four digits');
 select is((select count(distinct numeric_code) from camporee_join_codes),
  (select count(*) from camporees)::bigint,'four-digit codes are unique');
-select is((select count(*) from camporee_join_codes where invite_token ~ '^[a-f0-9]{64}
-),
+select is((select count(*) from camporee_join_codes where invite_token ~ '^[a-f0-9]{64}$'),
  (select count(*) from camporees)::bigint,'share links use high-entropy tokens distinct from 4 digits');
 select ok(not has_table_privilege('authenticated','public.camporee_join_codes','SELECT'),
  'member cannot enumerate all camporee invite tokens');
@@ -177,7 +175,7 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006'
 select is((select is_active from organization_members where user_id=auth.uid()),false,
  'manual code member awaits director approval');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select lives_ok($select decide_organization_access('50000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000006','approve')$,
+select lives_ok($$select decide_organization_access('50000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000006','approve')$$,
  'director can approve a short-code request');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
 select is((select is_active from organization_members where user_id=auth.uid()),true,
@@ -189,11 +187,11 @@ insert into auth.users(id,email,email_confirmed_at) values
  ('10000000-0000-4000-8000-000000000009','limited@club.test',now());
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000008',true);
-select lives_ok($select join_camporee_by_token(current_setting('test.invitation_token_64'))$,
+select lives_ok($$select join_camporee_by_token(current_setting('test.invitation_token_64'))$$,
  'verified signup automatically joins using long token');
 select is((select is_active from organization_members where user_id=auth.uid()),true,
  'link enrollment is active without director approval');
-select lives_ok($select join_camporee_by_token(current_setting('test.invitation_token_64'))$,
+select lives_ok($$select join_camporee_by_token(current_setting('test.invitation_token_64'))$$,
  'same link can be revisited without duplicate membership');
 select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,
  'automatic link enrollment keeps one club');
@@ -203,7 +201,7 @@ select is(join_camporee_by_code('0000'),null::uuid,'second failed attempt');
 select is(join_camporee_by_code('0000'),null::uuid,'third failed attempt');
 select is(join_camporee_by_code('0000'),null::uuid,'fourth failed attempt');
 select is(join_camporee_by_code('0000'),null::uuid,'fifth failed attempt');
-select throws_ok($select join_camporee_by_code('0000')$,'42501',null,
+select throws_ok($$select join_camporee_by_code('0000')$$,'42501',null,
  'sixth attempt is rate limited within 24 hours');
 reset role;
 
