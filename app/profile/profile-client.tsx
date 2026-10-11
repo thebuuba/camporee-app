@@ -1,5 +1,5 @@
-import SafeSignoutForm from '@/app/components/safe-signout-form';
 'use client';
+import SafeSignoutForm from '@/app/components/safe-signout-form';
 
 import { ChangeEvent, useRef, useState } from 'react';
 import { Camera, ImagePlus, Trash2, UserRound, Moon, WifiOff, LogOut } from 'lucide-react';
