@@ -146,7 +146,7 @@ export default function UsersManager({ users, directiveRolesAvailable, organizat
   async function removeAccount(user:UserRow) {
     if (user.is_self || user.user_id===ownerUserId || !user.is_active || deletingId || savingId) return;
     const display = user.full_name || user.email || 'esta cuenta';
-    const confirmed = window.confirm(`¿Quitar a ${display} de esta organización?\n\nPerderá el acceso a sus camporees. Su cuenta, sus otras organizaciones y el historial se conservarán. Podrás volver a invitarle.`);
+    const confirmed = window.confirm(`¿Quitar a ${display} de esta organización?\n\nPerderá el acceso a sus camporees. Su cuenta y el historial se conservarán. Podrás volver a invitarle.`);
     if (!confirmed) return;
 
     setDeleteError(null);
