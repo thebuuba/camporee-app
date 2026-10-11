@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
 export type OrganizationActionResult =
@@ -48,20 +49,11 @@ export async function createCamporee(form:FormData):Promise<OrganizationActionRe
     camporee_currency:currency,camporee_time_zone:field(form,'timeZone')||'America/Santo_Domingo',
   });
   if(!result.ok)return result;
-  // The database trigger creates BOTH invitations during camporee insertion.
-  // Read them back before reporting success; a retry uses the same request UUID.
-  const supabase=await createClient();
-  const invitation=await supabase.rpc('read_camporee_invitation',{target_camporee:result.value});
-  if(invitation.error || !invitation.data || typeof invitation.data!=='object') {
-    return {ok:false,error:'El camporee se creó, pero no se pudo consultar su invitación. Pulsa Crear otra vez sin cambiar los datos.'};
-  }
-  const detail=invitation.data as {code?:unknown;token?:unknown};
-  if(typeof detail.code!=='string'||!/^[0-9]{4}$/.test(detail.code)||
-     typeof detail.token!=='string'||!/^[a-f0-9]{64}$/.test(detail.token)) {
-    return {ok:false,error:'La invitación todavía no está lista. Reintenta con los mismos datos.'};
-  }
+  // The trigger provisions invitations transactionally. Read them on a durable
+  // route: revalidation of the creation page can otherwise redirect away from
+  // a success panel held only in the form's client state.
   revalidatePath(`/o/${org}`);
-  return {ok:true,organizationId:org,camporeeId:result.value,joinCode:detail.code,invitationToken:detail.token};
+  redirect(`/o/${org}/c/${result.value}/created`);
 }
 export async function createInvitation(form:FormData):Promise<OrganizationActionResult> {
   const org=field(form,'organizationId'),email=field(form,'email').toLowerCase(),role=field(form,'role')||'viewer';

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {resolveOrganizationContext,tenantPath} from '../lib/tenant-context.ts';
+import {resolveOrganizationContext,resolveCamporeeContext,tenantPath} from '../lib/tenant-context.ts';
 import {signedAvatar} from '../lib/avatars.ts';
 import {isTenantSchemaUnavailable} from '../lib/tenant-schema.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
@@ -21,6 +21,7 @@ async function render(path,supabase,props) {
  const jsx=(type,props)=>({type,props});const module={exports:{}};
  const avatarModule={'@/lib/avatars':{signedAvatar}};
  const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-schema':{isTenantSchemaUnavailable},'next/headers':{headers:async()=>({get:key=>key==='host'?'localhost:3000':null})},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
+ modules['@/lib/tenant-server'].requireCamporeeContext=async params=>resolveCamporeeContext(supabase,await params);
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??avatarModule[name]??{default:name},crypto:{randomUUID:()=>camp},process:{env:{NEXT_PUBLIC_SITE_URL:'http://localhost:3000'}}});
  return module.exports.default(props);
 }
@@ -43,4 +44,36 @@ test('member administration queries only the chosen organization and its profile
 });
 test('viewer cannot reach member administration even when admin in a different organization',async()=>{
  await assert.rejects(render('app/more/users/page.tsx',client('viewer'),{params:Promise.resolve({organizationId:org}),searchParams:Promise.resolve({})}),/notFound/);
+});
+
+const confirmation='app/o/[organizationId]/c/[camporeeId]/created/page.tsx';
+const confirmationProps=()=>({params:Promise.resolve({organizationId:org,camporeeId:camp})});
+test('confirmation survives repeated server refreshes and a fresh page load until explicit entry',async()=>{
+ const supabase=client();let reads=0;
+ supabase.rpc=async(name,args)=>{assert.equal(name,'read_camporee_invitation');assert.equal(args.target_camporee,camp);reads++;return {data:{code:'4827',token:'a'.repeat(64)},error:null}};
+ for(let refresh=0;refresh<3;refresh++){
+  const tree=await render(confirmation,supabase,confirmationProps());
+  assert.match(JSON.stringify(tree),/4827/);
+  assert.match(JSON.stringify(tree),new RegExp('/join/'+ 'a'.repeat(64)));
+  const entry=all(tree,node=>node.props?.children==='Entrar al camporee');
+  assert.equal(entry.length,1);assert.equal(entry[0].props.href,`/o/${org}/c/${camp}`);
+ }
+ assert.equal(reads,3);
+});
+test('confirmation denies viewer and editor before reading invitation secrets',async()=>{
+ for(const role of ['viewer','editor']){
+  const supabase=client(role);supabase.rpc=()=>{throw new Error('Secret RPC must not be called')};
+  await assert.rejects(render(confirmation,supabase,confirmationProps()),/notFound/);
+ }
+});
+test('confirmation rejects a camporee belonging to another club',async()=>{
+ await assert.rejects(render(confirmation,client(),{params:Promise.resolve({organizationId:org,camporeeId:otherCamp})}),/Tenant access unavailable/);
+});
+test('invitation read failure preserves confirmation with a retry link, without repeating creation',async()=>{
+ const supabase=client();supabase.rpc=async()=>({data:null,error:{message:'temporary failure'}});
+ const tree=await render(confirmation,supabase,confirmationProps());
+ assert.equal(all(tree,node=>node.props?.role==='alert').length,1);
+ assert.equal(all(tree,node=>node.props?.href===`/o/${org}/c/${camp}/created`).length,1);
+ assert.equal(all(tree,node=>node.props?.children==='Entrar al camporee').length,1);
+ assert.doesNotMatch(JSON.stringify(tree),/\/join\//);
 });

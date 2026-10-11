@@ -10,7 +10,7 @@ async function actions({user={id:'verified'},error=null}={}){
  const calls=[];await loadBindings();const path='app/organizations/actions.ts';
  const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript'},target:'es2022'},module:{type:'commonjs'}});
  const module={exports:{}};const client={auth:{getUser:async()=>({data:{user},error:null})},from:()=>{throw new Error('Global table access forbidden')},rpc:async(name,args)=>{calls.push({name,args});return {data:name==='create_organization'?org:name==='create_camporee'?camp:name==='read_camporee_invitation'?{code:'4827',token:'a'.repeat(64)}:name==='accept_organization_invitation'?org:name==='join_camporee_by_code'?camp:name==='create_camporee_join_code'?'4827':'a'.repeat(64),error}}};
- vm.runInNewContext(code,{module,exports:module.exports,require:name=>({'@/lib/supabase/server':{createClient:async()=>client},'next/cache':{revalidatePath(){}}})[name]});
+ vm.runInNewContext(code,{module,exports:module.exports,require:name=>({'@/lib/supabase/server':{createClient:async()=>client},'next/cache':{revalidatePath(){}},'next/navigation':{redirect(path){throw new Error(`redirect:${path}`)}}})[name]});
  return {...module.exports,calls};
 }
 test('organization creation sends stable request ID and lets RPC establish owner',async()=>{
@@ -20,11 +20,10 @@ test('organization creation sends stable request ID and lets RPC establish owner
  assert.equal(api.calls[0].name,'create_organization');assert.equal(api.calls[0].args.organization_uuid,org);assert.equal(api.calls[0].args.organization_name,'Club');
  assert.equal(Object.hasOwn(api.calls[0].args,'user_id'),false);
 });
-test('camporee creation carries organization, dates and stable event ID',async()=>{
+test('camporee creation redirects to reloadable confirmation using only IDs after the transaction',async()=>{
  const api=await actions();const form=new FormData();form.set('organizationId',org);form.set('requestId',camp);form.set('name','Evento');form.set('startsOn','2027-01-01');form.set('endsOn','2027-01-05');
- const result=await api.createCamporee(form);
- assert.equal(result.ok,true);assert.equal(result.camporeeId,camp);assert.equal(result.joinCode,'4827');assert.equal(result.invitationToken,'a'.repeat(64));
- assert.equal(api.calls[1].name,'read_camporee_invitation');
+ await assert.rejects(api.createCamporee(form),{message:`redirect:/o/${org}/c/${camp}/created`});
+ assert.equal(api.calls.length,1);
  assert.equal(api.calls[0].name,'create_camporee');assert.equal(api.calls[0].args.target_organization,org);assert.equal(api.calls[0].args.camporee_uuid,camp);assert.equal(api.calls[0].args.start_date,'2027-01-01');assert.equal(api.calls[0].args.camporee_theme,null);
 });
 test('invitation creation binds permissions to selected organization and email',async()=>{

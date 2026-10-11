@@ -5,23 +5,25 @@ import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tenantPath} from '../lib/tenant-context.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
+const {unstable_rethrow}=createRequire(import.meta.url)('next/navigation');
+const {getRedirectError}=createRequire(import.meta.url)('next/dist/client/components/redirect');
 const org='50000000-0000-4000-8000-000000000001',camp='60000000-0000-4000-8000-000000000001';
 async function fixture(result,online=true) {
  await loadBindings();const path='app/organizations/organization-form.tsx';const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
  const module={exports:{}};const state=[],paths=[],calls=[];let index=0;
- const mutate=async form=>{calls.push(form);return result};const jsx=(type,props)=>({type,props});
+ const mutate=async form=>{calls.push(form);if(result instanceof Error)throw result;return result};const jsx=(type,props)=>({type,props});
  const modules={'react/jsx-runtime':{jsx,jsxs:jsx},react:{useState(initial){const i=index++;if(!(i in state))state[i]=initial;return [state[i],value=>state[i]=value]}},'next/navigation':{useRouter:()=>({push:path=>paths.push(path),refresh(){}})},'@/lib/tenant-context':{tenantPath},'./actions':{createOrganization:mutate,createCamporee:mutate,createInvitation:mutate,acceptInvitation:mutate,joinCamporee:mutate,createJoinCode:mutate}};
+ modules['next/navigation'].unstable_rethrow=unstable_rethrow;
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:online},window:{location:{origin:'http://localhost:3002'}},URL,FormData:class{constructor(form){return form.data}}});
  return {render(kind){index=0;return module.exports.default({kind,submitLabel:'Continuar',children:'Campos'})},paths,calls};
 }
-test('creation immediately displays both code and secure invitation URL before navigating',async()=>{
- const api=await fixture({ok:true,organizationId:org,camporeeId:camp,joinCode:'4827',invitationToken:'a'.repeat(64)});
+test('creation lets Next handle its redirect instead of turning success into a connection error',async()=>{
+ const redirect=getRedirectError(`/o/${org}/c/${camp}/created`,'push');
+ const api=await fixture(redirect);
  const data=new FormData();data.set('name','Evento');
- await api.render('create-camporee').props.onSubmit({preventDefault(){},currentTarget:{data}});
+ await assert.rejects(api.render('create-camporee').props.onSubmit({preventDefault(){},currentTarget:{data}}),error=>error===redirect);
  assert.deepEqual(api.paths,[]);assert.equal(api.calls[0].get('name'),'Evento');
- const result=JSON.stringify(api.render('create-camporee'));
- assert.match(result,/4827/);assert.match(result,new RegExp('/join/'+ 'a'.repeat(64)));
- assert.match(result,/¡Camporee creado!/);
+ assert.doesNotMatch(JSON.stringify(api.render('create-camporee')),/alert/);
 });
 test('denied or offline administrative form retains input and does not navigate',async()=>{
  for(const [result,online] of [[{ok:false,error:'Permiso revocado'},true],[{ok:true,organizationId:org},false]]) {
