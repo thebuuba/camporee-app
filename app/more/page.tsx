@@ -1,4 +1,5 @@
 import SafeSignoutForm from '@/app/components/safe-signout-form';
+import SyncStatus from '@/app/components/sync-status';
 import Link from '@/app/components/tenant-link';
 import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
@@ -35,7 +36,7 @@ export default async function MorePage({params}:{params?:TenantPageParams}={}) {
   const state = camporee?.status === 'archived' ? 'Archivado' : camporee?.status === "active" ? "En curso" : camporee?.status === "finished" ? "Finalizado" : "Preparación";
 
   return <main className="app more-app polymet-page">
-    <header className="polymet-main-head"><h1>Más</h1><span className="polymet-sync">☁ Sincronizado</span></header>
+    <header className="polymet-main-head"><h1>Más</h1><SyncStatus/></header>
     <Link href="/profile" className="polymet-user-card ios-card">
       <span className="polymet-user-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : name.slice(0,1).toUpperCase()}</span>
       <span><strong>{name}</strong><small>{role}</small></span><span className="polymet-user-club">Mi perfil ›</span>
