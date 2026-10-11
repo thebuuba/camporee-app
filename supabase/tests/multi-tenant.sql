@@ -103,6 +103,8 @@ select is((select created_by from tasks where id='90000000-0000-4000-8000-000000
 -- must discard ALL of the previous user's event destinations.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+-- Earlier fixture archived the first new camporee. Its admin reopens it for push tests.
+update public.camporees set status='planning' where id='60000000-0000-4000-8000-000000000001';
 select lives_ok($$select register_camporee_push(
   '60000000-0000-4000-8000-000000000001',
   'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
@@ -121,7 +123,7 @@ select throws_ok($$select register_camporee_push(
 )$$,'42501',null,'cannot register a camporee without membership');
 select throws_ok($$update push_subscriptions
   set camporee_ids=array['20000000-0000-4000-8000-000000000001'::uuid]
-  where endpoint='https://push.example.test/device-1'$,'42501',null,'direct subscription modifications are blocked');
+  where endpoint='https://push.example.test/device-1'$$,'42501',null,'direct subscription modifications are blocked');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 select lives_ok($$select register_camporee_push(
   '20000000-0000-4000-8000-000000000001',
