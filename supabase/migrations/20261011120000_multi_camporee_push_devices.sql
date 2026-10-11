@@ -53,3 +53,15 @@ grant execute on function public.register_camporee_push(uuid,text,text,text) to 
 -- authorize delivery after a member loses access.
 create index if not exists push_subscriptions_targets_gin_idx
   on public.push_subscriptions using gin(camporee_ids);
+
+-- Realtime listeners for permission changes need the membership table to
+-- belong to the existing publication. RLS still limits which rows a user sees.
+do $$ begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname='supabase_realtime'
+      and schemaname='public' and tablename='organization_members'
+  ) then
+    alter publication supabase_realtime add table public.organization_members;
+  end if;
+end $$;
