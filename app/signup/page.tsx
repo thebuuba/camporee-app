@@ -18,7 +18,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       <section className="account-created-content" aria-labelledby="account-created-title">
         <div className="account-status-icon"><Check size={44} strokeWidth={3} aria-hidden="true" /></div>
         <h1 id="account-created-title">¡Cuenta creada!</h1>
-        <p>Ya puedes crear una organización o unirte mediante invitación.{email ? <> Tu cuenta está registrada con <strong>{email}</strong>.</> : null}</p>
+        <p>Ya puedes crear el camporee de tu club o unirte con el código o enlace del director.{email ? <> Tu cuenta está registrada con <strong>{email}</strong>.</> : null}</p>
         {params.confirm === "1" && needsLogin ? <p>Revisa tu correo para confirmar la cuenta y después inicia sesión para continuar.</p> : null}
         <Link className="account-status-primary" href={needsLogin ? loginHref : returnTo}>Continuar</Link>
         <Link className="account-status-text" href={needsLogin ? loginHref : "/"}>{needsLogin ? "Volver al inicio de sesión" : "Volver al inicio"}</Link>
