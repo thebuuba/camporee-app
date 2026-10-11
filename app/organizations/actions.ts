@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
 export type OrganizationActionResult =
-  | {ok:true; organizationId?:string; camporeeId?:string; invitationToken?:string}
+  | {ok:true; organizationId?:string; camporeeId?:string; invitationToken?:string; joinCode?:string}
   | {ok:false; error:string};
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MODULES=['tasks','schedule','participants','finances','meals','notes','lists','inventory','settings','edit'] as const;
@@ -42,12 +42,24 @@ export async function createCamporee(form:FormData):Promise<OrganizationActionRe
   if(!/^[A-Z]{3}$/.test(currency))return {ok:false,error:'Selecciona una moneda válida.'};
   const result=await callRpc('create_camporee',{
     target_organization:org,camporee_uuid:id,camporee_name:name,start_date:start,end_date:end,
-    camporee_location:field(form,'location')||null,camporee_theme:field(form,'theme')||null,
+    camporee_location:field(form,'location')||null,camporee_theme:null,
     camporee_currency:currency,camporee_time_zone:field(form,'timeZone')||'America/Santo_Domingo',
   });
   if(!result.ok)return result;
+  // The database trigger creates BOTH invitations during camporee insertion.
+  // Read them back before reporting success; a retry uses the same request UUID.
+  const supabase=await createClient();
+  const invitation=await supabase.rpc('read_camporee_invitation',{target_camporee:result.value});
+  if(invitation.error || !invitation.data || typeof invitation.data!=='object') {
+    return {ok:false,error:'El camporee se creó, pero no se pudo consultar su invitación. Pulsa Crear otra vez sin cambiar los datos.'};
+  }
+  const detail=invitation.data as {code?:unknown;token?:unknown};
+  if(typeof detail.code!=='string'||!/^[0-9]{4}$/.test(detail.code)||
+     typeof detail.token!=='string'||!/^[a-f0-9]{64}$/.test(detail.token)) {
+    return {ok:false,error:'La invitación todavía no está lista. Reintenta con los mismos datos.'};
+  }
   revalidatePath(`/o/${org}`);
-  return {ok:true,organizationId:org,camporeeId:result.value};
+  return {ok:true,organizationId:org,camporeeId:result.value,joinCode:detail.code,invitationToken:detail.token};
 }
 export async function createInvitation(form:FormData):Promise<OrganizationActionResult> {
   const org=field(form,'organizationId'),email=field(form,'email').toLowerCase(),role=field(form,'role')||'viewer';
@@ -61,10 +73,11 @@ export async function createInvitation(form:FormData):Promise<OrganizationAction
   return {ok:true,invitationToken:result.value};
 }
 export async function joinCamporee(form:FormData):Promise<OrganizationActionResult> {
-  const code=field(form,'code').replace(/[^a-fA-F0-9]/g,'').toUpperCase();
-  if(!/^[A-F0-9]{16}$/.test(code))return {ok:false,error:'Introduce un código de camporee válido.'};
+  const code=field(form,'code').trim();
+  if(!/^[0-9]{4}$/.test(code))return {ok:false,error:'Introduce el código numérico de cuatro dígitos.'};
   const result=await callRpc('join_camporee_by_code',{join_code:code});
   if(!result.ok)return result;
+  if(!result.value)return {ok:false,error:'Código incorrecto. Compruébalo antes de volver a intentar.'};
   revalidatePath('/');
   return {ok:true,camporeeId:result.value};
 }
