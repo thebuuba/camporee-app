@@ -31,6 +31,6 @@ export default function SyncStatus() {
   const label=state==='checking'?'Comprobando sincronización…':
     state==='error'?'Estado de sincronización no disponible':
     pending!==null&&pending>0?`${pending} cambio(s) pendiente(s)`:
-    state==='offline'?'Sin conexión':'Conectado';
+    state==='offline'?'Sin conexión':'Sin cambios pendientes';
   return <span className="polymet-sync" role="status" aria-live="polite">{label}</span>;
 }
