@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
+import { resolveCamporeeContext } from '../lib/tenant-context.ts';
 
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 async function loadModule(path, modules = {}, globals = {}) {
@@ -33,11 +34,16 @@ function homeClient(taskError = null) {
 }
 
 async function loadHome(client) {
-  return loadModule('lib/home-data.ts', {
+  const api = await loadModule('lib/home-data.ts', {
     '@/lib/supabase/server':{createClient:async()=>client},
     '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance},
     '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
   }, {setTimeout:(callback,ms)=>setTimeout(callback,ms>=1200?1:ms)});
+  return {loadHomeData:()=>api.loadHomeData({
+    supabase:client,userId:'user',user:{id:'user',user_metadata:{}},
+    camporee:{id:'event',name:'Camporee',starts_on:'2026-11-06',ends_on:'2026-11-09',status:'planning',time_zone:'America/Santo_Domingo'},
+    membership:{role:'admin',is_active:true,permissions:{}},
+  })};
 }
 
 test('Inicio espera una consulta lenta sin convertir tareas reales en ceros', async () => {
@@ -56,15 +62,13 @@ test('Inicio comunica un error de datos en vez de mostrar un resumen vacío', as
 test('un fallo temporal de autenticación no convierte una sesión en cierre de sesión', async () => {
   const client = homeClient();
   client.auth.getUser = async () => ({ data: { user: null }, error: Object.assign(new Error('Auth unavailable'), { name: 'AuthRetryableFetchError', status: 503 }) });
-  const { loadHomeData } = await loadHome(client);
-  await assert.rejects(loadHomeData(), /Auth unavailable/);
+  await assert.rejects(resolveCamporeeContext(client,{organizationId:'50000000-0000-4000-8000-000000000001',camporeeId:'60000000-0000-4000-8000-000000000001'}), /Auth unavailable/);
 });
 
 test('Inicio sin una sesión sigue solicitando iniciar sesión', async () => {
   const client = homeClient();
   client.auth.getUser = async () => ({ data: { user: null }, error: null });
-  const { loadHomeData } = await loadHome(client);
-  assert.equal(await loadHomeData(), null);
+  await assert.rejects(resolveCamporeeContext(client,{organizationId:'50000000-0000-4000-8000-000000000001',camporeeId:'60000000-0000-4000-8000-000000000001'}), /Authentication required/);
 });
 
 async function offlineQueue(initialRows, status = 204) {

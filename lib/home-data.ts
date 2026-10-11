@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import type { CamporeeContext } from "@/lib/tenant-context";
 import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
 import { camporeePhase, preparationProgress } from "@/lib/camporee-preparation";
 
@@ -12,48 +12,16 @@ async function retryQuery<T>(query: () => PromiseLike<SupabaseResult<T>>, attemp
   return result;
 }
 
-export async function loadHomeData() {
-  const supabase = await createClient();
-  let authResult = await supabase.auth.getUser();
-  for (let attempt = 1; (authResult.error || !authResult.data.user) && attempt < 3; attempt += 1) { await wait(100 * attempt); authResult = await supabase.auth.getUser(); }
-  const user = authResult.data.user;
-  if (authResult.error && (authResult.error.name === 'AuthRetryableFetchError' || (authResult.error.status ?? 0) >= 500)) throw authResult.error;
-  if (authResult.error || !user) return null;
-  const userId = user.id;
-
-  const [profileResult, memberResult, initialCamporeeResult] = await Promise.all([
-    retryQuery(() => supabase.from("profiles").select("full_name,avatar_url").eq("id", userId).maybeSingle()),
-    retryQuery(() => supabase.from("app_members").select("role,is_active,permissions,created_at").eq("user_id", userId).maybeSingle(), 3),
-    retryQuery(() => supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true }), 3),
-  ]);
-
+export async function loadHomeData(context: CamporeeContext) {
+  const { supabase, user, userId, camporee, membership: member } = context;
+  const profileResult = await retryQuery(() => supabase.from("profiles").select("full_name,avatar_url,avatar_path").eq("id", userId).maybeSingle());
+  if (profileResult.error) throw new Error(profileResult.error.message || "No se pudo cargar tu perfil.");
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
   const avatarUrl = profileResult.data?.avatar_url ?? null;
-  if (profileResult.error) console.error("Camporee profile load failed after retries", profileResult.error);
-  if (memberResult.error) console.error("Camporee membership load failed after retries", memberResult.error);
-  const memberLoadError = Boolean(memberResult.error);
-  const member = memberLoadError ? null : memberResult.data ?? null;
-
-  let camporeeResult = initialCamporeeResult;
-  if (member?.is_active && (camporeeResult.error || !(camporeeResult.data ?? []).length)) {
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await wait(180 * attempt);
-      const retry = await supabase.from("camporees").select("id,name,location,starts_on,ends_on,status").order("starts_on", { ascending: true });
-      camporeeResult = retry as typeof camporeeResult;
-      if (!camporeeResult.error && (camporeeResult.data ?? []).length) break;
-    }
-  }
-
-  const camporeeLoadError = Boolean(camporeeResult.error);
-  if (camporeeLoadError) console.error("Camporee list load failed after retries", camporeeResult.error);
-  if (camporeeLoadError) return { userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError, camporee: null };
-
-  const camporees = camporeeResult.data ?? [];
-  const camporee = camporees.find((item) => item.status !== "archived") ?? camporees[0];
-  if (!camporee) return { userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee: null };
+  const memberLoadError = false;
 
   const now = new Date();
-  const todayKey = dateKeyInTimeZone(now);
+  const todayKey = dateKeyInTimeZone(now, camporee.time_zone);
   const phase = camporeePhase(camporee.status);
   const totalDays = Math.max(1, dateOnlyDistance(camporee.starts_on, camporee.ends_on) + 1);
   const dayNumber = phase === "during" ? Math.min(totalDays, Math.max(1, dateOnlyDistance(camporee.starts_on, todayKey) + 1)) : null;
@@ -81,9 +49,9 @@ export async function loadHomeData() {
   const progress = progressTasks.length ? Math.round(completed / progressTasks.length * 100) : 0;
   const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const totalIncome = (incomeResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const pendingToday = progressTasks.filter((task) => task.status !== "done" && task.due_at && dateKeyInTimeZone(task.due_at) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
+  const pendingToday = progressTasks.filter((task) => task.status !== "done" && task.due_at && dateKeyInTimeZone(task.due_at, camporee.time_zone) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
   const todayTasks = pendingToday.slice(0, 3);
-  const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at) === todayKey).length;
+  const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at, camporee.time_zone) === todayKey).length;
   const nowMs = now.getTime();
   const currentEvent = events.find((event) => { const eventStart = new Date(event.starts_at).getTime(); const eventEnd = event.ends_at ? new Date(event.ends_at).getTime() : eventStart + 60 * 60 * 1000; return nowMs >= eventStart && nowMs <= eventEnd; }) ?? null;
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;

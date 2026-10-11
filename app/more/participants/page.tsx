@@ -1,25 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import ParticipantManager from "./participant-manager";
 
-export default async function ParticipantsPage() {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getClaims();
-  const userId = auth?.claims?.sub;
-  if (!userId) redirect("/login");
-
-  const [{ data: membership, error: membershipError }, { data: camporees, error: camporeesError }] = await Promise.all([
-    supabase.from("app_members").select("role,is_active,permissions").eq("user_id", userId).maybeSingle(),
-    supabase.from("camporees").select("id,status").order("starts_on", { ascending: true }),
-  ]);
-  if (membershipError || camporeesError) throw membershipError ?? camporeesError;
-  if (!membership?.is_active) redirect("/");
-
-  const permissions = (membership.permissions ?? {}) as Record<string, boolean>;
-  const canEdit = membership.role === "admin" || membership.role === "editor" || Boolean(permissions.participants);
-  const camporee = camporees?.find((item) => item.status !== "archived") ?? camporees?.[0];
+export default async function ParticipantsPage({ params }: { params?: TenantPageParams } = {}) {
+  const context = await requireCamporeeContext(params, '/more/participants');
+  const { supabase, userId, camporee } = context;
+  const canEdit = context.canEdit('participants');
 
   const { data: participants, error: participantsError } = camporee
     ? await supabase.from("participants").select("id,full_name,participant_type,unit_name,phone,emergency_contact,emergency_phone,attendance_status,notes").eq("camporee_id", camporee.id).order("full_name")
@@ -31,6 +18,6 @@ export default async function ParticipantsPage() {
   return <main className="app panel-page polymet-panel polymet-participants">
     <header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Participantes</h1><small>Participantes inscritos</small></div></header>
 
-    {camporee ? <ParticipantManager camporeeId={camporee.id} canEdit={canEdit} initialParticipants={participants ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    {camporee ? <ParticipantManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialParticipants={participants ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
   </main>;
 }
