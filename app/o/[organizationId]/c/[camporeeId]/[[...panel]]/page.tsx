@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import {notFound,redirect} from 'next/navigation';
 import {requireCamporeeContext} from '@/lib/tenant-server';
 import HomeRoute from '@/app/home-route';
@@ -32,6 +31,12 @@ type RouteParams={organizationId:string;camporeeId:string;panel?:string[]};
 export default async function CamporeePage({params,searchParams}:{params:Promise<RouteParams>;searchParams:Promise<Record<string,string|string[]|undefined>>}) {
   const ids=await params;
   const context=await requireCamporeeContext(params);
+  // A club has one current camporee: direct historical URLs must not become
+  // a way for a user to manually switch camporees.
+  const {data:current,error:currentError}=await context.supabase.from('camporees')
+    .select('id').eq('organization_id',context.organizationId).neq('status','archived').maybeSingle();
+  if(currentError)throw currentError;
+  if(current && current.id!==context.camporeeId)redirect(`/o/${context.organizationId}/c/${current.id}`);
   const panel=(ids.panel??[]).join('/');
   if(panel==='more/users')redirect(`/o/${ids.organizationId}/members`);
   if(!Object.hasOwn(screens,panel))notFound();
@@ -39,7 +44,6 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
   const query=Object.fromEntries(Object.entries(await searchParams).map(([key,value])=>[key,Array.isArray(value)?value[0]??'':value??'']));
   const content=<Screen params={params} searchParams={Promise.resolve(query)}/>;
   return <div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
-    <header className="tenant-heading"><strong>{context.organization.name}</strong><small>{context.camporee.name}{context.camporee.status==='archived'?' · Archivado, solo lectura':''}</small><nav aria-label="Cambiar contexto"><Link href={`/o/${context.organizationId}`}>Cambiar camporee</Link><Link href="/organizations">Organizaciones</Link></nav></header>
     {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
   </div>;
 }
