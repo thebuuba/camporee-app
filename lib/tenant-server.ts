@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveCamporeeContext, resolveOrganizationContext, TenantAccessError, tenantPath, type TenantIds } from '@/lib/tenant-context';
+import { isTenantSchemaUnavailable } from '@/lib/tenant-schema';
 
 export type TenantPageParams = Promise<Partial<TenantIds>>;
 export type PanelSearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -13,6 +14,7 @@ const loadOrganizationContext = cache(async (organizationId:string)=>resolveOrga
 export async function requireOrganizationContext(organizationId:string) {
   try{return await loadOrganizationContext(organizationId);}
   catch(error){
+    if(isTenantSchemaUnavailable(error))redirect('/setup-required');
     if(error instanceof TenantAccessError){
       if(error.reason==='authentication')redirect(`/login?next=${encodeURIComponent(`/o/${organizationId}`)}`);
       notFound();
@@ -27,7 +29,10 @@ export async function redirectLegacyPanel(panel = '/', query?: PanelSearchParams
   if (auth.error && (auth.error.status ?? 0) >= 500) throw auth.error;
   if (!auth.data.user) redirect('/login');
   const result = await supabase.from('camporees').select('id,organization_id,status,starts_on').order('starts_on', { ascending: true });
-  if (result.error) throw new Error('No se pudo cargar el contexto de organizaciones. Verifica que se haya aplicado la migración multi-tenant.');
+  if (result.error) {
+    if (isTenantSchemaUnavailable(result.error)) redirect('/setup-required');
+    throw result.error;
+  }
   const camporees = result.data ?? [];
   const organizations = new Set(camporees.map(camporee => camporee.organization_id));
   // Old links are unambiguous only for accounts with one accessible organization.
@@ -47,6 +52,7 @@ export async function requireCamporeeContext(params?: TenantPageParams, legacyPa
   if (!ids?.organizationId || !ids?.camporeeId) return redirectLegacyPanel(legacyPanel, query);
   try { return await loadContext(ids.organizationId, ids.camporeeId); }
   catch (error) {
+    if (isTenantSchemaUnavailable(error)) redirect('/setup-required');
     if (error instanceof TenantAccessError) {
       if (error.reason === 'authentication') redirect('/login');
       notFound();
