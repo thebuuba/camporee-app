@@ -12,6 +12,13 @@ const sql = [
   'begin;', read('supabase/tests/bootstrap.sql'),
   ...legacy.map(name => read(`supabase/migrations/${name}`)),
   read('supabase/tests/legacy-fixture.sql'),
+  ...(process.argv.includes('--production-legacy') ? [`
+  -- Simulate the real 2026-10 production schema, which has no
+  -- app_members.directive_role despite the test fixture and source SQL.
+  alter table public.app_members drop column directive_role;
+  update legacy_members set directive_role=null;
+  update legacy_rows set data=data-'directive_role' where table_name='app_members';
+  `] : []),
   ...(process.argv.includes('--legacy') ? [] : tenant.map(name => read(`supabase/migrations/${name}`))),
   read('supabase/tests/multi-tenant.sql'), 'rollback;',
 ].join('\n');
