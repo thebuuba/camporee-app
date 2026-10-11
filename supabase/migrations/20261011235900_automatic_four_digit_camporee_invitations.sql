@@ -112,7 +112,7 @@ end $$;
 create or replace function public.join_camporee_by_code(join_code text)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare actor uuid:=(select auth.uid());
-  destination record;existing record; clean_code text:=pg_catalog.trim(coalesce(join_code,''));
+  destination record;existing record; clean_code text:=pg_catalog.btrim(coalesce(join_code,''));
   used_attempts integer;
 begin
   if actor is null or not exists(select 1 from auth.users
