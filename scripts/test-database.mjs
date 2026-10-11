@@ -16,6 +16,7 @@ const sql = [
   -- Simulate the real 2026-10 production schema, which has no
   -- app_members.directive_role despite the test fixture and source SQL.
   alter table public.app_members drop column directive_role;
+  drop function if exists public.active_task_assignees();
   update legacy_members set directive_role=null;
   update legacy_rows set data=data-'directive_role' where table_name='app_members';
   `] : []),
