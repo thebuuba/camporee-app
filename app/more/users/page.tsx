@@ -27,7 +27,8 @@ export default async function UsersPage({ params, searchParams }: { params?:Prom
   const requestHeaders=await headers();
   const host=requestHeaders.get('x-forwarded-host')||requestHeaders.get('host');
   const protocol=requestHeaders.get('x-forwarded-proto')||(host?.startsWith('localhost')?'http':'https');
-  const siteUrl=(process.env.NEXT_PUBLIC_SITE_URL || (host?`${protocol}://${host}`:'' )).replace(/\/$/,'');
+  const localHost=Boolean(host&&/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host));
+  const siteUrl=((localHost?`${protocol}://${host}`:process.env.NEXT_PUBLIC_SITE_URL) || (host?`${protocol}://${host}`:'')).replace(/\/$/,'');
   const shareUrl=joinCode?`${siteUrl}/join/${joinCode}`:'';
   const ids=(members??[]).map(member=>member.user_id);
   const {data:profiles,error:profilesError}=ids.length?await supabase.from('profiles').select('id,full_name,email,avatar_path').in('id',ids):{data:[],error:null};
