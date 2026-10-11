@@ -35,8 +35,8 @@ select create_organization('Otro club','50000000-0000-4000-8000-000000000001');
 select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001');
 select lives_ok($$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$,'camporee creation retries are idempotent');
 select is((select count(*) from areas where camporee_id='60000000-0000-4000-8000-000000000001'),10::bigint,'areas seeded once atomically');
-select create_camporee('50000000-0000-4000-8000-000000000001','Año siguiente','2028-01-01','2028-01-05','60000000-0000-4000-8000-000000000002');
-select is((select count(*) from camporees),2::bigint,'organization can create several camporees');
+select throws_ok($select create_camporee('50000000-0000-4000-8000-000000000001','Año siguiente','2028-01-01','2028-01-05','60000000-0000-4000-8000-000000000002')$,'23505',null,'the director cannot create a second current camporee in the same club');
+select is((select count(*) from camporees),1::bigint,'club member has only one current camporee');
 insert into tasks(id,camporee_id,title,created_by) values ('70000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','Otra tarea','10000000-0000-4000-8000-000000000005');
 select is((select count(*) from tasks),1::bigint,'other organization sees only its task');
 select is((select count(*) from storage.objects),0::bigint,'other organization cannot read legacy file');
@@ -59,26 +59,21 @@ select lives_ok($$select decide_organization_access('00000000-0000-4000-8000-000
 select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','approve')$$,'23514',null,'stale approval cannot revive rejected request');
 select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','reject')$$,'23514',null,'stale rejection cannot disable active membership');
 select is((select permissions->>'notes' from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id='10000000-0000-4000-8000-000000000003'),(select permissions->>'notes' from app_members where user_id='10000000-0000-4000-8000-000000000003'),'access decision retains existing module permissions');
--- Invitation tokens never appear in table reads; only admin creation returns them.
+-- A member cannot claim access to a second club, including via the legacy
+-- email-bound invitation route. The separate organization remains isolated.
 select create_organization_invitation('00000000-0000-4000-8000-000000000001','other@club.test','viewer','{}',null) as invite_token \gset
 select set_config('test.invite_token', :'invite_token', true);
-select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
-select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'42501',null,'invitation cannot be claimed by different email');
-select throws_ok($$select create_organization_invitation('00000000-0000-4000-8000-000000000001','stranger@club.test','admin','{}',null)$$,'42501',null,'nonadmin cannot invite');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select lives_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'verified intended user can accept');
-select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'23514',null,'invitation is one use');
-select is((select count(*) from tasks),2::bigint,'same account can read both organizations after invitation');
-select is((select role from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()),'viewer','account has independent role in legacy organization');
-select throws_ok($$insert into tasks(camporee_id,title,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000005')$$,'42501',null,'admin elsewhere is only viewer here');
-select throws_ok($$update tasks set camporee_id='20000000-0000-4000-8000-000000000001' where id='70000000-0000-4000-8000-000000000001'$$,'23514',null,'reparent forbidden even with membership in both organizations');
-select throws_ok($$update organization_members set role='admin' where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'cannot escalate own membership directly');
-select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'second owner cannot remove own membership');
+select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'23505',null,'user already in one club cannot accept invitation to another');
+select is((select count(*) from tasks),1::bigint,'member of other club cannot read legacy tasks');
+select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,'one account has one club');
+select throws_ok($$insert into tasks(camporee_id,title,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000005')$$,'42501',null,'member from another club cannot write legacy task');
+select throws_ok($$update organization_members set role='admin' where organization_id='50000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'direct membership escalation is denied');
+select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'club owner cannot remove their own membership');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-select lives_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000005')$$,'admin removes only organization membership');
+select is((select count(*) from organization_members where user_id='10000000-0000-4000-8000-000000000005'),1::bigint,'other club membership is unchanged');
+select throws_ok($$select create_organization('No second club','50000000-0000-4000-8000-000000000003')$$,'23505',null,'existing member cannot create a second club');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select is((select count(*) from tasks),1::bigint,'revocation hides legacy data immediately');
-select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,'other membership survives removal');
 update camporees set status='archived' where id='60000000-0000-4000-8000-000000000001';
 select is((select count(*) from tasks),1::bigint,'archived history remains readable');
 select throws_ok($$insert into tasks(camporee_id,title,created_by) values('60000000-0000-4000-8000-000000000001','Archived write','10000000-0000-4000-8000-000000000005')$$,'42501',null,'archived event is read only');
@@ -109,14 +104,14 @@ select lives_ok($$select register_camporee_push(
   '60000000-0000-4000-8000-000000000001',
   'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
 )$$,'verified organization member can register a push endpoint');
-select lives_ok($$select register_camporee_push(
+select throws_ok($$select register_camporee_push(
   '60000000-0000-4000-8000-000000000002',
   'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
-)$$,'same device can subscribe to a second camporee');
+)$$,'42501',null,'push cannot register a nonexistent second current camporee');
 select is((select count(*) from push_subscriptions where endpoint='https://push.example.test/device-1'),1::bigint,
   'push endpoint remains globally unique');
-select is((select cardinality(camporee_ids) from push_subscriptions where endpoint='https://push.example.test/device-1'),2,
-  'both authorized camporees are registered');
+select is((select cardinality(camporee_ids) from push_subscriptions where endpoint='https://push.example.test/device-1'),1,
+  'one camporee target is registered for this device');
 select throws_ok($$select register_camporee_push(
   '20000000-0000-4000-8000-000000000001',
   'https://push.example.test/unallowed',repeat('P',64),repeat('A',32)
@@ -133,6 +128,28 @@ select is((select user_id from push_subscriptions where endpoint='https://push.e
  '10000000-0000-4000-8000-000000000001'::uuid,'rebind updates endpoint ownership');
 select is((select camporee_ids from push_subscriptions where endpoint='https://push.example.test/device-1'),
  array['20000000-0000-4000-8000-000000000001'::uuid],'rebind forgets previous account targets');
+reset role;
+
+-- Reusable join code joins a verified account without choosing organizations.
+insert into auth.users(id,email,email_confirmed_at) values
+ ('10000000-0000-4000-8000-000000000006','guest@club.test',now()),
+ ('10000000-0000-4000-8000-000000000007','unverified@club.test',null);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select create_camporee_join_code('60000000-0000-4000-8000-000000000001') as camporee_join_code \gset
+select set_config('test.join_code', :'camporee_join_code', true);
+select is(read_camporee_join_code('60000000-0000-4000-8000-000000000001'),current_setting('test.join_code'),'club director can retrieve the reusable join code');
+select is(create_camporee_join_code('60000000-0000-4000-8000-000000000001'),current_setting('test.join_code'),'repeat code generation is idempotent');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
+select lives_ok($select join_camporee_by_code(current_setting('test.join_code'))$,'verified member joins with director code');
+select lives_ok($select join_camporee_by_code(current_setting('test.join_code'))$,'entering the same camporee twice does not duplicate membership');
+select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,'new member belongs to one club');
+select throws_ok($select create_organization('Duplicated club','50000000-0000-4000-8000-000000000005')$,'23505',null,'joined member cannot create another club');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000007',true);
+select throws_ok($select join_camporee_by_code(current_setting('test.join_code'))$,'42501',null,'unverified account cannot join via reusable code');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select throws_ok($select join_camporee_by_code(current_setting('test.join_code'))$,'23505',null,'legacy member cannot join another club with valid code');
+select throws_ok($select read_camporee_join_code('60000000-0000-4000-8000-000000000001')$,'42501',null,'director cannot read code of another club');
 reset role;
 
 select finish();
