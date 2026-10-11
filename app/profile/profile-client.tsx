@@ -100,7 +100,7 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
   return <section className='polymet-profile'>
     <div className='polymet-profile-hero'>
       <div className='profile-avatar-wrap'><button type='button' className='profile-avatar-button' onClick={() => inputRef.current?.click()} disabled={busy} aria-label='Cambiar foto de perfil'>{avatarUrl ? <img src={avatarUrl} alt={`Foto de ${fullName}`}/> : <span className='profile-avatar-fallback'>{initial || <UserRound size={36}/>}</span>}<span className='profile-avatar-camera'><Camera size={17}/></span></button><input ref={inputRef} className='profile-file-input' type='file' accept='image/jpeg,image/png,image/webp,image/heic,image/heif' onChange={uploadAvatar}/></div>
-      <h2>{name || fullName}</h2><span>Los permisos se definen en cada organización</span>
+      <h2>{name || fullName}</h2><span>Los permisos de tu club los administra el director</span>
     </div>
     <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
     <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>
