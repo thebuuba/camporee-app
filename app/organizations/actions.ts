@@ -21,6 +21,8 @@ async function callRpc(name:string,args:Record<string,unknown>):Promise<{ok:true
     if(result.error)return {ok:false,error:result.error.code==='23505'
       ?'Esta cuenta ya pertenece a un club, o el camporee ya está creado. Solo puedes tener un club y un camporee vigente.'
       :result.error.code==='42501'?'No tienes acceso o tu correo todavía no está confirmado.':result.error.message};
+    if(result.data===null&&name==='join_camporee_by_code')
+      return {ok:false,error:'Ese código no corresponde a un camporee vigente. Comprueba los cuatro dígitos.'};
     if(typeof result.data!=='string')return {ok:false,error:'No pudimos confirmar el resultado. Actualiza la pantalla antes de reintentar.'};
     return {ok:true,value:result.data};
   } catch { return {ok:false,error:'No se pudo conectar. Conserva los datos del formulario e inténtalo de nuevo.'}; }
@@ -86,8 +88,12 @@ export async function createJoinCode(form:FormData):Promise<OrganizationActionRe
   if(!UUID.test(camporeeId))return {ok:false,error:'Camporee inválido.'};
   const result=await callRpc('create_camporee_join_code',{target_camporee:camporeeId});
   if(!result.ok)return result;
+  const supabase=await createClient();
+  const {data,error}=await supabase.rpc('read_camporee_invitation',{target_camporee:camporeeId});
+  if(error||!data||typeof data.code!=='string'||typeof data.token!=='string')
+    return {ok:false,error:'No pudimos obtener el enlace de invitación. Actualiza la pantalla.'};
   revalidatePath('/more/users');
-  return {ok:true,invitationToken:result.value};
+  return {ok:true,joinCode:data.code,invitationToken:data.token};
 }
 export async function acceptInvitation(form:FormData):Promise<OrganizationActionResult> {
   const token=field(form,'token');
