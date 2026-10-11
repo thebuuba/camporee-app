@@ -39,3 +39,5 @@ jobs:
           exit 1
       - name: Validate migration, data preservation and tenant RLS
         run: npm run test:db
+      - name: Validate actual production-shaped legacy schema (missing duty column)
+        run: npm run test:db -- --production-legacy
