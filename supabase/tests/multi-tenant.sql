@@ -71,7 +71,7 @@ select throws_ok($$insert into tasks(camporee_id,title,created_by) values('20000
 select throws_ok($$update organization_members set role='admin' where organization_id='50000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'direct membership escalation is denied');
 select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'club owner cannot remove their own membership');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-select is((select count(*) from organization_members where user_id='10000000-0000-4000-8000-000000000005'),1::bigint,'other club membership is unchanged');
+select is((select count(*) from organization_members where user_id='10000000-0000-4000-8000-000000000005'),0::bigint,'legacy admin cannot read another club membership');
 select throws_ok($$select create_organization('No second club','50000000-0000-4000-8000-000000000003')$$,'23505',null,'existing member cannot create a second club');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
 update camporees set status='archived' where id='60000000-0000-4000-8000-000000000001';
