@@ -38,6 +38,17 @@ test('login preserves an invitation destination and refuses an external destinat
   await assert.rejects(api.login(form),error=>error.message===want);
  }
 });
+test('an immediately verified signup follows the invitation without another click',async()=>{
+ const token='a'.repeat(64);const next='/join/'+token;
+ const api=await actions({
+  getClaims:async()=>({data:{claims:null},error:null}),
+  signUp:async()=>({data:{session:{access_token:'verified'}},error:null}),
+ });
+ const form=new FormData();
+ form.set('fullName','Persona invitada');form.set('email','guest@club.test');
+ form.set('password','Password123');form.set('next',next);
+ await assert.rejects(api.signup(form),error=>error.message===next);
+});
 test('email confirmation preserves the invitation destination',async()=>{
  const token='b'.repeat(64);const next=`/invitations/${token}`;
  const {GET}=await load('app/auth/confirm/route.ts',{'@/lib/supabase/server':{createClient:async()=>({auth:{exchangeCodeForSession:async()=>({error:null})}})},'next/server':{NextResponse:{redirect:url=>url.toString()}}});
