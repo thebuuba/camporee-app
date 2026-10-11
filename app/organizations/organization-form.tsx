@@ -30,7 +30,7 @@ export default function OrganizationForm({kind,children,submitLabel}:{kind:Kind;
         setCreatedCamporeePath(tenantPath({organizationId:result.organizationId,camporeeId:result.camporeeId}));
         return;
       }
-      if(result.invitationToken){setInvitationUrl(new URL(kind==='create-join-code'? `/join/${result.invitationToken}`:`/invitations/${result.invitationToken}`,window.location.origin).toString());return;}
+      if(result.invitationToken){if(kind==='create-join-code' && result.joinCode)setJoinCode(result.joinCode);setInvitationUrl(new URL(kind==='create-join-code'? `/join/${result.invitationToken}`:`/invitations/${result.invitationToken}`,window.location.origin).toString());return;}
       if(kind==='join'&&result.camporeeId){router.push('/');router.refresh();return;}
       if(result.organizationId){
         router.push(result.camporeeId?tenantPath({organizationId:result.organizationId,camporeeId:result.camporeeId}):`/o/${result.organizationId}`);
