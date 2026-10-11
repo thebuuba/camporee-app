@@ -44,7 +44,11 @@ async function organizationScope(supabase: SupabaseClient, organizationId: strin
     supabase.from('organization_members').select('organization_id,user_id,role,is_active,permissions,directive_role,created_at').eq('organization_id', organizationId).eq('user_id', user.id).maybeSingle(),
   ]);
   const error = organizationResult.error ?? membershipResult.error;
-  if (error) throw new Error(error.message);
+  if (error) {
+    const failure = new Error(error.message) as Error & {code?: string};
+    failure.code = error.code;
+    throw failure;
+  }
   if (!organizationResult.data || !membershipResult.data?.is_active) throw new TenantAccessError('access');
   const membership = membershipResult.data as OrganizationMembership;
   return {organizationId,supabase,user,userId:user.id,organization:organizationResult.data,membership,isAdmin:membership.role==='admin'};
@@ -60,7 +64,11 @@ export async function resolveCamporeeContext(supabase: SupabaseClient, ids: Tena
     organizationScope(supabase,ids.organizationId,user),
     supabase.from('camporees').select('id,organization_id,owner_id,name,theme,location,starts_on,ends_on,status,currency,time_zone').eq('organization_id', ids.organizationId).eq('id', ids.camporeeId).maybeSingle(),
   ]);
-  if (camporeeResult.error) throw new Error(camporeeResult.error.message);
+  if (camporeeResult.error) {
+    const failure = new Error(camporeeResult.error.message) as Error & {code?: string};
+    failure.code = camporeeResult.error.code;
+    throw failure;
+  }
   if (!camporeeResult.data) throw new TenantAccessError('access');
   const membership = scope.membership;
   const camporee = camporeeResult.data as Camporee;
