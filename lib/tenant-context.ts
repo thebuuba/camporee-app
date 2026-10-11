@@ -62,3 +62,16 @@ export function tenantPath(ids: TenantIds, target = '/') {
   const prefix = `/o/${ids.organizationId}/c/${ids.camporeeId}`;
   return `${prefix}${target === '/' ? '' : target}`;
 }
+
+export function safeAuthReturn(value: unknown) {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return '/';
+  try {
+    const url = new URL(value, 'https://camporee.invalid');
+    if (url.origin !== 'https://camporee.invalid') return '/';
+    const path = url.pathname;
+    const orgRoute = /^\/o\/([^/]+)$/.exec(path);
+    const allowed = path === '/' || /^\/(organizations|profile|tasks|program|search|more)(\/[^/]+)?$/.test(path)
+      || /^\/invitations\/[a-f0-9]{64}$/.test(path) || Boolean(parseTenantPath(path)) || Boolean(orgRoute && UUID.test(orgRoute[1]));
+    return allowed ? `${path}${url.search}` : '/';
+  } catch { return '/'; }
+}

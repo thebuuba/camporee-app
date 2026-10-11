@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { safeAuthReturn } from '../lib/tenant-context.ts';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 async function load(path, modules) {
+  modules['@/lib/tenant-context'] = { safeAuthReturn };
   await loadBindings();
-  const { code } = await transform(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'), { filename: path, jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022' }, module: { type: 'commonjs' } });
+  const { code } = await transform(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'), { filename: path, jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022', transform:{react:{runtime:'automatic'}} }, module: { type: 'commonjs' } });
   const module = { exports: {} };
   vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], URL, fetch: async () => {}, process: { env: {} } });
   return module.exports;
@@ -28,6 +30,44 @@ test('iniciar sesión guarda la preferencia de duración sin cambiar el acceso',
     assert.equal(Boolean(api.cookies[0][2].maxAge), remember);
   }
 });
+test('login preserves an invitation destination and refuses an external destination',async()=>{
+ const token='a'.repeat(64);
+ for(const [next,want] of [[`/invitations/${token}`,`/invitations/${token}?login=ok`],['https://outside.example','/?login=ok'],['//outside.example','/?login=ok'],['/\\outside.example','/?login=ok']]) {
+  const api=await actions({signInWithPassword:async()=>({data:{session:{}},error:null}),getUser:async()=>({data:{user:{id:'person'}}})});
+  const form=new FormData();form.set('email','ana@example.com');form.set('password','Password123');form.set('next',next);
+  await assert.rejects(api.login(form),error=>error.message===want);
+ }
+});
+test('email confirmation preserves the invitation destination',async()=>{
+ const token='b'.repeat(64);const next=`/invitations/${token}`;
+ const {GET}=await load('app/auth/confirm/route.ts',{'@/lib/supabase/server':{createClient:async()=>({auth:{exchangeCodeForSession:async()=>({error:null})}})},'next/server':{NextResponse:{redirect:url=>url.toString()}}});
+ const url=`http://localhost:3002/auth/confirm?code=test&next=${encodeURIComponent(next)}`;
+ assert.equal(await GET({url,nextUrl:{clone:()=>new URL(url)}}),`http://localhost:3002${next}`);
+});
+test('registration includes invitation in confirmation callback and next login',async()=>{
+ const token='c'.repeat(64);const next=`/invitations/${token}`;let options;
+ const api=await actions({getClaims:async()=>({data:{claims:null},error:null}),signUp:async input=>{options=input.options;return {data:{session:null},error:null}}});
+ const form=new FormData();form.set('fullName','Ana');form.set('email','ana@example.com');form.set('password','Password123');form.set('next',next);
+ await assert.rejects(api.signup(form),error=>new URL(error.message,'http://localhost:3002').searchParams.get('next')===next);
+ const callback=new URL(options.emailRedirectTo);
+ assert.equal(callback.origin,'http://localhost:3002');assert.equal(callback.pathname,'/auth/confirm');assert.equal(callback.searchParams.get('next'),next);
+});
+function findNode(node,predicate) {
+ if(!node||typeof node!=='object')return null;
+ if(predicate(node))return node;
+ const children=node.props?.children;
+ for(const child of Array.isArray(children)?children:[children]){const found=findNode(child,predicate);if(found)return found;}
+ return null;
+}
+for(const path of ['app/login/page.tsx','app/signup/page.tsx']) {
+ test(`${path} carries invitation through its form`,async()=>{
+  const next=`/invitations/${'d'.repeat(64)}`;const jsx=(type,props)=>({type,props});
+  const {default:render}=await load(path,{'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':{default:'link'},'lucide-react':{},'./actions':{},'../login/actions':{},'./password-field':{default:'password'},'../login/password-field':{default:'password'}});
+  const tree=await render({searchParams:Promise.resolve({next})});
+  const hidden=findNode(tree,node=>node.type==='input'&&node.props.name==='next');
+  assert.equal(hidden?.props.value,next);
+ });
+}
 
 test('recuperar clave valida el correo y usa el callback local sin revelar si existe', async () => {
   const calls = [];

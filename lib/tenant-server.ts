@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveCamporeeContext, TenantAccessError, tenantPath, type TenantIds } from '@/lib/tenant-context';
 
-export type TenantPageParams = Promise<TenantIds>;
+export type TenantPageParams = Promise<Partial<TenantIds>>;
 export type PanelSearchParams = Promise<Record<string, string | string[] | undefined>>;
 const loadContext = cache(async (organizationId: string, camporeeId: string) =>
   resolveCamporeeContext(await createClient(), { organizationId, camporeeId }));

@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeAuthReturn } from "@/lib/tenant-context";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -9,8 +10,9 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const recovery = type === "recovery" || searchParams.get("next") === "recovery";
   const redirectTo = request.nextUrl.clone();
-  redirectTo.pathname = "/";
-  redirectTo.search = "";
+  const destination = new URL(safeAuthReturn(searchParams.get('next')), request.url);
+  redirectTo.pathname = destination.pathname;
+  redirectTo.search = destination.search;
   if (recovery) { redirectTo.pathname = "/login"; redirectTo.searchParams.set("reset", "1"); }
 
   if (code) {
@@ -28,5 +30,6 @@ export async function GET(request: NextRequest) {
   redirectTo.pathname = "/login";
   redirectTo.search = "";
   redirectTo.searchParams.set("error", "No pudimos confirmar el correo.");
+  redirectTo.searchParams.set('next',safeAuthReturn(searchParams.get('next')));
   return NextResponse.redirect(redirectTo);
 }

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { login, requestPasswordReset, updatePassword } from "./actions";
 import PasswordField from "./password-field";
+import { safeAuthReturn } from "@/lib/tenant-context";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; reset?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; reset?: string; next?: string }> }) {
   const params = await searchParams;
   const resetting = params.reset === "1";
+  const returnTo = safeAuthReturn(params.next);
   return <main className="pm-login-shell">
     <header className="pm-login-header">
       <img src="/polymet-camp-preparation.svg" alt="" aria-hidden="true" />
@@ -19,13 +21,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       {params.error ? <div className="auth-alert error" role="alert">{params.error}</div> : null}
       {params.message ? <div className="auth-alert success" role="status">{params.message}</div> : null}
       <form className="pm-login-form" action={resetting ? updatePassword : login}>
+        <input type="hidden" name="next" value={returnTo}/>
         {!resetting ? <label className="pm-login-field">Correo electrónico<div className="pm-login-input"><Mail size={16} aria-hidden="true" /><input name="email" type="email" inputMode="email" autoComplete="email" placeholder="tu@correo.com" required /></div></label> : null}
         <PasswordField resetting={resetting} />
         {!resetting ? <div className="pm-login-options"><label><input name="remember" type="checkbox" defaultChecked />Recordarme</label><button type="submit" formAction={requestPasswordReset} formNoValidate>¿Olvidaste tu clave?</button></div> : null}
         <button className="pm-login-submit">{resetting ? "Guardar contraseña" : "Iniciar sesión"}</button>
       </form>
-      <p className="pm-login-register">{resetting ? <Link href="/login">Volver al inicio de sesión</Link> : <>¿No tienes cuenta? <Link href="/signup">Crear cuenta</Link></>}</p>
-      <aside className="pm-login-notice">Las cuentas nuevas deben ser aprobadas por un administrador del club antes de poder entrar.</aside>
+      <p className="pm-login-register">{resetting ? <Link href="/login">Volver al inicio de sesión</Link> : <>¿No tienes cuenta? <Link href={`/signup?next=${encodeURIComponent(returnTo)}`}>Crear cuenta</Link></>}</p>
+      <aside className="pm-login-notice">Con tu cuenta puedes crear una organización o unirte a un club mediante invitación.</aside>
     </section>
   </main>;
 }

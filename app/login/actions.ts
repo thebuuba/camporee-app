@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { safeAuthReturn } from "@/lib/tenant-context";
 
 export async function login(formData: FormData) {
+  const returnTo = safeAuthReturn(formData.get('next'));
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   if (!email || !password) redirect(`/login?error=${encodeURIComponent("Completa tu correo y contraseña")}`);
@@ -17,7 +19,9 @@ export async function login(formData: FormData) {
   const { data: verified } = await supabase.auth.getUser();
   if (!verified.user) redirect(`/login?error=${encodeURIComponent("No se pudo iniciar la sesión. Inténtalo otra vez.")}`);
   revalidatePath("/", "layout");
-  redirect("/?login=ok");
+  const destination = new URL(returnTo, 'https://camporee.invalid');
+  destination.searchParams.set('login','ok');
+  redirect(`${destination.pathname}${destination.search}`);
 }
 
 export async function requestPasswordReset(formData: FormData) {
@@ -44,6 +48,8 @@ export async function updatePassword(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
+  const returnTo = safeAuthReturn(formData.get('next'));
+  const nextQuery = returnTo === '/' ? '' : `&next=${encodeURIComponent(returnTo)}`;
   const fullName = String(formData.get("fullName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -56,12 +62,14 @@ export async function signup(formData: FormData) {
   const { data: existingAuth, error: existingAuthError } = await supabase.auth.getClaims();
   if (existingAuth?.claims?.sub) redirect(`/signup?error=${encodeURIComponent("Ya tienes una sesión abierta. Para registrar otra cuenta usa otro navegador o cierra tu sesión primero.")}`);
   if (existingAuthError && existingAuthError.name !== 'AuthSessionMissingError') redirect(`/signup?error=${encodeURIComponent("No pudimos verificar la sesión. Inténtalo de nuevo.")}`);
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || (await headers()).get('origin');
+  const callback = origin ? new URL(`/auth/confirm?next=${encodeURIComponent(returnTo)}`, origin).toString() : undefined;
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, ...(callback ? { emailRedirectTo: callback } : {}) } });
   if (error) {
     const message = error.message.toLowerCase().includes("already") ? "Ya existe una cuenta con ese correo" : error.message;
     redirect(`/signup?error=${encodeURIComponent(message)}`);
   }
-  if (!data.session) redirect("/signup?created=1&confirm=1");
+  if (!data.session) redirect(`/signup?created=1&confirm=1${nextQuery}`);
   revalidatePath("/", "layout");
-  redirect("/signup?created=1");
+  redirect(`/signup?created=1${nextQuery}`);
 }

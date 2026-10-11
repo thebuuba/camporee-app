@@ -3,14 +3,17 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { safeAuthReturn } from '../lib/tenant-context.ts';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 async function load(path, modules, globals = {}) {
+  modules['@/lib/tenant-context'] = { safeAuthReturn };
+  modules['next/headers'] ??= {headers:async()=>({get:()=>null})};
   await loadBindings();
   const { code } = await transform(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'), {
     filename: path, jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022', transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' },
   });
   const module = { exports: {} };
-  vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], console, ...globals });
+  vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], console, process:{env:{}}, URL, ...globals });
   return module.exports;
 }
 function fixture({ admin = true, active = false, failure = false, changed = false } = {}) {
