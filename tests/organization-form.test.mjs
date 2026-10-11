@@ -14,10 +14,14 @@ async function fixture(result,online=true) {
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:online},window:{location:{origin:'http://localhost:3002'}},URL,FormData:class{constructor(form){return form.data}}});
  return {render(kind){index=0;return module.exports.default({kind,submitLabel:'Continuar',children:'Campos'})},paths,calls};
 }
-test('creation form opens exactly the camporee returned by its server action',async()=>{
- const api=await fixture({ok:true,organizationId:org,camporeeId:camp});const data=new FormData();data.set('name','Evento');
+test('creation immediately displays both code and secure invitation URL before navigating',async()=>{
+ const api=await fixture({ok:true,organizationId:org,camporeeId:camp,joinCode:'4827',invitationToken:'a'.repeat(64)});
+ const data=new FormData();data.set('name','Evento');
  await api.render('create-camporee').props.onSubmit({preventDefault(){},currentTarget:{data}});
- assert.deepEqual(api.paths,[`/o/${org}/c/${camp}`]);assert.equal(api.calls[0].get('name'),'Evento');
+ assert.deepEqual(api.paths,[]);assert.equal(api.calls[0].get('name'),'Evento');
+ const result=JSON.stringify(api.render('create-camporee'));
+ assert.match(result,/4827/);assert.match(result,new RegExp('/join/'+ 'a'.repeat(64)));
+ assert.match(result,/¡Camporee creado!/);
 });
 test('denied or offline administrative form retains input and does not navigate',async()=>{
  for(const [result,online] of [[{ok:false,error:'Permiso revocado'},true],[{ok:true,organizationId:org},false]]) {
@@ -34,9 +38,9 @@ test('invitation form presents a copyable link and stays in current organization
 });
 
 test('join-by-code enters directly without choosing a camporee',async()=>{
- const api=await fixture({ok:true,camporeeId:camp});const data=new FormData();data.set('code','A1B2C3D4E5F60708');
+ const api=await fixture({ok:true,camporeeId:camp});const data=new FormData();data.set('code','4827');
  await api.render('join').props.onSubmit({preventDefault(){},currentTarget:{data}});
- assert.deepEqual(api.paths,['/']);assert.equal(api.calls[0].get('code'),'A1B2C3D4E5F60708');
+ assert.deepEqual(api.paths,['/']);assert.equal(api.calls[0].get('code'),'4827');
 });
 test('director creates reusable camporee link from code without member email',async()=>{
  const code='A1B2C3D4E5F60708';const api=await fixture({ok:true,invitationToken:code});
