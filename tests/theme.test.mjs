@@ -31,16 +31,18 @@ test('los textos de la paleta oscura mantienen contraste legible', async () => {
   }
 });
 
-test('el tema respeta la elección guardada y usa el sistema como valor inicial', async () => {
+test('la primera visita es clara y el modo sistema es optativo', async () => {
   const { resolveTheme } = await import('../lib/theme.ts');
   assert.equal(resolveTheme('dark', false), 'dark');
   assert.equal(resolveTheme('warm', false), 'warm');
   assert.equal(resolveTheme('warm', true), 'warm');
   assert.equal(resolveTheme('light', true), 'light');
-  for (const preference of [null, 'system', 'invalid']) {
-    assert.equal(resolveTheme(preference, true), 'dark');
+  for (const preference of [null, 'invalid']) {
+    assert.equal(resolveTheme(preference, true), 'light');
     assert.equal(resolveTheme(preference, false), 'light');
   }
+  assert.equal(resolveTheme('system', true), 'dark');
+  assert.equal(resolveTheme('system', false), 'light');
 });
 
 test('el proveedor sincroniza el perfil, los ajustes, el sistema y otras pestañas', async () => {
@@ -71,7 +73,9 @@ test('el proveedor sincroniza el perfil, los ajustes, el sistema y otras pestañ
   render(); const cleanup = effects[0]();
   assert.equal(root.dataset.theme, 'light');
   media.matches = true; mediaListener();
-  assert.equal(root.dataset.theme, 'dark');
+  assert.equal(root.dataset.theme, 'light', 'la primera visita no debe adoptar el oscuro del dispositivo');
+  render().setPreference('system');
+  assert.equal(root.dataset.theme,'dark', 'modo automático solo al escogerlo');
   render().setPreference('light');
   assert.equal(saved, 'light');
   assert.equal(render().dark, false);
@@ -116,8 +120,9 @@ test('el tema se aplica antes de hidratar incluso si el almacenamiento está blo
   for (const [saved, systemDark, blocked, expected] of [
     ['warm', false, false, 'warm'], ['warm', true, false, 'warm'],
     ['dark', false, false, 'dark'], ['light', true, false, 'light'],
-    [null, true, false, 'dark'], [null, false, false, 'light'],
-    [null, true, true, 'dark'], ['invalid', true, false, 'dark'],
+    [null, true, false, 'light'], [null, false, false, 'light'],
+    [null, true, true, 'light'], ['invalid', true, false, 'light'],
+    ['system',true,false,'dark'],['system',false,false,'light'],
   ]) {
     const root = { dataset: {}, style: { setProperty(name, value) { this[name] = value; } } };
     const meta = { setAttribute: (_name, value) => { meta.content = value; } };
