@@ -1,3 +1,4 @@
+import SafeSignoutForm from '@/app/components/safe-signout-form';
 import Link from '@/app/components/tenant-link';
 import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
@@ -46,6 +47,6 @@ export default async function MorePage({params}:{params?:TenantPageParams}={}) {
       <ReliableLink href="/more/settings" className="more-card ios-card"><span className="more-icon"><Settings size={20}/></span><div><strong>Ajustes</strong><small>Camporee y notificaciones</small></div><ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink>
       {isAdmin ? <ReliableLink href={`/o/${context.organizationId}/members`} className="more-card ios-card"><span className="more-icon"><ShieldCheck size={20}/></span><div><strong>Usuarios y permisos</strong><small>Miembros de esta organización</small></div>{pendingUsers ? <span className="polymet-admin-badge">{pendingUsers}</span> : null}<ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink> : null}
     </section>
-    <form action="/auth/signout" method="post" className="polymet-signout"><button type="submit"><LogOut size={17}/> Cerrar sesión</button></form>
+    <SafeSignoutForm className="polymet-signout"><button type="submit"><LogOut size={17}/> Cerrar sesión</button></SafeSignoutForm>
   </main>;
 }
