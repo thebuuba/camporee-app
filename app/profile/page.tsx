@@ -13,7 +13,13 @@ export default async function ProfilePage() {
   const user = auth.user;
   if (!user) redirect('/login');
 
-  const [{ data: profile, error }, { data: memberships, error: memberError },{data:organizations,error:organizationError}] = await Promise.all([supabase.from('profiles').select('full_name,email,avatar_path').eq('id', user.id).maybeSingle(), supabase.from('organization_members').select('organization_id,role,is_active').eq('user_id', user.id),supabase.from('organizations').select('id,name')]);
+  const [{ data: profile, error }, { data: membership, error: memberError }] = await Promise.all([
+    supabase.from('profiles').select('full_name,email,avatar_path').eq('id', user.id).maybeSingle(),
+    supabase.from('organization_members').select('organization_id,role,is_active').eq('user_id', user.id).maybeSingle(),
+  ]);
+  const {data:organization,error:organizationError}=membership?.organization_id
+    ?await supabase.from('organizations').select('name').eq('id',membership.organization_id).maybeSingle()
+    :{data:null,error:null};
   if (error || memberError) throw error ?? memberError;
   if(organizationError)throw organizationError;
   const avatarUrl=await signedAvatar(supabase,{...profile,id:user.id});
@@ -23,12 +29,12 @@ export default async function ProfilePage() {
 
   return <main className='app panel-page profile-page'>
     <header className='subpage-top'>
-      <Link href='/organizations' className='back-btn' aria-label='Volver a organizaciones'>‹</Link>
+      <Link href='/' className='back-btn' aria-label='Volver al camporee'>‹</Link>
       <div><div className='eyebrow'>TU CUENTA</div><h1>Mi perfil</h1></div>
       <SyncStatus/>
     </header>
     <ProfileClient key={user.id} userId={user.id} fullName={fullName} email={email} initialAvatarUrl={avatarUrl} initialAvatarPath={profile?.avatar_path??null}/>
-    <section className="organization-list"><h2>Mis organizaciones</h2>{(memberships??[]).map(member=><Link key={member.organization_id} href={`/o/${member.organization_id}`} className="ios-card"><strong>{organizations?.find(org=>org.id===member.organization_id)?.name??'Organización'}</strong><span>{!member.is_active?'Sin acceso activo':member.role==='admin'?'Administrador':member.role==='editor'?'Editor':'Solo lectura'}</span></Link>)}</section>
+    {membership?<section className="organization-section ios-card"><h2>Mi club</h2><p><strong>{organization?.name??'Club'}</strong> · {!membership.is_active?'Sin acceso activo':membership.role==='admin'?'Director / Administrador':membership.role==='editor'?'Editor':'Miembro'}</p></section>:null}
     <BottomNav/>
   </main>;
 }
