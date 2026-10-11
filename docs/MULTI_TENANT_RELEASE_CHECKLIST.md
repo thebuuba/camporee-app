@@ -25,6 +25,14 @@
 6. **Rendimiento:** dashboard aún carga tablas completas por camporee; probar volúmenes altos y paginar o resumir desde SQL antes de abrir la plataforma masivamente.
 7. **Consistencia:** los cambios conjuntos entre actividades, programa y participantes usan varias escrituras separadas; verificar fallos intermedios y considerar RPC transaccionales.
 
+## Hallazgos del esquema real en Supabase (2026-10-11)
+
+La base de producción **no tiene las tablas multiusuario**. Además difiere del esquema histórico del repositorio: `public.app_members` **no contiene** `directive_role`, `public.active_task_assignees()` **no existe**, y `camporee_activities.is_completed` **sí existe**. La migración se adaptó a estas diferencias y la CI ejecuta también `npm run test:db -- --production-legacy`.
+
+El proyecto pertenece a una organización **Free**, sin copias automáticas de seguridad de la base de datos. Se requiere un respaldo externo comprobado de PostgreSQL y Storage antes de modificar políticas RLS o funciones de autenticación.
+
+**No aplicar la migración solo para solucionar el error de inicio de sesión de la vista previa:** cambiaría los controles de acceso y el trigger de nuevos usuarios utilizados por la aplicación antigua que aún se ejecuta sobre la base de producción. El despliegue del frontend multiusuario, Edge Functions y las migraciones debe coordinarse, sin cambiar `main` antes de que el propietario lo autorice.
+
 ## Preflight obligatorio (solo staging aislado)
 
 1. Crear proyecto Supabase independiente (sin secretos ni datos privados de producción).
