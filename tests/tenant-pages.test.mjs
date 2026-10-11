@@ -8,6 +8,7 @@ import { songsFromDocuments } from '../lib/songs.ts';
 import {signedAvatar} from '../lib/avatars.ts';
 import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
+import { formatCamporeeMoney,formatCamporeeDate,camporeeMidnightEpoch } from '../lib/camporee-locale.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const org='50000000-0000-4000-8000-000000000001';
 const camp='60000000-0000-4000-8000-000000000001';
@@ -15,7 +16,7 @@ const old='20000000-0000-4000-8000-000000000001';
 const user='10000000-0000-4000-8000-000000000005';
 function client() {
  const rows={profiles:[],app_members:[{user_id:user,role:'admin',is_active:true}],organizations:[{id:org,name:'Club'}],organization_members:[{organization_id:org,user_id:user,role:'viewer',is_active:true,permissions:{}}],
-  camporees:[{id:old,organization_id:'00000000-0000-4000-8000-000000000001',name:'Otro evento',starts_on:'2026-01-01',ends_on:'2026-01-05',status:'planning'},{id:camp,organization_id:org,name:'Historial',starts_on:'2025-01-01',ends_on:'2025-01-05',time_zone:'America/Santo_Domingo',status:'archived'}],
+  camporees:[{id:old,organization_id:'00000000-0000-4000-8000-000000000001',name:'Otro evento',starts_on:'2026-01-01',ends_on:'2026-01-05',status:'planning'},{id:camp,organization_id:org,name:'Historial',starts_on:'2025-01-01',ends_on:'2025-01-05',time_zone:'America/Santo_Domingo',currency:'DOP',status:'archived'}],
   tasks:[{id:'old-task',camporee_id:old,title:'Otra organización',status:'pending'},{id:'selected-task',camporee_id:camp,title:'Historial elegido',status:'done'}],areas:[]};
  return {auth:{getClaims:async()=>({data:{claims:{sub:user}},error:null}),getUser:async()=>({data:{user:{id:user}},error:null})},rpc:async()=>({data:[],error:null}),from(table){
   const filters=[];const builder={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},like(){return this},neq(){return this},or(){return this},ilike(){return this},limit(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const data=(rows[table]??[]).filter(row=>filters.every(([k,v])=>row[k]===v));return Promise.resolve({data:this.single?data[0]??null:data,error:null}).then(resolve,reject)}};return builder;
@@ -37,6 +38,7 @@ async function page(supabase,path='app/tasks/page.tsx') {
   '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance},
   '@/lib/tenant-context':{tenantPath},
   '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
+  '@/lib/camporee-locale':{formatCamporeeMoney,formatCamporeeDate,camporeeMidnightEpoch},
   '../components/bottom-nav':{default:'nav'},'./task-manager':{default:'tasks-manager'},
  };
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??{default:name},setTimeout,console});
