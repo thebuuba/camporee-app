@@ -88,5 +88,8 @@ export async function signup(formData: FormData) {
   }
   if (!data.session) redirect(`/signup?created=1&confirm=1${nextQuery}`);
   revalidatePath("/", "layout");
+  // When email confirmation is disabled, Supabase creates a session at once:
+  // automatically redeem the invite instead of requiring a Continue click.
+  if(/^\/join\/[a-f0-9]{64}$/i.test(returnTo))redirect(returnTo);
   redirect(`/signup?created=1${nextQuery}`);
 }
