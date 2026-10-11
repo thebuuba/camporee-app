@@ -58,7 +58,7 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(target_camporee::text,1));
   select code into output_code from public.camporee_join_codes where camporee_id=target_camporee;
   if output_code is null then
-    output_code:=upper(encode(gen_random_bytes(8),'hex'));
+    output_code:=upper(substr(replace(gen_random_uuid()::text,'-',''),1,16));
     insert into public.camporee_join_codes(camporee_id,code) values(target_camporee,output_code);
   end if;
   return output_code;
