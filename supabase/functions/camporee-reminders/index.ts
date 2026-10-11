@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
       for (const member of members ?? []) {
         const { data: alreadySent } = await supabase.from("system_push_reminder_log").select("id").eq("camporee_id", camporee.id).eq("user_id", member.user_id).eq("milestone", milestone).maybeSingle();
         if (alreadySent) continue;
-        const { data: subscriptions } = await supabase.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("camporee_id", camporee.id).eq("user_id", member.user_id);
+        const { data: subscriptions } = await supabase.from("push_subscriptions").select("id,endpoint,p256dh,auth").contains("camporee_ids", [camporee.id]).eq("user_id", member.user_id);
         if (!subscriptions?.length) continue;
         const message = messageFor(member.role, milestone, camporee.name, member.permissions as PermissionMap | null, member.directive_role);
         const permissionTag = member.role === "editor" ? editorResponsibilities(member.permissions as PermissionMap | null).map((item) => item.key).join("-") || "generic" : member.role;
