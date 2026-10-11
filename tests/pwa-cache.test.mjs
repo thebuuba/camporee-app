@@ -102,9 +102,12 @@ test('el cancionero guarda HTML al preparar su copia desde una navegación inter
   assert.equal(worker.writes.length,0);
 });
 
-test('el cancionero recupera la copia guardada cuando se pierde internet', async () => {
-  const worker = await loadServiceWorker({cachedResponse:new Response('<html>Letra guardada</html>'),networkError:new TypeError('offline')});
-  assert.equal(await (await navigate(worker,undefined,'/more/songs')).text(),'<html>Letra guardada</html>');
+test('al desconectarse, el cancionero presenta la pantalla offline pública', async () => {
+  const worker = await loadServiceWorker({
+    networkError:new TypeError('offline'),
+    cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):new Response('Texto anterior'),
+  });
+  assert.equal(await (await navigate(worker,undefined,'/more/songs')).text(),'Sin conexión');
 });
 
 async function audioRequest(worker, range) {
