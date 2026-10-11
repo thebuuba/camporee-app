@@ -41,7 +41,7 @@ begin
       else
         insert into public.camporee_join_codes(camporee_id,code,numeric_code,invite_token)
           values(target_camporee,
-           pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-',''),
+           pg_catalog.upper(pg_catalog.substr(pg_catalog.replace(pg_catalog.gen_random_uuid()::text,'-',''),1,16)),
            proposed_code,proposed_token);
       end if;
       return;
