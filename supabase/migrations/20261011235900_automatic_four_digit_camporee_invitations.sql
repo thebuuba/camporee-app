@@ -153,6 +153,7 @@ end $$;
 create or replace function public.join_camporee_by_token(invite_token text)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare actor uuid:=(select auth.uid());destination record;existing record;
+  requested_token text:=invite_token;
 begin
   if actor is null or not exists(select 1 from auth.users
     where id=actor and email_confirmed_at is not null)
@@ -161,7 +162,7 @@ begin
     raise exception 'Invalid invitation link' using errcode='22023'; end if;
   select c.id,c.organization_id into destination
     from public.camporee_join_codes j join public.camporees c on c.id=j.camporee_id
-    where j.invite_token=invite_token and c.status<>'archived';
+    where j.invite_token=requested_token and c.status<>'archived';
   if not found then raise exception 'Invitation unavailable' using errcode='22023'; end if;
   perform 1 from public.organizations where id=destination.organization_id for update;
   select organization_id,is_active,permissions into existing from public.organization_members
