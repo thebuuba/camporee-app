@@ -30,9 +30,9 @@ export default async function OrganizationsPage() {
     </section>:<>
       <section className="organization-section ios-card">
         <h2>Unirme a mi camporee</h2>
-        <p>Introduce el código que te compartió el director. Si recibiste un enlace de invitación, ábrelo y no tendrás que escribir nada.</p>
+        <p>Introduce el código de cuatro dígitos para solicitar acceso al director. Si recibiste un enlace, ábrelo para unirte directamente sin escribir el código.</p>
         <OrganizationForm kind="join" submitLabel="Entrar al camporee">
-          <label>Código de invitación<input name="code" placeholder="Código de 16 caracteres" minLength={16} maxLength={24} autoCapitalize="characters" autoComplete="off" required/></label>
+          <label>Código de invitación<input name="code" placeholder="Ej.: 4827" inputMode="numeric" pattern="[0-9]{4}" minLength={4} maxLength={4} autoComplete="off" required/></label>
         </OrganizationForm>
       </section>
       <section className="organization-section ios-card">
