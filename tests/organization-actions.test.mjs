@@ -57,6 +57,6 @@ test('a director generates a camporee-only reusable code',async()=>{
  const api=await actions();const form=new FormData();
  form.set('camporeeId',camp);form.set('userId','impersonated');
  const result=await api.createJoinCode(form);
- assert.equal(result.invitationToken,'4827');
+ assert.equal(result.joinCode,'4827');assert.equal(result.invitationToken,'a'.repeat(64));
  assert.deepEqual(JSON.parse(JSON.stringify(api.calls[0].args)),{target_camporee:camp});
 });
