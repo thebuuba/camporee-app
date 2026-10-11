@@ -35,6 +35,10 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
         if (!subscription) return false;
         const {data,error}=await supabase.from('push_subscriptions').select('camporee_ids')
           .eq('endpoint',subscription.endpoint).eq('user_id',userId).maybeSingle();
+        if (!error && !data) {
+          await subscription.unsubscribe().catch(()=>false);
+          return false;
+        }
         return !error && Array.isArray(data?.camporee_ids) && data.camporee_ids.includes(camporeeId);
       })
       .then(ready=>{if(!cancelled)setPushReady(ready);})
