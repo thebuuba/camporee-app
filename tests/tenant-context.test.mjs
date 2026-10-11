@@ -71,7 +71,7 @@ test('tenant URLs retain context, query and global authentication routes',()=>{
 });
 
 test('invitation links survive signup, login and email verification',()=>{
- const code='A1B2C3D4E5F60708';
+ const code='a'.repeat(64);
  assert.equal(safeAuthReturn(`/join/${code}`),`/join/${code}`);
  assert.equal(safeAuthReturn(`/join/${code}?source=director`),`/join/${code}?source=director`);
  assert.equal(safeAuthReturn('/join/not-a-code'),'/');
