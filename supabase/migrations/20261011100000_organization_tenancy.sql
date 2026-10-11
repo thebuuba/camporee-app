@@ -227,13 +227,13 @@ do $$ declare r record; begin
 end $$;
 -- Legacy global helpers are no longer an authorization surface.
 revoke all on function private.is_app_member(),private.is_app_admin(),private.can_edit_module(text) from authenticated,anon,public;
-do $ begin
+do $$ begin
   -- Some production databases never had this optional helper; do not fail
   -- the tenant migration just because no legacy function exists to revoke.
   if to_regprocedure('public.active_task_assignees()') is not null then
     execute 'revoke all on function public.active_task_assignees() from authenticated,anon,public';
   end if;
-end $;
+end $$;
 
 -- Storage object names stay intact. Object scope changes are forbidden too.
 do $$ declare p record; begin
