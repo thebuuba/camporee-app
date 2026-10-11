@@ -51,7 +51,7 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
     if(!canEdit) return;
     const next=!activity.is_completed;
     setActivities((current)=>current.map((item)=>item.id===activity.id?{...item,is_completed:next}:item).sort(sortActivities));
-    const {error}=await supabase.from('camporee_activities').update({is_completed:next}).eq('id',activity.id);
+    const {error}=await supabase.from('camporee_activities').update({is_completed:next}).eq('id',activity.id).eq('camporee_id',camporeeId);
     if(error){
       setActivities((current)=>current.map((item)=>item.id===activity.id?{...item,is_completed:activity.is_completed}:item).sort(sortActivities));
       reportMutationError(error,'No se pudo cambiar el estado de la actividad.');
@@ -89,7 +89,7 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
         score,
         notes:String(formData.get('notes')||'').trim()||null,
       };
-      const request=editing ? supabase.from('camporee_activities').update(payload).eq('id',editing.id) : supabase.from('camporee_activities').insert(payload);
+      const request=editing ? supabase.from('camporee_activities').update(payload).eq('id',editing.id).eq('camporee_id',camporeeId) : supabase.from('camporee_activities').insert(payload);
       const {data,error}=await request.select('id,title,activity_type,starts_at,location,responsible_name,materials,result,score,notes,schedule_event_id,is_completed,created_at').single();
       if(error || !data){
         const message=reportMutationError(error,'No se pudo guardar la actividad. Revisa tu conexión y permisos e inténtalo otra vez.');
@@ -102,7 +102,7 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
       if(syncProgram && startsAt){
         const eventPayload={camporee_id:camporeeId,title,description:payload.notes,location:payload.location,responsible_name:payload.responsible_name,starts_at:startsAt,ends_at:null};
         if(scheduleEventId){
-          const {error:eventError}=await supabase.from('schedule_events').update(eventPayload).eq('id',scheduleEventId);
+          const {error:eventError}=await supabase.from('schedule_events').update(eventPayload).eq('id',scheduleEventId).eq('camporee_id',camporeeId);
           if(eventError){ secondaryWarning='La actividad se guardó, pero no se pudo actualizar en Programa.'; reportMutationError(eventError,secondaryWarning); }
         }else{
           const {data:eventData,error:eventError}=await supabase.from('schedule_events').insert(eventPayload).select('id').single();
@@ -111,17 +111,24 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
             reportMutationError(eventError,secondaryWarning);
           }else{
             scheduleEventId=eventData.id;
-            const {error:linkError}=await supabase.from('camporee_activities').update({schedule_event_id:scheduleEventId}).eq('id',data.id);
+            const {error:linkError}=await supabase.from('camporee_activities').update({schedule_event_id:scheduleEventId}).eq('id',data.id).eq('camporee_id',camporeeId);
             if(linkError){ secondaryWarning='La actividad se guardó, pero no se pudo vincular con Programa.'; reportMutationError(linkError,secondaryWarning); }
           }
         }
       }else if(scheduleEventId){
-        const {error:unlinkError}=await supabase.from('camporee_activities').update({schedule_event_id:null}).eq('id',data.id);
-        const {error:deleteEventError}=await supabase.from('schedule_events').delete().eq('id',scheduleEventId);
-        if(unlinkError||deleteEventError){
-          secondaryWarning='La actividad se guardó, pero hubo un problema al quitarla de Programa.';
-          reportMutationError(unlinkError||deleteEventError,secondaryWarning);
-        }else scheduleEventId=null;
+        const {error:unlinkError}=await supabase.from('camporee_activities')
+          .update({schedule_event_id:null}).eq('id',data.id).eq('camporee_id',camporeeId);
+        if(unlinkError){
+          secondaryWarning='La actividad se guardó, pero no se pudo desvincular de Programa.';
+          reportMutationError(unlinkError,secondaryWarning);
+        }else{
+          const {error:deleteEventError}=await supabase.from('schedule_events')
+            .delete().eq('id',scheduleEventId).eq('camporee_id',camporeeId);
+          if(deleteEventError){
+            secondaryWarning='La actividad se desvinculó, pero no se pudo quitar su evento de Programa.';
+            reportMutationError(deleteEventError,secondaryWarning);
+          }else scheduleEventId=null;
+        }
       }
 
       const selected=formData.getAll('participants').map(String);
@@ -155,12 +162,12 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
     if(!canEdit || !confirmRemoval('esta competencia o actividad')) return;
     try {
       const linkedEventId=activity.schedule_event_id || null;
-      const {error}=await supabase.from('camporee_activities').delete().eq('id',activity.id);
+      const {error}=await supabase.from('camporee_activities').delete().eq('id',activity.id).eq('camporee_id',camporeeId);
       if(error) throw error;
       setActivities((current)=>current.filter((item)=>item.id!==activity.id));
       let cleanupWarning=false;
       if(linkedEventId){
-        const {error:eventError}=await supabase.from('schedule_events').delete().eq('id',linkedEventId);
+        const {error:eventError}=await supabase.from('schedule_events').delete().eq('id',linkedEventId).eq('camporee_id',camporeeId);
         if(eventError){
           cleanupWarning=true;
           reportMutationError(eventError,'La actividad se eliminó, pero no se pudo quitar su entrada del Programa.');
