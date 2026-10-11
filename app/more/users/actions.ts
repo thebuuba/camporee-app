@@ -1,84 +1,61 @@
 'use server';
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from 'next/cache';
+import { createClient } from '@/lib/supabase/server';
+import { isTenantId } from '@/lib/tenant-context';
 
-const PERMISSION_KEYS = ["tasks","schedule","participants","finances","meals","notes","lists","inventory","settings"] as const;
+const PERMISSION_KEYS = ['tasks','schedule','participants','finances','meals','notes','lists','inventory','settings','edit'] as const;
 
-export async function rejectMemberAccess(formData: FormData) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const currentUserId = data?.claims?.sub;
-  if (!currentUserId) return { ok:false, error:"Tu sesión expiró. Vuelve a iniciar sesión." };
-  const { data: me, error: meError } = await supabase.from('app_members').select('role,is_active').eq('user_id', currentUserId).maybeSingle();
-  if (meError || !me?.is_active || me.role !== 'admin') return { ok:false, error:"No tienes permiso para rechazar solicitudes." };
-  const targetUserId = String(formData.get('userId') ?? '');
-  if (!targetUserId || targetUserId === currentUserId) return { ok:false, error:"No puedes rechazar tu propia cuenta." };
-  const { data: target, error: targetError } = await supabase.from('app_members').select('is_active,permissions').eq('user_id', targetUserId).maybeSingle();
-  if (targetError || !target || target.is_active) return { ok:false, error:"Esta cuenta ya no tiene una solicitud pendiente." };
-  // Rejection is an access decision, not deletion of the Auth account.
-  const { data: updated, error } = await supabase.from('app_members').update({
-    is_active:false,
-    permissions:{ ...target.permissions, access_rejected:true },
-    updated_at:new Date().toISOString(),
-  }).eq('user_id', targetUserId).eq('is_active', false).select('user_id').maybeSingle();
-  if (error || !updated) return { ok:false, error:"No se pudo rechazar la solicitud. Actualiza la pantalla e inténtalo otra vez." };
-  revalidatePath('/more/users');
-  revalidatePath('/more');
-  revalidatePath('/');
-  return { ok:true };
+async function memberRpc(form:FormData,name:string,args:Record<string,unknown>) {
+  const organizationId=String(form.get('organizationId')??'');
+  if(!isTenantId(organizationId))return {ok:false,error:'La organización no es válida.'};
+  try {
+    const supabase=await createClient();
+    const auth=await supabase.auth.getUser();
+    if(auth.error || !auth.data.user)return {ok:false,error:'Tu sesión expiró. Vuelve a iniciar sesión.'};
+    const {error}=await supabase.rpc(name,{target_organization:organizationId,...args});
+    if(error)return {ok:false,error:error.code==='42501'?'No tienes permiso para administrar esta organización.':error.code==='23514'?'La solicitud cambió o el propietario necesita conservar su acceso. Actualiza la pantalla.':'No se pudo guardar el cambio.'};
+    revalidatePath(`/o/${organizationId}`,'layout');
+    revalidatePath('/organizations');
+    return {ok:true};
+  }catch{return {ok:false,error:'No se pudo conectar. Tus cambios no se guardaron.'};}
 }
 
-export async function updateMemberAccess(formData: FormData) {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const currentUserId = claimsData?.claims?.sub;
-  if (!currentUserId) return { ok:false, error:"Tu sesión expiró. Vuelve a iniciar sesión." };
+export async function rejectMemberAccess(form:FormData) {
+  const target=String(form.get('userId')??'');
+  if(!isTenantId(target))return {ok:false,error:'El usuario no es válido.'};
+  return memberRpc(form,'decide_organization_access',{target_user:target,decision:'reject'});
+}
 
-  const { data: currentMembership, error: membershipError } = await supabase.from("app_members").select("role,is_active").eq("user_id", currentUserId).maybeSingle();
-  if (membershipError || !currentMembership?.is_active || currentMembership.role !== "admin") {
-    return { ok:false, error:"No tienes permiso para modificar usuarios." };
-  }
+export async function updateMemberAccess(form:FormData) {
+  const target=String(form.get('userId')??'');
+  const role=String(form.get('role')??'viewer');
+  const directiveRole=String(form.get('directiveRole')??'').trim();
+  if(!isTenantId(target)||!['admin','editor','viewer'].includes(role))return {ok:false,error:'Los datos del usuario no son válidos.'};
+  if(directiveRole.length>80)return {ok:false,error:'El cargo no puede superar 80 caracteres.'};
+  if(form.get('approvePending')==='on')return memberRpc(form,'decide_organization_access',{target_user:target,decision:'approve'});
+  const permissions:Record<string,boolean>={};
+  for(const key of PERMISSION_KEYS)permissions[key]=form.get(key)==='on';
+  return memberRpc(form,'update_organization_member',{
+    target_user:target,member_role:role,member_permissions:permissions,
+    member_active:form.get('isActive')==='on',member_directive_role:directiveRole||null,
+  });
+}
 
-  const targetUserId = String(formData.get("userId") ?? "");
-  const role = String(formData.get("role") ?? "viewer");
-  const isActive = formData.get("isActive") === "on";
-  const directiveRole = String(formData.get("directiveRole") ?? "").trim();
-  if (directiveRole.length > 80) return { ok:false, error:"El cargo no puede superar 80 caracteres." };
-  if (!targetUserId || !["admin","editor","viewer"].includes(role)) {
-    return { ok:false, error:"Los datos del usuario no son válidos." };
-  }
+export async function removeMemberAccess(form:FormData) {
+  const target=String(form.get('userId')??'');
+  if(!isTenantId(target))return {ok:false,error:'El usuario no es válido.'};
+  return memberRpc(form,'remove_organization_member',{target_user:target});
+}
 
-  if (targetUserId === currentUserId && (role !== "admin" || !isActive)) {
-    return { ok:false, error:"No puedes quitarte tu propio acceso de administrador." };
-  }
+export async function revokeInvitation(form:FormData) {
+  const id=String(form.get('invitationId')??'');
+  if(!isTenantId(id))return {ok:false,error:'La invitación no es válida.'};
+  return memberRpc(form,'revoke_organization_invitation',{invitation_id:id});
+}
 
-  const permissions: Record<string, boolean> = {};
-  for (const key of PERMISSION_KEYS) permissions[key] = formData.get(key) === "on";
-
-  const request = supabase.from("app_members").update({
-    role,
-    ...(formData.has('directiveRole') ? { directive_role: directiveRole || null } : {}),
-    is_active: isActive,
-    permissions,
-    updated_at: new Date().toISOString(),
-  }).eq("user_id", targetUserId);
-
-  if (formData.get('approvePending') === 'on') {
-    const { data: updated, error } = await request.eq('is_active', false)
-      .or('permissions->>access_rejected.is.null,permissions->>access_rejected.neq.true')
-      .select('user_id').maybeSingle();
-    if (error || !updated) return { ok:false, error:"La solicitud cambió o ya fue rechazada. Actualiza la pantalla." };
-  } else {
-    const { error } = await request;
-    if (error) return { ok:false, error:"No se pudieron guardar los permisos." };
-  }
-
-  revalidatePath("/more/users");
-  revalidatePath("/more");
-  revalidatePath("/");
-  revalidatePath("/tasks");
-  revalidatePath("/program");
-
-  return { ok:true };
+export async function transferOwnership(form:FormData) {
+  const id=String(form.get('newOwner')??'');
+  if(!isTenantId(id))return {ok:false,error:'Selecciona un administrador.'};
+  return memberRpc(form,'transfer_organization_ownership',{new_owner:id});
 }

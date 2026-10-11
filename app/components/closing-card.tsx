@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from '@/app/components/tenant-link';
 import { ArrowRight, Circle, CircleCheck, PartyPopper, Sparkles, Trophy, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { closingProgress } from "@/lib/camporee-closing";

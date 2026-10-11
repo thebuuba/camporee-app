@@ -1,22 +1,13 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import Link from '@/app/components/tenant-link';
 import { Search, CheckCircle2, Users, CalendarDays, Utensils, ListChecks, StickyNote, FileText, WalletCards, PackageCheck, HeartPulse } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { requireCamporeeContext, type TenantPageParams } from '@/lib/tenant-server';
+import {tenantPath} from '@/lib/tenant-context';
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function SearchPage({ searchParams,params }: { searchParams: Promise<{ q?: string }>;params?:TenantPageParams }) {
   const { q = '' } = await searchParams;
   const term = q.trim();
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getClaims();
-  const userId = auth?.claims?.sub;
-  if (!userId) redirect('/login');
-  const [{ data: member, error: memberError }, { data: camporees, error: camporeesError }] = await Promise.all([
-    supabase.from('app_members').select('is_active').eq('user_id', userId).maybeSingle(),
-    supabase.from('camporees').select('id,status').order('starts_on', { ascending: true }),
-  ]);
-  if (memberError || camporeesError) throw memberError ?? camporeesError;
-  if (!member?.is_active) redirect('/');
-  const camporee = camporees?.find((c) => c.status !== 'archived') ?? camporees?.[0];
+  const context=await requireCamporeeContext(params,'/search',searchParams);
+  const {supabase,camporee}=context;
   const empty = { tasks: [], participants: [], events: [], meals: [], lists: [], notes: [], documents: [], expenses: [], income: [], inventory: [], emergency: [] } as any;
   let results = empty;
   if (camporee && term.length >= 2) {
@@ -55,7 +46,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const count = groups.reduce((n, [, , rows]) => n + rows.length, 0);
   return <main className="app panel-page">
     <header className="subpage-top"><Link href="/" className="back-btn" aria-label="Volver">‹</Link><div><div className="eyebrow">ENCUENTRA TODO</div><h1>Buscar</h1></div><span className="avatar"><Search size={21}/></span></header>
-    <form className="panel-search" action="/search"><Search size={18}/><input name="q" defaultValue={term} placeholder="Tarea, persona, comida, gasto…" autoFocus/><button type="submit" aria-label="Buscar">→</button></form>
+    <form className="panel-search" action={tenantPath(context,'/search')}><Search size={18}/><input name="q" defaultValue={term} placeholder="Tarea, persona, comida, gasto…" autoFocus/><button type="submit" aria-label="Buscar">→</button></form>
     {!term ? <div className="empty compact">Escribe al menos dos letras para buscar en todo el camporee.</div> : term.length < 2 ? <div className="empty compact">Escribe un poco más para buscar.</div> : count === 0 ? <div className="empty compact">No encontré nada con “{term}”.</div> : groups.map(([title, Icon, rows, href, label]) => rows.length ? <section key={title} className="section-card ios-card search-results-group"><div className="section-head inside"><h3>{title}</h3><span>{rows.length}</span></div><div className="panel-list">{rows.map((row:any) => <Link href={href} className="panel-row search-result-row" key={`${title}-${row.id}`}><span className="stat-icon stat-green"><Icon size={17}/></span><div className="panel-row-copy"><strong>{label(row)}</strong><small>Ver en {title.toLowerCase()}</small></div><span className="chevron">›</span></Link>)}</div></section> : null)}
   </main>;
 }

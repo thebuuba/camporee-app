@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCamporeeContext, tenantPath, parseTenantPath } from '../lib/tenant-context.ts';
+import { resolveCamporeeContext, resolveOrganizationContext, tenantPath, parseTenantPath } from '../lib/tenant-context.ts';
 
 const org='50000000-0000-4000-8000-000000000001';
 const camp='60000000-0000-4000-8000-000000000001';
@@ -29,6 +29,14 @@ test('context derives permissions from requested organization membership',async(
  const granular=await resolveCamporeeContext(client({permissions:{edit:true}}),{organizationId:org,camporeeId:camp});
  assert.equal(granular.canEdit('inventory'),true);
 });
+test('organization administration context does not require a camporee',async()=>{
+ const context=await resolveOrganizationContext(client({role:'admin'}),org);
+ assert.equal(context.organization.id,org);assert.equal(context.userId,user);assert.equal(context.isAdmin,true);
+ const viewer=await resolveOrganizationContext(client({role:'viewer'}),org);
+ assert.equal(viewer.isAdmin,false);
+ await assert.rejects(resolveOrganizationContext(client({active:false}),org),/access/i);
+ await assert.rejects(resolveOrganizationContext(client(),'00000000-0000-4000-8000-000000000099'),/access/i);
+});
 test('archived context keeps history readable and disables module writes',async()=>{
  const context=await resolveCamporeeContext(client({role:'admin',status:'archived'}),{organizationId:org,camporeeId:camp});
  assert.equal(context.camporee.status,'archived');
@@ -42,6 +50,14 @@ test('inactive membership and unknown identifiers fail closed',async()=>{
 });
 test('query failures do not masquerade as revoked membership',async()=>{
  await assert.rejects(resolveCamporeeContext(client({error:{message:'Database unavailable'}}),{organizationId:org,camporeeId:camp}),/Database unavailable/);
+});
+test('missing or invalid Auth session is classified separately from temporary outages',async()=>{
+ for(const error of [{name:'AuthSessionMissingError'},{status:401},{status:403}]){
+  const api=client();api.auth.getUser=async()=>({data:{user:null},error});
+  await assert.rejects(resolveOrganizationContext(api,org),err=>err.reason==='authentication');
+ }
+ const api=client();api.auth.getUser=async()=>({data:{user:null},error:Object.assign(new Error('Auth unavailable'),{status:503})});
+ await assert.rejects(resolveOrganizationContext(api,org),/Auth unavailable/);
 });
 test('tenant URLs retain context, query and global authentication routes',()=>{
  const path=`/o/${org}/c/${camp}`;

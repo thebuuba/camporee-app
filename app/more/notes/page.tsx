@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from '@/app/components/tenant-link';
 import { StickyNote } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import NotesManager from "./notes-manager";

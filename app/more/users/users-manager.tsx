@@ -6,8 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, CheckCircle2, Loader2, ShieldCheck, Trash2, X } from 'lucide-react';
-import { rejectMemberAccess, updateMemberAccess } from './actions';
-import { createClient } from '@/lib/supabase/client';
+import { rejectMemberAccess, updateMemberAccess, removeMemberAccess } from './actions';
 
 type UserRow = {
   user_id:string;
@@ -29,7 +28,6 @@ const permissionLabels = [
 const roleLabel = (role:string) => role === 'admin' ? 'Administrador' : role === 'editor' ? 'Editor' : 'Solo lectura';
 
 type Filter = 'pending'|'active';
-type DeleteInvokeResult = { data?: { ok?: boolean } | null; error?: { message?: string } | null };
 
 const directiveRoles = ['Director/a','Subdirector/a','Secretario/a','Tesorero/a','Consejero/a'];
 
@@ -41,17 +39,18 @@ const permissionRows = [
   ['finances','Presupuesto'],['settings','Documentos'],['participants','Emergencia'],['notes','Apuntes'],
 ] as const;
 
-function PermissionFields({ permissions }: { permissions:Record<string,boolean> }) {
+export function PermissionFields({ permissions }: { permissions:Record<string,boolean> }) {
   const [values, setValues] = useState(permissions);
   return <>
     <div className="permission-title"><strong>Permisos de edición por módulo</strong></div>
+    <label className="permission-chip"><span>Editar todos los módulos</span><input type="checkbox" name="edit" checked={Boolean(values.edit)} onChange={event=>setValues(current=>({...current,edit:event.target.checked}))} aria-label="Editar todos los módulos"/></label>
     {permissionLabels.map(([key]) => values[key] ? <input key={key} type="hidden" name={key} value="on"/> : null)}
     <div className="permission-grid">{permissionRows.map(([key,label]) => <label className="permission-chip" key={label}><span>{label}</span><input type="checkbox" role="switch" aria-label={label} checked={Boolean(values[key])} onChange={(event)=>setValues((current)=>({...current,[key]:event.target.checked}))}/></label>)}</div>
     <p className="permission-groups-note">Programa, avisos y competencias comparten permiso. Participantes, pases de lista y emergencia también.</p>
   </>;
 }
 
-function DirectiveRoleField({ value }: { value:string|null }) {
+export function DirectiveRoleField({ value }: { value:string|null }) {
   const [choice, setChoice] = useState(value && !directiveRoles.includes(value) ? 'other' : value ?? '');
   return <div className="panel-form">
     <label className="pm-field"><span>Cargo en la directiva</span><select name={choice === 'other' ? undefined : 'directiveRole'} value={choice} onChange={(event)=>setChoice(event.target.value)}><option value="">Sin cargo</option>{directiveRoles.map((cargo)=><option key={cargo} value={cargo}>{cargo}</option>)}<option value="other">Otro</option></select></label>
@@ -60,7 +59,7 @@ function DirectiveRoleField({ value }: { value:string|null }) {
   </div>;
 }
 
-export default function UsersManager({ users, directiveRolesAvailable }: { users:UserRow[]; directiveRolesAvailable:boolean }) {
+export default function UsersManager({ users, directiveRolesAvailable, organizationId, ownerUserId }: { users:UserRow[]; directiveRolesAvailable:boolean; organizationId:string; ownerUserId:string|null }) {
   const [members,setMembers] = useState(users);
   const [filter,setFilter] = useState<Filter>(users.some((user) => !user.is_active) ? 'pending' : 'active');
   const [openId,setOpenId] = useState<string|null>(null);
@@ -70,7 +69,6 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
   const [savedId,setSavedId] = useState<string|null>(null);
   const [saveError,setSaveError] = useState<string|null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => { setMembers(users); }, [users]);
 
@@ -106,6 +104,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
       const role = String(formData.get('role') ?? 'viewer');
       const isActive = formData.get('isActive') === 'on';
       const permissions:Record<string,boolean> = {};
+      permissions.edit=formData.get('edit')==='on';
       for (const [key] of permissionLabels) permissions[key] = formData.get(key) === 'on';
 
       setMembers((current) => current.map((member) => member.user_id === user.user_id ? {
@@ -128,6 +127,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
     if (savingId || deletingId) return;
     setSavingId(user.user_id); setSaveError(null);
     const formData = new FormData();
+    formData.set('organizationId',organizationId);
     formData.set('userId',user.user_id);
     formData.set('role',user.role === 'admin' ? 'editor' : user.role);
     formData.set('isActive','on');
@@ -144,16 +144,17 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
   }
 
   async function removeAccount(user:UserRow) {
-    if (user.is_self || !user.is_active || deletingId || savingId) return;
+    if (user.is_self || user.user_id===ownerUserId || !user.is_active || deletingId || savingId) return;
     const display = user.full_name || user.email || 'esta cuenta';
-    const confirmed = window.confirm(`¿Eliminar la cuenta de ${display}?\n\nPerderá el acceso inmediatamente. Su historial del camporee se conservará como registro y esta acción no se puede deshacer.`);
+    const confirmed = window.confirm(`¿Quitar a ${display} de esta organización?\n\nPerderá el acceso a sus camporees. Su cuenta, sus otras organizaciones y el historial se conservarán. Podrás volver a invitarle.`);
     if (!confirmed) return;
 
     setDeleteError(null);
     setDeletingId(user.user_id);
     try {
-      const result = await supabase.functions.invoke('admin-delete-user', { body:{ userId:user.user_id } }) as DeleteInvokeResult;
-      if (result.error || !result.data?.ok) throw new Error(result.error?.message || 'No se pudo eliminar la cuenta');
+      const formData=new FormData();formData.set('organizationId',organizationId);formData.set('userId',user.user_id);
+      const result = await removeMemberAccess(formData);
+      if (!result.ok) throw new Error(result.error || 'No se pudo quitar el acceso');
       setOpenId(null);
       setMembers((current) => current.filter((member) => member.user_id !== user.user_id));
       router.refresh();
@@ -171,6 +172,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
     setDeletingId(user.user_id);
     try {
       const formData = new FormData(); formData.set('userId', user.user_id);
+      formData.set('organizationId',organizationId);
       const result = await rejectMemberAccess(formData);
       if (!result.ok) throw new Error(result.error);
       setMembers(current => current.filter(member => member.user_id !== user.user_id));
@@ -204,6 +206,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
 
           <BottomSheet open={isOpen} onClose={()=>setOpenId(null)} title={display} description={user.email || ""} busy={saving || deleting}><form onSubmit={(event) => void saveAccess(event,user)} className='compact-member-editor polymet-member-editor'>
             <input type='hidden' name='userId' value={user.user_id}/>
+            <input type='hidden' name='organizationId' value={organizationId}/>
             <div className='member-editor-top'>
               <fieldset className="pm-role-picker"><legend>Rol</legend><div>{[['admin','Administrador','Acceso total'],['editor','Editor','Edita todos los módulos'],['viewer','Solo lectura','Ve todo, edita lo asignado']].map(([value,label,hint])=><label key={value}><input type="radio" name="role" value={value} defaultChecked={user.role===value} disabled={user.is_self}/><span><strong>{label}</strong><small>{hint}</small></span></label>)}</div></fieldset>
               {user.is_self ? <input type='hidden' name='role' value='admin'/> : null}
@@ -213,7 +216,7 @@ export default function UsersManager({ users, directiveRolesAvailable }: { users
             <details className="member-access-options"><summary>Acceso a la cuenta</summary><label><span>Cuenta activa</span><span className='switch'><input type='checkbox' name='isActive' defaultChecked={user.is_active} disabled={user.is_self}/><i/></span></label></details>
             {user.is_self ? <input type='hidden' name='isActive' value='on'/> : null}
             <button className='primary-btn member-save' type='submit' disabled={saving}>{saving?<><Loader2 size={16} className='spin'/> Guardando…</>:saved?<><CheckCircle2 size={16}/> Guardado</>:<><ShieldCheck size={16}/> Guardar cambios</>}</button>
-            {!user.is_self ? <div className='member-danger-zone'><div><strong>Eliminar cuenta</strong><small>Quita el acceso de forma permanente. El historial del camporee se conserva.</small></div><button className='member-delete-btn' type='button' onClick={() => void removeAccount(user)} disabled={deleting}>{deleting?<Loader2 size={16} className='spin'/>:<Trash2 size={16}/>} {deleting?'Eliminando…':'Eliminar'}</button></div> : null}
+            {!user.is_self && user.user_id!==ownerUserId ? <div className='member-danger-zone'><div><strong>Quitar de la organización</strong><small>Conserva su cuenta y el historial de los camporees.</small></div><button className='member-delete-btn' type='button' onClick={() => void removeAccount(user)} disabled={deleting}>{deleting?<Loader2 size={16} className='spin'/>:<Trash2 size={16}/>} {deleting?'Quitando…':'Quitar acceso'}</button></div> : null}
           </form></BottomSheet>
         </article>;
       })}

@@ -2,12 +2,24 @@ import 'server-only';
 import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { resolveCamporeeContext, TenantAccessError, tenantPath, type TenantIds } from '@/lib/tenant-context';
+import { resolveCamporeeContext, resolveOrganizationContext, TenantAccessError, tenantPath, type TenantIds } from '@/lib/tenant-context';
 
 export type TenantPageParams = Promise<Partial<TenantIds>>;
 export type PanelSearchParams = Promise<Record<string, string | string[] | undefined>>;
 const loadContext = cache(async (organizationId: string, camporeeId: string) =>
   resolveCamporeeContext(await createClient(), { organizationId, camporeeId }));
+const loadOrganizationContext = cache(async (organizationId:string)=>resolveOrganizationContext(await createClient(),organizationId));
+
+export async function requireOrganizationContext(organizationId:string) {
+  try{return await loadOrganizationContext(organizationId);}
+  catch(error){
+    if(error instanceof TenantAccessError){
+      if(error.reason==='authentication')redirect(`/login?next=${encodeURIComponent(`/o/${organizationId}`)}`);
+      notFound();
+    }
+    throw error;
+  }
+}
 
 export async function redirectLegacyPanel(panel = '/', query?: PanelSearchParams): Promise<never> {
   const supabase = await createClient();

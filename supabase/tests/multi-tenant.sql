@@ -55,6 +55,10 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001'
 select throws_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001')$$,'23514',null,'cannot remove organization owner');
 select throws_ok($$update tasks set camporee_id='60000000-0000-4000-8000-000000000001' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'cannot move data to another camporee');
 select is((select count(*) from organization_task_assignees('00000000-0000-4000-8000-000000000001')),2::bigint,'directory includes only active members of this organization');
+select lives_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','reject')$$,'legacy pending access can be rejected atomically');
+select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','approve')$$,'23514',null,'stale approval cannot revive rejected request');
+select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','reject')$$,'23514',null,'stale rejection cannot disable active membership');
+select is((select permissions->>'notes' from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id='10000000-0000-4000-8000-000000000003'),(select permissions->>'notes' from app_members where user_id='10000000-0000-4000-8000-000000000003'),'access decision retains existing module permissions');
 -- Invitation tokens never appear in table reads; only admin creation returns them.
 select create_organization_invitation('00000000-0000-4000-8000-000000000001','other@club.test','viewer','{}',null) as invite_token \gset
 select set_config('test.invite_token', :'invite_token', true);

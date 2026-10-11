@@ -11,16 +11,17 @@ type Props = {
   userId: string;
   fullName: string;
   email: string;
-  role: string;
+  initialAvatarPath:string|null;
   initialAvatarUrl: string | null;
 };
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg','image/png','image/webp','image/heic','image/heif']);
 
-export default function ProfileClient({ userId, fullName, email, role, initialAvatarUrl }: Props) {
+export default function ProfileClient({ userId, fullName, email, initialAvatarPath, initialAvatarUrl }: Props) {
   const { dark, setPreference } = useTheme();
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+  const [avatarPath,setAvatarPath]=useState(initialAvatarPath);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [name, setName] = useState(fullName);
@@ -47,12 +48,14 @@ export default function ProfileClient({ userId, fullName, email, role, initialAv
       });
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabase.storage.from('profile-avatars').getPublicUrl(path);
-      const nextUrl = `${publicData.publicUrl}?v=${Date.now()}`;
-      const { error: profileError } = await supabase.from('profiles').update({ avatar_url: nextUrl, updated_at: new Date().toISOString() }).eq('id', userId);
+      const { data: signedData,error:signError } = await supabase.storage.from('profile-avatars').createSignedUrl(path,300);
+      if(signError||!signedData?.signedUrl)throw signError??new Error('No se pudo cargar la foto.');
+      const nextUrl = signedData.signedUrl;
+      const { error: profileError } = await supabase.from('profiles').update({ avatar_path:path, avatar_url:null, updated_at: new Date().toISOString() }).eq('id', userId);
       if (profileError) throw profileError;
 
       setAvatarUrl(nextUrl);
+      setAvatarPath(path);
       reportMutationSuccess('Foto de perfil actualizada.');
       router.refresh();
     } catch (uploadError) {
@@ -66,12 +69,13 @@ export default function ProfileClient({ userId, fullName, email, role, initialAv
     if (!avatarUrl || busy) return;
     setBusy(true); setError('');
     try {
-      const path = `${userId}/avatar`;
+      const path = avatarPath?.startsWith(`${userId}/`)?avatarPath:`${userId}/avatar`;
       const { error: storageError } = await supabase.storage.from('profile-avatars').remove([path]);
       if (storageError) throw storageError;
-      const { error: profileError } = await supabase.from('profiles').update({ avatar_url: null, updated_at: new Date().toISOString() }).eq('id', userId);
+      const { error: profileError } = await supabase.from('profiles').update({ avatar_path:null, avatar_url: null, updated_at: new Date().toISOString() }).eq('id', userId);
       if (profileError) throw profileError;
       setAvatarUrl(null);
+      setAvatarPath(null);
       reportMutationSuccess('Foto de perfil eliminada.');
       router.refresh();
     } catch (removeError) {
@@ -95,7 +99,7 @@ export default function ProfileClient({ userId, fullName, email, role, initialAv
   return <section className='polymet-profile'>
     <div className='polymet-profile-hero'>
       <div className='profile-avatar-wrap'><button type='button' className='profile-avatar-button' onClick={() => inputRef.current?.click()} disabled={busy} aria-label='Cambiar foto de perfil'>{avatarUrl ? <img src={avatarUrl} alt={`Foto de ${fullName}`}/> : <span className='profile-avatar-fallback'>{initial || <UserRound size={36}/>}</span>}<span className='profile-avatar-camera'><Camera size={17}/></span></button><input ref={inputRef} className='profile-file-input' type='file' accept='image/jpeg,image/png,image/webp,image/heic,image/heif' onChange={uploadAvatar}/></div>
-      <h2>{name || fullName}</h2><span>{role === 'admin' ? 'Administrador' : role === 'editor' ? 'Editor' : 'Solo lectura'}</span>
+      <h2>{name || fullName}</h2><span>Los permisos se definen en cada organización</span>
     </div>
     <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
     <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>

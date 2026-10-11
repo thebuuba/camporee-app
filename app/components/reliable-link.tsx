@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import {parseTenantPath,tenantPath} from '@/lib/tenant-context';
 
 type ReliableLinkProps = {
   href:string;
@@ -13,6 +14,8 @@ type ReliableLinkProps = {
 
 export default function ReliableLink({href,className='',children,ariaLabel}:ReliableLinkProps){
   const pathname=usePathname();
+  const context=parseTenantPath(pathname);
+  const targetHref=context?tenantPath(context,href):href;
   const [pending,setPending]=useState(false);
 
   useEffect(()=>{
@@ -21,11 +24,11 @@ export default function ReliableLink({href,className='',children,ariaLabel}:Reli
 
   function open(event:React.MouseEvent<HTMLAnchorElement>){
     if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-    if(!navigator.onLine){event.preventDefault();window.location.assign(href);return;}
-    if(pathname===href){event.preventDefault();return;}
+    if(!navigator.onLine){event.preventDefault();window.location.assign(targetHref);return;}
+    if(pathname===targetHref){event.preventDefault();return;}
     if(pending){event.preventDefault();return;}
     setPending(true);
   }
 
-  return <Link prefetch href={href} className={`${className}${pending?' is-opening':''}`} onClick={open} aria-label={ariaLabel} aria-busy={pending||undefined}>{children}{pending?<span className='panel-opening-indicator' aria-hidden='true'/>:null}</Link>;
+  return <Link prefetch href={targetHref} className={`${className}${pending?' is-opening':''}`} onClick={open} aria-label={ariaLabel} aria-busy={pending||undefined}>{children}{pending?<span className='panel-opening-indicator' aria-hidden='true'/>:null}</Link>;
 }

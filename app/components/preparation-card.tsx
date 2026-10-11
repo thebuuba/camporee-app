@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from '@/app/components/tenant-link';
 import { ArrowRight, Clock, Tent } from "lucide-react";
 import PreparationCountdown from "./preparation-countdown";
 

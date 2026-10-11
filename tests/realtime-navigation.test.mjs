@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { parseTenantPath, tenantPath } from '../lib/tenant-context.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const requireFromHere = createRequire(import.meta.url);
@@ -105,6 +106,7 @@ test('las tarjetas de Mas delegan la precarga al enlace sin lanzar una precarga 
   const effects = [];
   let prefetches = 0;
   const ReliableLink = await loadTsx('app/components/reliable-link.tsx', {
+    '@/lib/tenant-context': { parseTenantPath, tenantPath },
     'next/link': 'next-link',
     react: {
       useEffect(callback) { effects.push(callback); },

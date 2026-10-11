@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 import { resolveCamporeeContext } from '../lib/tenant-context.ts';
+import {signedAvatar} from '../lib/avatars.ts';
 
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 async function loadModule(path, modules = {}, globals = {}) {
@@ -35,6 +36,7 @@ function homeClient(taskError = null) {
 
 async function loadHome(client) {
   const api = await loadModule('lib/home-data.ts', {
+    './avatars':{signedAvatar},
     '@/lib/supabase/server':{createClient:async()=>client},
     '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance},
     '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
@@ -121,12 +123,13 @@ function findElement(node, predicate) {
 
 async function saveActivityInTest(editing, fields, program = false) {
   let payload;
+  const filters=[];
   let resolveSaved, rejectSaved;
   const saved = new Promise((resolve,reject)=>{resolveSaved=resolve;rejectSaved=reject});
   const supabase = {from(table){
     if (table === 'camporee_activity_participants') return {delete:()=>({eq:async()=>({error:null})})};
     assert.equal(table,program ? 'schedule_events' : 'camporee_activities');
-    const builder = {insert(value){payload=value;return this},update(value){payload=value;return this},eq(){return this},select(){return this},single:async()=>({data:{id:editing?.id??'new',...payload,schedule_event_id:null},error:null})};
+    const builder = {insert(value){payload=value;return this},update(value){payload=value;return this},eq(key,value){filters.push([key,value]);return this},select(){return this},single:async()=>({data:{id:editing?.id??'new',...payload,schedule_event_id:null},error:null})};
     return builder;
   }};
   let stateIndex=0;
@@ -144,7 +147,7 @@ async function saveActivityInTest(editing, fields, program = false) {
   const location=findElement(form,node=>node.type==='input'&&node.props.name==='location');
   form.props.onSubmit({preventDefault(){},currentTarget:{}});
   await saved;
-  return {payload,location};
+  return {payload,location,filters};
 }
 
 test('Nueva actividad guarda sin Lugar y mantiene los demás datos', {timeout:2000}, async () => {
@@ -159,7 +162,8 @@ test('Nueva actividad guarda sin Lugar y mantiene los demás datos', {timeout:20
 
 test('editar sin enviar Lugar conserva la ubicación anterior', {timeout:2000}, async () => {
   const fields=new FormData();fields.set('title','Marcha actualizada');
-  const {payload,location}=await saveActivityInTest({id:'old',location:'Cancha'},fields);
+  const {payload,location,filters}=await saveActivityInTest({id:'old',location:'Cancha'},fields);
+  assert.ok(filters.some(([key,value])=>key==='camporee_id'&&value==='event'));
   assert.equal(location.props.defaultValue,'Cancha');
   assert.equal(payload.location,'Cancha');
 });

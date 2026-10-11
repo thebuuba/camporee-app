@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/tenant-link';
 import { Music2 } from 'lucide-react';
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import { songsFromDocuments } from '@/lib/songs';

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import {parseTenantPath,tenantPath} from '@/lib/tenant-context';
 import { CalendarClock, House, LayoutGrid, ListChecks } from "lucide-react";
 
 const items = [
@@ -14,6 +15,8 @@ const items = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const context=parseTenantPath(pathname);
+  const panelPath=context?.panel??pathname;
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,8 +31,9 @@ export default function BottomNav() {
 
   return (
     <nav className="nav nav-reference" aria-label="Navegación principal">
-      {items.map(([href, label, Icon]) => {
-        const routeActive = href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/more" && pathname === "/profile");
+      {items.map(([panelHref, label, Icon]) => {
+        const href=context?tenantPath(context,panelHref):panelHref;
+        const routeActive = panelHref === "/" ? panelPath === "/" : panelPath.startsWith(panelHref) || (panelHref === "/more" && panelPath === "/profile");
         const active = pendingHref ? pendingHref === href : routeActive;
         return (
           <Link

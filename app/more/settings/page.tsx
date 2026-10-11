@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/tenant-link';
 import { Settings } from 'lucide-react';
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import NotificationControls from '@/app/components/notification-controls';

@@ -59,6 +59,10 @@ function findNode(node,predicate) {
  for(const child of Array.isArray(children)?children:[children]){const found=findNode(child,predicate);if(found)return found;}
  return null;
 }
+test('login and registration validation failures retain the invitation continuation',async()=>{
+ const api=await actions({});const form=new FormData();const next=`/invitations/${'e'.repeat(64)}`;form.set('next',next);
+ for(const action of [api.login,api.signup])await assert.rejects(action(form),err=>new URL(err.message,'https://camp.test').searchParams.get('next')===next);
+});
 for(const path of ['app/login/page.tsx','app/signup/page.tsx']) {
  test(`${path} carries invitation through its form`,async()=>{
   const next=`/invitations/${'d'.repeat(64)}`;const jsx=(type,props)=>({type,props});

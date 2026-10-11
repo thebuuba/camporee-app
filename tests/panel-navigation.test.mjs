@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import {parseTenantPath,tenantPath} from '../lib/tenant-context.ts';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 
 async function link({ online = true, pathname = '/more' } = {}) {
@@ -12,7 +13,7 @@ async function link({ online = true, pathname = '/more' } = {}) {
   let pending = false;
   const jsx = (type, props) => ({ type, props });
   const module = { exports: {} };
-  const modules = { react: { useState: () => [pending, value => { pending = value; }], useEffect() {}, useRef: value => ({ current: value }) }, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/link': 'next-link', 'next/navigation': { usePathname: () => pathname, useRouter: () => ({ push() {} }) } };
+  const modules = { '@/lib/tenant-context':{parseTenantPath,tenantPath}, react: { useState: () => [pending, value => { pending = value; }], useEffect() {}, useRef: value => ({ current: value }) }, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/link': 'next-link', 'next/navigation': { usePathname: () => pathname, useRouter: () => ({ push() {} }) } };
   vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], navigator: { onLine: online }, window: { location: { assign: href => assigned.push(href) } } });
   return { render: () => module.exports.default({ href: '/more/songs', children: 'Canciones' }), assigned };
 }
@@ -41,4 +42,12 @@ test('los clics modificados mantienen la opción de abrir otra pestaña', async 
   const event = click({ ctrlKey: true }); ui.render().props.onClick(event);
   assert.equal(event.prevented, false);
   assert.equal(ui.render().props['aria-busy'], undefined);
+});
+test('panel navigation preserves organization and camporee online and offline',async()=>{
+ const prefix='/o/50000000-0000-4000-8000-000000000001/c/60000000-0000-4000-8000-000000000001';
+ for(const online of [true,false]){
+  const ui=await link({online,pathname:`${prefix}/more`});
+  assert.equal(ui.render().props.href,`${prefix}/more/songs`);
+  if(!online){const event=click();ui.render().props.onClick(event);assert.deepEqual(ui.assigned,[`${prefix}/more/songs`]);}
+ }
 });

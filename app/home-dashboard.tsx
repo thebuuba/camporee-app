@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from '@/app/components/tenant-link';
 import { AlertTriangle, BellRing, CalendarDays, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, MapPin, NotebookPen, Package, Play, Search, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import BottomNav from "./components/bottom-nav";
 import NotificationControls from "./components/notification-controls";

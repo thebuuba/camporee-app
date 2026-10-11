@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { resolveCamporeeContext } from '../lib/tenant-context.ts';
+import { resolveCamporeeContext, tenantPath } from '../lib/tenant-context.ts';
 import { songsFromDocuments } from '../lib/songs.ts';
+import {signedAvatar} from '../lib/avatars.ts';
 import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
@@ -17,7 +18,7 @@ function client() {
   camporees:[{id:old,organization_id:'00000000-0000-4000-8000-000000000001',name:'Otro evento',starts_on:'2026-01-01',ends_on:'2026-01-05',status:'planning'},{id:camp,organization_id:org,name:'Historial',starts_on:'2025-01-01',ends_on:'2025-01-05',time_zone:'America/Santo_Domingo',status:'archived'}],
   tasks:[{id:'old-task',camporee_id:old,title:'Otra organización',status:'pending'},{id:'selected-task',camporee_id:camp,title:'Historial elegido',status:'done'}],areas:[]};
  return {auth:{getClaims:async()=>({data:{claims:{sub:user}},error:null}),getUser:async()=>({data:{user:{id:user}},error:null})},rpc:async()=>({data:[],error:null}),from(table){
-  const filters=[];const builder={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},like(){return this},neq(){return this},limit(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const data=(rows[table]??[]).filter(row=>filters.every(([k,v])=>row[k]===v));return Promise.resolve({data:this.single?data[0]??null:data,error:null}).then(resolve,reject)}};return builder;
+  const filters=[];const builder={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},like(){return this},neq(){return this},or(){return this},ilike(){return this},limit(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const data=(rows[table]??[]).filter(row=>filters.every(([k,v])=>row[k]===v));return Promise.resolve({data:this.single?data[0]??null:data,error:null}).then(resolve,reject)}};return builder;
  }};
 }
 async function page(supabase,path='app/tasks/page.tsx') {
@@ -31,7 +32,10 @@ async function page(supabase,path='app/tasks/page.tsx') {
   '@/lib/tenant-server':{requireCamporeeContext:async params=>resolveCamporeeContext(supabase,await params)},
   '@/lib/task-assignees':{loadTaskAssignees:async()=>({data:[],error:null})},
   '@/lib/songs':{songsFromDocuments},
+  '@/lib/avatars':{signedAvatar},
+  './avatars':{signedAvatar},
   '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance},
+  '@/lib/tenant-context':{tenantPath},
   '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
   '../components/bottom-nav':{default:'nav'},'./task-manager':{default:'tasks-manager'},
  };
@@ -47,6 +51,17 @@ test('home summary uses validated context without selecting another accessible c
  assert.equal(data.member.role,'viewer');
  assert.equal(data.totalTasks,1);
  assert.equal(data.completedTasks,1);
+});
+test('More shows selected event and does not grant organization administration from a global role',async()=>{
+ const render=await page(client(),'app/more/page.tsx');
+ const tree=await render({params:Promise.resolve({organizationId:org,camporeeId:camp})});
+ const output=JSON.stringify(tree);assert.match(output,/Historial/);assert.match(output,/Archivado/);assert.doesNotMatch(output,/Usuarios y permisos|Otro evento/);
+});
+test('search results stay within explicitly selected camporee',async()=>{
+ const render=await page(client(),'app/search/page.tsx');
+ const tree=await render({params:Promise.resolve({organizationId:org,camporeeId:camp}),searchParams:Promise.resolve({q:'Historial'})});
+ const output=JSON.stringify(tree);assert.equal(output.includes('Historial elegido'),true);assert.equal(output.includes('Otra organización'),false);
+ assert.equal(tree.props.children.find(child=>child?.type==='form').props.action,`/o/${org}/c/${camp}/search`);
 });
 test('task page reads explicitly requested historical camporee instead of first accessible event',async()=>{
  const render=await page(client());

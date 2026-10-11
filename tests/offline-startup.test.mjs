@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {parseTenantPath,tenantPath} from '../lib/tenant-context.ts';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -45,7 +46,7 @@ test('cambiar de ruta deja finalizar la copia pendiente de la pantalla visitada'
 test('el menu inferior usa navegacion completa offline para recuperar HTML guardado',async()=>{
   await loadBindings();const {code}=await transform(await readFile(new URL('../app/components/bottom-nav.tsx',import.meta.url),'utf8'),{filename:'bottom-nav.tsx',jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const effects=[],navigations=[];let prefetched=0,timers=0,prevented=false;const jsx=(type,props)=>({type,props});const module={exports:{}};
-  const modules={react:{useEffect:fn=>effects.push(fn),useRef:value=>({current:value}),useState:value=>[value,()=>{}]},'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':'link','next/navigation':{usePathname:()=> '/',useRouter:()=>({prefetch(){prefetched++}})},'lucide-react':{}};
+  const modules={'@/lib/tenant-context':{parseTenantPath,tenantPath},react:{useEffect:fn=>effects.push(fn),useRef:value=>({current:value}),useState:value=>[value,()=>{}]},'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':'link','next/navigation':{usePathname:()=> '/',useRouter:()=>({prefetch(){prefetched++}})},'lucide-react':{}};
   vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:false},window:{location:{assign:href=>navigations.push(href)},setTimeout(){timers++},clearTimeout(){}}});
   const nav=module.exports.default();for(const effect of effects)effect();
   const tasks=nav.props.children.find(node=>node.props.href==='/tasks');tasks.props.onClick({button:0,preventDefault(){prevented=true}});

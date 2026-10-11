@@ -1,4 +1,5 @@
 import type { CamporeeContext } from "@/lib/tenant-context";
+import { signedAvatar } from './avatars';
 import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
 import { camporeePhase, preparationProgress } from "@/lib/camporee-preparation";
 
@@ -17,7 +18,7 @@ export async function loadHomeData(context: CamporeeContext) {
   const profileResult = await retryQuery(() => supabase.from("profiles").select("full_name,avatar_url,avatar_path").eq("id", userId).maybeSingle());
   if (profileResult.error) throw new Error(profileResult.error.message || "No se pudo cargar tu perfil.");
   const firstName = profileResult.data?.full_name?.split(" ")[0] || user.user_metadata?.full_name?.split(" ")[0] || "Conquistador";
-  const avatarUrl = profileResult.data?.avatar_url ?? null;
+  const avatarUrl = await signedAvatar(supabase,{...profileResult.data,id:userId});
   const memberLoadError = false;
 
   const now = new Date();

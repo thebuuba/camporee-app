@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { safeAuthReturn } from '../lib/tenant-context.ts';
+import { safeAuthReturn, isTenantId, resolveOrganizationContext } from '../lib/tenant-context.ts';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 async function load(path, modules, globals = {}) {
-  modules['@/lib/tenant-context'] = { safeAuthReturn };
+  modules['@/lib/tenant-context'] = { safeAuthReturn, isTenantId };
   modules['next/headers'] ??= {headers:async()=>({get:()=>null})};
   await loadBindings();
   const { code } = await transform(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'), {
@@ -16,63 +16,40 @@ async function load(path, modules, globals = {}) {
   vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], console, process:{env:{}}, URL, ...globals });
   return module.exports;
 }
-function fixture({ admin = true, active = false, failure = false, changed = false } = {}) {
-  const writes = [];
-  const client = { auth: { getClaims: async () => ({ data: { claims: { sub: 'admin' } } }) }, from(table) {
-    let id, payload, onlyPending = false, excludesRejected = false;
-    const query = { select() { return this; }, or(value) { excludesRejected = value.includes('access_rejected'); return this; }, eq(key, value) { if (key === 'user_id') id = value; if (key === 'is_active' && value === false) onlyPending = true; return this; }, update(value) { payload = value; return this; }, then(resolve) { return this.maybeSingle().then(resolve); }, async maybeSingle() {
-      assert.equal(table, 'app_members');
-      if (payload) { writes.push({ id, payload, onlyPending, excludesRejected }); return { data: changed ? null : { user_id: id }, error: failure ? { message: 'failed' } : null }; }
-      return { data: id === 'admin' ? { role: admin ? 'admin' : 'viewer', is_active: true } : { role: 'viewer', is_active: active, permissions: { notes: true } }, error: null };
-    } };
-    return query;
-  } };
-  return { client, writes };
+const org='50000000-0000-4000-8000-000000000001';
+const applicant='10000000-0000-4000-8000-000000000003';
+async function actions({error=null,user={id:'admin'}}={}) {
+ const calls=[];
+ const client={auth:{getUser:async()=>({data:{user},error:null})},from(){throw new Error('Global membership forbidden');},rpc:async(name,args)=>{calls.push({name,args});return {error};}};
+ const api=await load('app/more/users/actions.ts',{'@/lib/supabase/server':{createClient:async()=>client},'next/cache':{revalidatePath(){}}});
+ return {...api,calls};
 }
-async function actions(client) {
-  return load('app/more/users/actions.ts', { '@/lib/supabase/server': { createClient: async () => client }, 'next/cache': { revalidatePath() {} } });
+function memberForm(){const form=new FormData();form.set('organizationId',org);form.set('userId',applicant);return form;}
+test('rechazar conserva la cuenta y envía una decisión atómica a la organización',async()=>{
+ const api=await actions();assert.equal((await api.rejectMemberAccess(memberForm())).ok,true);
+ assert.equal(api.calls[0].name,'decide_organization_access');
+ assert.deepEqual(JSON.parse(JSON.stringify(api.calls[0].args)),{target_organization:org,target_user:applicant,decision:'reject'});
+});
+for(const [label,error] of [['sin permiso',{code:'42501'}],['propia cuenta',{code:'23514'}],['cuenta activa',{code:'23514'}],['solicitud cambió',{code:'23514'}],['fallo de almacenamiento',{code:'500'}]]){
+ test('rechazar no informa éxito ante '+label,async()=>{
+  const api=await actions({error});assert.equal((await api.rejectMemberAccess(memberForm())).ok,false);
+ });
 }
-test('rechazar conserva la cuenta y solo cambia el acceso del solicitante', async () => {
-  const { client, writes } = fixture();
-  const { rejectMemberAccess } = await actions(client);
-  const form = new FormData(); form.set('userId', 'applicant');
-  const result = await rejectMemberAccess(form);
-  assert.equal(result.ok, true);
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0].id, 'applicant');
-  assert.equal(writes[0].payload.is_active, false);
-  assert.equal(writes[0].payload.permissions.access_rejected, true);
-  assert.equal(writes[0].payload.permissions.notes, true);
-  assert.equal(writes[0].onlyPending, true);
+test('una aprobación obsoleta usa la decisión atómica y no reactiva solicitudes rechazadas',async()=>{
+ const api=await actions({error:{code:'23514'}});const form=memberForm();form.set('approvePending','on');
+ assert.equal((await api.updateMemberAccess(form)).ok,false);
+ assert.equal(api.calls[0].name,'decide_organization_access');assert.equal(api.calls[0].args.decision,'approve');
 });
-for (const [label, options, target] of [['sin permiso', { admin: false }, 'applicant'], ['propia cuenta', {}, 'admin'], ['cuenta activa', { active: true }, 'applicant']]) {
-  test(`rechazar protege ${label}`, async () => {
-    const { client, writes } = fixture(options);
-    const { rejectMemberAccess } = await actions(client);
-    const form = new FormData(); form.set('userId', target);
-    assert.equal((await rejectMemberAccess(form)).ok, false);
-    assert.equal(writes.length, 0);
-  });
-}
-test('si la cuenta se aprueba mientras se rechaza no informa éxito', async () => {
-  const { client } = fixture({ changed: true });
-  const { rejectMemberAccess } = await actions(client);
-  const form = new FormData(); form.set('userId', 'applicant');
-  assert.equal((await rejectMemberAccess(form)).ok, false);
+test('quitar acceso elimina solo la membresía seleccionada y nunca invoca Auth delete',async()=>{
+ const api=await actions();assert.equal((await api.removeMemberAccess(memberForm())).ok,true);
+ assert.equal(api.calls[0].name,'remove_organization_member');assert.equal(api.calls[0].args.target_organization,org);
+ const missing=await actions({user:null});assert.equal((await missing.removeMemberAccess(memberForm())).ok,false);assert.equal(missing.calls.length,0);
 });
-test('si falla guardar el rechazo no informa éxito', async () => {
-  const { client } = fixture({ failure: true });
-  const { rejectMemberAccess } = await actions(client);
-  const form = new FormData(); form.set('userId', 'applicant');
-  assert.equal((await rejectMemberAccess(form)).ok, false);
-});
-test('una aprobación obsoleta no reactiva una solicitud ya rechazada', async () => {
-  const { client, writes } = fixture({ changed: true });
-  const { updateMemberAccess } = await actions(client);
-  const form = new FormData(); form.set('userId', 'applicant'); form.set('role', 'viewer'); form.set('isActive', 'on'); form.set('approvePending', 'on');
-  assert.equal((await updateMemberAccess(form)).ok, false);
-  assert.equal(writes[0].onlyPending, true);
-  assert.equal(writes[0].excludesRejected, true);
+test('guardar permisos conserva la organización y rechaza cargos demasiado largos',async()=>{
+ const api=await actions();const form=memberForm();form.set('role','viewer');form.set('tasks','on');form.set('edit','on');
+ assert.equal((await api.updateMemberAccess(form)).ok,true);
+ assert.equal(api.calls[0].args.member_permissions.edit,true);assert.equal(api.calls[0].args.member_permissions.tasks,true);
+ form.set('directiveRole','x'.repeat(81));assert.equal((await api.updateMemberAccess(form)).ok,false);assert.equal(api.calls.length,1);
 });
 test('registrar otra cuenta no sustituye una sesión existente', async () => {
   let registrations = 0;
@@ -191,11 +168,12 @@ test('la pantalla de espera muestra fecha real y etapas sin llamada ni plazo inv
 
 test('recargar Usuarios con Auth temporalmente caído no redirige al login', async () => {
   let redirected = false;
-  const client = { auth: { getClaims: async () => ({ data: null, error: Object.assign(new Error('Auth unavailable'), { name: 'AuthRetryableFetchError', status: 503 }) }) } };
+  const client = { auth: { getUser: async () => ({ data: {user:null}, error: Object.assign(new Error('Auth unavailable'), { name: 'AuthRetryableFetchError', status: 503 }) }) } };
   const { default: UsersPage } = await load('app/more/users/page.tsx', {
     '@/lib/supabase/server': { createClient: async () => client }, 'next/navigation': { redirect() { redirected = true; throw new Error('login'); } },
+    '@/lib/tenant-server': {requireOrganizationContext:id=>resolveOrganizationContext(client,id)},
     'next/link': {}, 'react/jsx-runtime': {}, 'lucide-react': {}, './users-manager': {},
   });
-  await assert.rejects(UsersPage({ searchParams: Promise.resolve({}) }), /Auth unavailable/);
+  await assert.rejects(UsersPage({ params:Promise.resolve({organizationId:org}),searchParams: Promise.resolve({}) }), /Auth unavailable/);
   assert.equal(redirected, false);
 });
