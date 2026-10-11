@@ -1,16 +1,19 @@
-const CACHE='camporee-shell-v18';
+const CACHE='camporee-shell-v19';
 const PAGES='camporee-pages-v1';
 const ASSETS='camporee-assets-v1';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
-const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search','/profile'];
-const isPrivatePage=path=>PRIVATE_NAV_PREFIXES.some(prefix=>path===prefix||path.startsWith(prefix+'/'));
+const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search','/profile','/organizations','/invitations'];
+const isPrivatePage=path=>PRIVATE_NAV_PREFIXES.some(prefix=>path===prefix||path.startsWith(prefix+'/'))||/^\/o\/[0-9a-f-]{36}(\/|$)/i.test(path);
 let privateEpoch=0;
 let privateClears=0;
 async function clearPrivatePages(){
   privateEpoch++;
   privateClears++;
   try{
-    await caches.delete(PAGES).catch(()=>undefined);
+    // Never retain account-specific HTML under a shared offline cache key.
+    for (const name of await caches.keys()) {
+      if (name.startsWith('camporee-pages-')) await caches.delete(name).catch(()=>undefined);
+    }
     for(const key of await caches.keys()){
       if(!key.startsWith('camporee-shell-'))continue;
       const cache=await caches.open(key);
@@ -33,13 +36,17 @@ self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
     const migrationEpoch=privateEpoch;
     const keys=await caches.keys().catch(()=>[]);
+    // Previous app versions saved private HTML without user isolation.
+    for (const key of keys) {
+      if (key.startsWith('camporee-pages-')) await caches.delete(key).catch(()=>undefined);
+    }
     // Preserve visited pages and their original chunks across app updates.
     for(const key of keys.filter(k=>k.startsWith('camporee-shell-')&&k!==CACHE)){
       try{
         const previous=await caches.open(key);
         for(const request of await previous.keys()){
           const url=new URL(request.url);
-          const target=isPrivatePage(url.pathname)?PAGES:url.pathname.startsWith('/_next/static/')||/\.(css|js|svg)$/.test(url.pathname)?ASSETS:null;
+          const target=isPrivatePage(url.pathname)?null:url.pathname.startsWith('/_next/static/')||/\.(css|js|svg)$/.test(url.pathname)?ASSETS:null;
           if(!target)continue;
           if(target===PAGES&&(migrationEpoch!==privateEpoch||privateClears))continue;
           if(await caches.match(request,{cacheName:target}))continue;
@@ -92,26 +99,15 @@ self.addEventListener('fetch',event=>{
 
   const pageSnapshot=isPrivatePage(url.pathname)&&req.headers?.get('accept')?.includes('text/html');
   if(req.mode==='navigate'||pageSnapshot){
-    const requestEpoch=privateEpoch;
     event.respondWith((async()=>{
-      const isPrivate=isPrivatePage(url.pathname);
-      const isAuth=url.pathname.startsWith('/login')||url.pathname.startsWith('/signup')||url.pathname.startsWith('/auth/');
-      // Never launch an old deployment while online: its chunks may no longer exist.
+      // Do not cache or serve raw private page snapshots between users.
+      // Until a cryptographically isolated per-session cache exists, offline
+      // private navigations use the generic offline screen instead.
       try{
         const preloaded=await Promise.resolve(event.preloadResponse).catch(()=>undefined);
-        const response=preloaded||await fetch(req);
-        if(response.ok&&!response.redirected&&!isAuth&&isPrivate&&requestEpoch===privateEpoch&&!privateClears){
-          try{
-            const cache=await caches.open(PAGES);
-            if(requestEpoch===privateEpoch&&!privateClears)await cache.put(req,response.clone());
-          }catch{/* Cache storage is optional, including on iOS with limited space. */}
-        }
-        return response;
+        return preloaded||await fetch(req);
       }catch{
-        let cached;
-        if(!isAuth&&isPrivate&&!privateClears&&requestEpoch===privateEpoch)cached=(await caches.match(req,{cacheName:PAGES}))||(await caches.match(req));
-        if(privateClears||requestEpoch!==privateEpoch)cached=undefined;
-        return cached||(await caches.match('/offline'))||Response.error();
+        return (await caches.match('/offline'))||Response.error();
       }
     })());
     return;
