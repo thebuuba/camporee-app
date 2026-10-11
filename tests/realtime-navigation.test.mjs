@@ -79,10 +79,11 @@ test('la sincronizacion escucha cambios publicados y refresca la ruta activa', a
       useRef(value) { return { current: value }; },
     },
     'next/navigation': {
-      usePathname: () => '/tasks',
+      usePathname: () => '/o/50000000-0000-4000-8000-000000000001/c/60000000-0000-4000-8000-000000000001/tasks',
       useRouter: () => ({ refresh: () => refreshes.push('refresh') }),
     },
     '@/lib/supabase/client': { createClient: () => supabase },
+    '@/lib/tenant-context': { parseTenantPath },
   }, {
     window,
     navigator: { onLine: true },
@@ -92,9 +93,14 @@ test('la sincronizacion escucha cambios publicados y refresca la ruta activa', a
   DataFreshness();
   const cleanups = effects.map((effect) => effect()).filter(Boolean);
 
-  assert.equal(registrations.length, 1);
-  assert.equal(registrations[0].type, 'postgres_changes');
-  assert.deepEqual({ ...registrations[0].filter }, { event: '*', schema: 'public' });
+  assert.ok(registrations.length > 3);
+  assert.ok(registrations.every(reg => reg.type === 'postgres_changes'));
+  const tasks = registrations.find(reg => reg.filter.table === 'tasks');
+  assert.deepEqual({ ...tasks.filter }, {
+    event:'*',schema:'public',table:'tasks',filter:'camporee_id=eq.60000000-0000-4000-8000-000000000001',
+  });
+  assert.equal(registrations.some(reg => !reg.filter.table), false);
+  assert.ok(registrations.some(reg => reg.filter.table === 'organization_members' && reg.filter.filter === 'organization_id=eq.50000000-0000-4000-8000-000000000001'));
   registrations[0].callback({ table: 'tasks' });
   assert.equal(timers.length, 1);
   timers[0]();
