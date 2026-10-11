@@ -1,12 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 export default function AppSplash() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(pathname !== '/signup');
+  // Start hidden on the server too, so offline HTML never flashes a splash
+  // before hydration. Native offline navigation remounts the whole app.
+  const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
+  const checked = useRef(false);
+  useEffect(() => {
+    if (checked.current) return;
+    checked.current = true;
+    if (pathname === '/signup' || pathname === '/offline' || !navigator.onLine) return;
+    try {
+      if (window.sessionStorage.getItem('camporee:splash-seen') === 'yes') return;
+      window.sessionStorage.setItem('camporee:splash-seen', 'yes');
+    } catch { /* Storage can be blocked; the mount guard still prevents replay. */ }
+    setVisible(true);
+  }, [pathname]);
   useEffect(() => {
     if (!visible) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

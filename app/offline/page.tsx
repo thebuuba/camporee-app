@@ -6,10 +6,7 @@ export default function OfflinePage() {
       <div className="brand-badge" style={{margin:'0 auto 18px'}}><TentTree size={28}/></div>
       <span className="auth-kicker"><CloudOff size={13}/> SIN CONEXIÓN</span>
       <h1>Seguimos en campamento</h1>
-      <p className="auth-copy">Abre una pantalla que hayas visitado antes con internet. Si todavía no hay una copia guardada, necesitas conexión para cargar los datos por primera vez.</p>
-      <nav className="offline-shortcuts" aria-label="Abrir pantallas guardadas">
-        <a href="/program">Hoy</a><a href="/tasks">Tareas</a><a href="/more/songs">Canciones</a><a href="/more">Más</a>
-      </nav>
+      <p className="auth-copy">Necesitas conexión para abrir las pantallas del camporee. Si una pantalla sigue abierta, puedes continuar consultándola. Cuando vuelva internet, pulsa Intentar de nuevo.</p>
       <a href="/" className="primary-btn auth-link-btn" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><RefreshCw size={17}/> Intentar de nuevo</a>
     </section>
   </main>;
