@@ -4,6 +4,7 @@ import {redirect} from 'next/navigation';
 import {Building2,ChevronRight} from 'lucide-react';
 import {createClient} from '@/lib/supabase/server';
 import OrganizationForm from './organization-form';
+import { isTenantSchemaUnavailable } from '@/lib/tenant-schema';
 
 export default async function OrganizationsPage() {
   const supabase=await createClient();
@@ -14,7 +15,8 @@ export default async function OrganizationsPage() {
     supabase.from('organizations').select('id,name').order('name'),
     supabase.from('organization_members').select('organization_id,role,is_active,permissions').eq('user_id',auth.data.user.id),
   ]);
-  if(orgs.error||members.error)throw new Error('No se pudieron cargar tus organizaciones. Inténtalo de nuevo.');
+  if (isTenantSchemaUnavailable(orgs.error) || isTenantSchemaUnavailable(members.error)) redirect('/setup-required');
+  if (orgs.error || members.error) throw (orgs.error ?? members.error);
   const roles=new Map((members.data??[]).filter(member=>member.is_active).map(member=>[member.organization_id,member.role]));
   const pending=(members.data??[]).filter(member=>!member.is_active&&member.permissions?.access_rejected!==true).length;
   return <main className="app panel-page organizations-page">
