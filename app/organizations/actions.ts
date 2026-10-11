@@ -18,7 +18,9 @@ async function callRpc(name:string,args:Record<string,unknown>):Promise<{ok:true
     if(auth.error||!auth.data.user)return {ok:false,error:'Tu sesión expiró. Vuelve a iniciar sesión.'};
     // Identity and permissions are checked again inside the transactional RPC.
     const result=await supabase.rpc(name,args);
-    if(result.error)return {ok:false,error:result.error.code==='42501'?'No tienes acceso para realizar esta operación.':result.error.message};
+    if(result.error)return {ok:false,error:result.error.code==='23505'
+      ?'Esta cuenta ya pertenece a un club, o el camporee ya está creado. Solo puedes tener un club y un camporee vigente.'
+      :result.error.code==='42501'?'No tienes acceso o tu correo todavía no está confirmado.':result.error.message};
     if(typeof result.data!=='string')return {ok:false,error:'No pudimos confirmar el resultado. Actualiza la pantalla antes de reintentar.'};
     return {ok:true,value:result.data};
   } catch { return {ok:false,error:'No se pudo conectar. Conserva los datos del formulario e inténtalo de nuevo.'}; }
