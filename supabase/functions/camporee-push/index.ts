@@ -7,37 +7,29 @@ const corsHeaders = {
 };
 const VAPID_SUBJECT = "mailto:notifications@example.com";
 
-function decodeJwtSub(authHeader: string | null) {
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  try {
-    const token = authHeader.slice(7);
-    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const json = atob(part.padEnd(Math.ceil(part.length / 4) * 4, "="));
-    return JSON.parse(json).sub as string | undefined;
-  } catch {
-    return null;
-  }
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const userId = decodeJwtSub(req.headers.get("authorization"));
-  if (!userId) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  // A decoded JWT payload is untrusted: verify the signature/session using
+  // Supabase Auth before ever consulting the privileged service-role client.
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+  const token = authHeader.slice(7);
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
-
-  const { data: membership } = await supabase
-    .from("app_members")
-    .select("role,is_active,permissions")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!membership?.is_active) return new Response(JSON.stringify({ error: "Inactive member" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const { data: identity, error: identityError } = await supabase.auth.getUser(token);
+  const userId = identity.user?.id;
+  if (identityError || !userId) return json({ error: "Unauthorized" }, 401);
 
   async function getKeys() {
     const { data: existing } = await supabase.from("push_vapid_keys").select("public_key,private_key").eq("singleton", true).maybeSingle();
@@ -56,15 +48,35 @@ Deno.serve(async (req: Request) => {
 
   if (body?.action !== "send") return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  const permissions = membership.permissions ?? {};
-  const canSend = membership.role === "admin" || membership.role === "editor" || permissions.schedule === true || permissions.edit === true;
-  if (!canSend) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
   const camporeeId = String(body.camporeeId ?? "");
   const title = String(body.title ?? "Camporee").slice(0, 120);
   const message = String(body.message ?? "Tienes un nuevo aviso.").slice(0, 500);
   const priority = String(body.priority ?? "normal");
-  if (!camporeeId) return new Response(JSON.stringify({ error: "camporeeId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(camporeeId)) {
+    return json({ error: "Valid camporeeId required" }, 400);
+  }
+  const { data: camporee, error: camporeeError } = await supabase.from("camporees")
+    .select("id,organization_id,status").eq("id", camporeeId).maybeSingle();
+  if (camporeeError) throw camporeeError;
+  if (!camporee || camporee.status === "archived") return json({ error: "Camporee unavailable" }, 403);
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("organization_members").select("role,is_active,permissions")
+    .eq("organization_id", camporee.organization_id).eq("user_id", userId).maybeSingle();
+  if (membershipError) throw membershipError;
+  if (!membership?.is_active) return json({ error: "Inactive organization member" }, 403);
+  const permissions = membership.permissions ?? {};
+  const canSend = membership.role === "admin" || membership.role === "editor" ||
+    permissions.schedule === true || permissions.edit === true;
+  if (!canSend) return json({ error: "Forbidden" }, 403);
+
+  // Send only to people whose access is STILL active in this organization.
+  // Stored push subscriptions alone are not proof of current membership.
+  const { data: activeMembers, error: activeError } = await supabase
+    .from("organization_members").select("user_id")
+    .eq("organization_id", camporee.organization_id).eq("is_active", true);
+  if (activeError) throw activeError;
+  const eligibleUsers = new Set((activeMembers ?? []).map(member => member.user_id));
 
   const keys = await getKeys();
   webpush.setVapidDetails(VAPID_SUBJECT, keys.public_key, keys.private_key);
@@ -78,14 +90,14 @@ Deno.serve(async (req: Request) => {
   const payload = JSON.stringify({
     title: priority === "urgent" ? `⚠️ ${title}` : title,
     body: message,
-    url: "/more/announcements",
+    url: `/o/${camporee.organization_id}/c/${camporeeId}/more/announcements`,
     tag: `camporee-${priority}`,
   });
 
   let sent = 0;
   const staleIds: string[] = [];
   await Promise.all((subscriptions ?? []).map(async (subscription) => {
-    if (subscription.user_id === userId) return;
+    if (subscription.user_id === userId || !eligibleUsers.has(subscription.user_id)) return;
     try {
       await webpush.sendNotification({
         endpoint: subscription.endpoint,
