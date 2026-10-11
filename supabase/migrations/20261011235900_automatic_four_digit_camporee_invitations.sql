@@ -164,13 +164,20 @@ begin
     where j.invite_token=invite_token and c.status<>'archived';
   if not found then raise exception 'Invitation unavailable' using errcode='22023'; end if;
   perform 1 from public.organizations where id=destination.organization_id for update;
-  select organization_id,is_active into existing from public.organization_members
+  select organization_id,is_active,permissions into existing from public.organization_members
     where user_id=actor for update;
   if found then
     if existing.organization_id<>destination.organization_id then
       raise exception 'Already belongs to another club' using errcode='23505'; end if;
     if not existing.is_active then
-      raise exception 'Club access requires director approval' using errcode='42501';
+      if coalesce(existing.permissions->>'access_rejected','false')='true' then
+        raise exception 'Rejected membership cannot be reactivated by a link' using errcode='42501';
+      end if;
+      -- A director's secret link upgrades an ordinary pending short-code
+      -- request, but must never bypass an explicit rejection.
+      update public.organization_members set is_active=true,
+        permissions=permissions-'access_pending',updated_at=now()
+        where organization_id=destination.organization_id and user_id=actor;
     end if;
     return destination.id;
   end if;
