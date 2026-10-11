@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
   const { data: subscriptions, error: subscriptionsError } = await supabase
     .from("push_subscriptions")
     .select("id,endpoint,p256dh,auth,user_id")
-    .eq("camporee_id", camporeeId);
+    .contains("camporee_ids", [camporeeId]);
   if (subscriptionsError) throw subscriptionsError;
 
   const payload = JSON.stringify({
