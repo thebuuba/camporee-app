@@ -58,6 +58,22 @@ export async function createInvitation(form:FormData):Promise<OrganizationAction
   if(!result.ok)return result;
   return {ok:true,invitationToken:result.value};
 }
+export async function joinCamporee(form:FormData):Promise<OrganizationActionResult> {
+  const code=field(form,'code').replace(/[^a-fA-F0-9]/g,'').toUpperCase();
+  if(!/^[A-F0-9]{16}$/.test(code))return {ok:false,error:'Introduce un código de camporee válido.'};
+  const result=await callRpc('join_camporee_by_code',{join_code:code});
+  if(!result.ok)return result;
+  revalidatePath('/');
+  return {ok:true,camporeeId:result.value};
+}
+export async function createJoinCode(form:FormData):Promise<OrganizationActionResult> {
+  const camporeeId=field(form,'camporeeId');
+  if(!UUID.test(camporeeId))return {ok:false,error:'Camporee inválido.'};
+  const result=await callRpc('create_camporee_join_code',{target_camporee:camporeeId});
+  if(!result.ok)return result;
+  revalidatePath('/more/users');
+  return {ok:true,invitationToken:result.value};
+}
 export async function acceptInvitation(form:FormData):Promise<OrganizationActionResult> {
   const token=field(form,'token');
   if(!/^[a-f0-9]{64}$/.test(token))return {ok:false,error:'El enlace de invitación no es válido.'};
