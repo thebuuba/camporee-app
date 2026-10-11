@@ -98,4 +98,39 @@ insert into tasks(id,camporee_id,title,created_by) values('90000000-0000-4000-80
 select lives_ok($$delete from auth.users where id='10000000-0000-4000-8000-000000000002'$$,'non-owner account deletion is possible without history deletion');
 select is((select count(*) from tasks where id='90000000-0000-4000-8000-000000000001'),1::bigint,'Auth deletion retains historical task');
 select is((select created_by from tasks where id='90000000-0000-4000-8000-000000000001'),null::uuid,'deleted historical author is cleared by FK');
+-- One physical push subscription belongs to one account, but can target
+-- several camporees. Rebinding the same endpoint to another signed-in user
+-- must discard ALL of the previous user's event destinations.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select lives_ok($select register_camporee_push(
+  '60000000-0000-4000-8000-000000000001',
+  'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
+)$,'verified organization member can register a push endpoint');
+select lives_ok($select register_camporee_push(
+  '60000000-0000-4000-8000-000000000002',
+  'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
+)$,'same device can subscribe to a second camporee');
+select is((select count(*) from push_subscriptions where endpoint='https://push.example.test/device-1'),1::bigint,
+  'push endpoint remains globally unique');
+select is((select cardinality(camporee_ids) from push_subscriptions where endpoint='https://push.example.test/device-1'),2,
+  'both authorized camporees are registered');
+select throws_ok($select register_camporee_push(
+  '20000000-0000-4000-8000-000000000001',
+  'https://push.example.test/unallowed',repeat('P',64),repeat('A',32)
+)$,'42501',null,'cannot register a camporee without membership');
+select throws_ok($update push_subscriptions
+  set camporee_ids=array['20000000-0000-4000-8000-000000000001'::uuid]
+  where endpoint='https://push.example.test/device-1'$,'42501',null,'direct subscription modifications are blocked');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select lives_ok($select register_camporee_push(
+  '20000000-0000-4000-8000-000000000001',
+  'https://push.example.test/device-1',repeat('Q',64),repeat('B',32)
+)$,'shared browser endpoint can be rebound to the next signed-in account');
+select is((select user_id from push_subscriptions where endpoint='https://push.example.test/device-1'),
+ '10000000-0000-4000-8000-000000000001'::uuid,'rebind updates endpoint ownership');
+select is((select camporee_ids from push_subscriptions where endpoint='https://push.example.test/device-1'),
+ array['20000000-0000-4000-8000-000000000001'::uuid],'rebind forgets previous account targets');
+reset role;
+
 select finish();
