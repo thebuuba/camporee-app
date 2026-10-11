@@ -1,4 +1,10 @@
-import { parseTenantPath } from '@/lib/tenant-context';
+// This module is also imported directly by Node's native TypeScript test runner.
+// Keep its scope parser dependency-free so browser and test resolution match.
+function parseTenantPath(path: string) {
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const match = new RegExp(`^/o/(${uuid})/c/(${uuid})(?:/|$)`, 'i').exec(path);
+  return match ? { organizationId:match[1], camporeeId:match[2] } : null;
+}
 
 type QueuedRequest = {
   // Older entries lack scope information. They are preserved for recovery but
