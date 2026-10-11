@@ -18,7 +18,7 @@ export default async function OrganizationPage({params}:{params:Promise<{organiz
         <input type="hidden" name="organizationId" value={organizationId}/>
         <input type="hidden" name="requestId" value={crypto.randomUUID()}/>
         <label>Nombre del camporee<input name="name" required minLength={2} maxLength={120}/></label>
-        <label>Lema<input name="theme"/></label><label>Lugar<input name="location"/></label>
+        <label>Lugar<input name="location"/></label>
         <label>Fecha de inicio<input type="date" name="startsOn" required/></label>
         <label>Fecha final<input type="date" name="endsOn" required/></label>
         <label>Moneda<select name="currency" defaultValue="DOP"><option value="DOP">Peso dominicano (DOP)</option><option value="USD">Dólar estadounidense (USD)</option><option value="EUR">Euro (EUR)</option><option value="BOB">Boliviano (BOB)</option></select></label>
