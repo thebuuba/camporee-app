@@ -18,7 +18,7 @@ export function resolvePalette(value: string | null): ThemePalette {
 
 export function resolveTheme(preference: string | null, systemDark: boolean): 'light' | 'dark' | 'warm' {
   if (preference === 'warm') return 'warm';
-  return preference === 'dark' || (preference !== 'light' && systemDark) ? 'dark' : 'light';
+  return preference === 'dark' || (preference === 'system' && systemDark) ? 'dark' : 'light';
 }
 
 // Runs in the head before the first paint, independently of React hydration.
@@ -26,7 +26,7 @@ export const themeInitScript = `(()=>{
   let saved=null,palette='original';
   const palettes=${JSON.stringify(themePalettes)};
   try{saved=localStorage.getItem('${themeStorageKey}');const color=localStorage.getItem('${paletteStorageKey}');if(Object.hasOwn(palettes,color))palette=color}catch{}
-  const dark=saved==='warm'||saved==='dark'||(saved!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const dark=saved==='warm'||saved==='dark'||(saved==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
   const theme=dark?'dark':'light';
   document.documentElement.dataset.theme=theme;
   document.documentElement.dataset.themeTone=saved==='warm'?'warm':theme;
