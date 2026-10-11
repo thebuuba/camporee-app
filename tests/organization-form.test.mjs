@@ -43,8 +43,8 @@ test('join-by-code enters directly without choosing a camporee',async()=>{
  assert.deepEqual(api.paths,['/']);assert.equal(api.calls[0].get('code'),'4827');
 });
 test('director creates reusable camporee link from code without member email',async()=>{
- const code='A1B2C3D4E5F60708';const api=await fixture({ok:true,invitationToken:code});
+ const code='a'.repeat(64);const api=await fixture({ok:true,invitationToken:code,joinCode:'4827'});
  const data=new FormData();data.set('camporeeId',camp);
  await api.render('create-join-code').props.onSubmit({preventDefault(){},currentTarget:{data}});
- assert.match(JSON.stringify(api.render('create-join-code')),/http:\/\/localhost:3002\/join\/A1B2C3D4E5F60708/);
+ assert.match(JSON.stringify(api.render('create-join-code')),new RegExp('/join/'+code));assert.match(JSON.stringify(api.render('create-join-code')),/4827/);
 });
