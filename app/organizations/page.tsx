@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SafeSignoutForm from '@/app/components/safe-signout-form';
 import {redirect} from 'next/navigation';
 import {Building2,ChevronRight} from 'lucide-react';
 import {createClient} from '@/lib/supabase/server';
@@ -23,6 +24,6 @@ export default async function OrganizationsPage() {
     {pending?<p className="auth-alert" role="status">Tienes {pending} membresía{pending===1?'':'s'} pendiente{pending===1?'':'s'} de aprobación.</p>:null}
     <details className="organization-section ios-card"><summary>Crear una organización</summary><p>Tu cuenta será administradora de esta organización. Podrás invitar al equipo y crear sus camporees.</p><OrganizationForm kind="create-organization" submitLabel="Crear organización"><input type="hidden" name="requestId" value={crypto.randomUUID()}/><label>Nombre del club u organización<input name="name" minLength={2} maxLength={120} required autoComplete="organization"/></label></OrganizationForm></details>
     <p className="organization-personal-links"><Link href="/profile">Mi perfil</Link></p>
-    <form action="/auth/signout" method="post"><button type="submit" className="text-btn">Cerrar sesión</button></form>
+    <SafeSignoutForm><button type="submit" className="text-btn">Cerrar sesión</button></SafeSignoutForm>
   </main>;
 }
