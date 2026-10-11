@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCamporeeContext, resolveOrganizationContext, tenantPath, parseTenantPath } from '../lib/tenant-context.ts';
+import { resolveCamporeeContext, resolveOrganizationContext, tenantPath, parseTenantPath, safeAuthReturn } from '../lib/tenant-context.ts';
 
 const org='50000000-0000-4000-8000-000000000001';
 const camp='60000000-0000-4000-8000-000000000001';
@@ -68,4 +68,12 @@ test('tenant URLs retain context, query and global authentication routes',()=>{
  assert.deepEqual(parseTenantPath(`${path}/more/meals`),{organizationId:org,camporeeId:camp,panel:'/more/meals'});
  assert.equal(parseTenantPath('/tasks'),null);
  assert.equal(parseTenantPath('/o/bad/c/bad/tasks'),null);
+});
+
+test('invitation links survive signup, login and email verification',()=>{
+ const code='A1B2C3D4E5F60708';
+ assert.equal(safeAuthReturn(`/join/${code}`),`/join/${code}`);
+ assert.equal(safeAuthReturn(`/join/${code}?source=director`),`/join/${code}?source=director`);
+ assert.equal(safeAuthReturn('/join/not-a-code'),'/');
+ assert.equal(safeAuthReturn('https://attacker.test/join/'+code),'/');
 });
