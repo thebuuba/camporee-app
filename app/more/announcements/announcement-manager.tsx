@@ -24,7 +24,23 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
   const router = useRouter();
 
   useEffect(() => { setAnnouncements(initialAnnouncements); }, [initialAnnouncements]);
-  useEffect(() => { const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window; setNotificationPermission(supported ? Notification.permission : 'unsupported'); if (!supported) return; navigator.serviceWorker.ready.then((registration) => registration.pushManager.getSubscription()).then((subscription) => setPushReady(Boolean(subscription))).catch(() => setPushReady(false)); }, []);
+  useEffect(() => {
+    const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    setNotificationPermission(supported ? Notification.permission : 'unsupported');
+    if (!supported) return;
+    let cancelled=false;
+    void navigator.serviceWorker.ready
+      .then(registration=>registration.pushManager.getSubscription())
+      .then(async subscription=>{
+        if (!subscription) return false;
+        const {data,error}=await supabase.from('push_subscriptions').select('camporee_ids')
+          .eq('endpoint',subscription.endpoint).eq('user_id',userId).maybeSingle();
+        return !error && Array.isArray(data?.camporee_ids) && data.camporee_ids.includes(camporeeId);
+      })
+      .then(ready=>{if(!cancelled)setPushReady(ready);})
+      .catch(()=>{if(!cancelled)setPushReady(false);});
+    return ()=>{cancelled=true;};
+  }, [camporeeId,userId,supabase]);
   useEffect(() => { const channel = supabase.channel(`camporee-announcements-${camporeeId}`).on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements', filter:`camporee_id=eq.${camporeeId}` }, (payload:any) => { const item = payload.new; setAnnouncements((current) => current.some((row) => row.id === item.id) ? current : [item, ...current]); }).on('postgres_changes', { event:'DELETE', schema:'public', table:'announcements' }, (payload:any) => { const id = payload.old?.id; if (id) setAnnouncements((current) => current.filter((row) => row.id !== id)); }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [camporeeId,supabase]);
 
   async function requestNotifications() {
