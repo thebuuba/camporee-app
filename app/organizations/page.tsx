@@ -1,31 +1,50 @@
 import Link from 'next/link';
-import SafeSignoutForm from '@/app/components/safe-signout-form';
 import {redirect} from 'next/navigation';
-import {Building2,ChevronRight} from 'lucide-react';
 import {createClient} from '@/lib/supabase/server';
+import {isTenantSchemaUnavailable} from '@/lib/tenant-schema';
 import OrganizationForm from './organization-form';
-import { isTenantSchemaUnavailable } from '@/lib/tenant-schema';
+import SafeSignoutForm from '@/app/components/safe-signout-form';
 
+// First registration: create your club or join the one your director created.
+// Members never choose from a list of clubs or camporees.
 export default async function OrganizationsPage() {
   const supabase=await createClient();
   const auth=await supabase.auth.getUser();
   if(auth.error&&(auth.error.status??0)>=500)throw auth.error;
   if(!auth.data.user)redirect('/login?next=%2Forganizations');
-  const [orgs,members]=await Promise.all([
-    supabase.from('organizations').select('id,name').order('name'),
-    supabase.from('organization_members').select('organization_id,role,is_active,permissions').eq('user_id',auth.data.user.id),
-  ]);
-  if (isTenantSchemaUnavailable(orgs.error) || isTenantSchemaUnavailable(members.error)) redirect('/setup-required');
-  if (orgs.error || members.error) throw (orgs.error ?? members.error);
-  const roles=new Map((members.data??[]).filter(member=>member.is_active).map(member=>[member.organization_id,member.role]));
-  const pending=(members.data??[]).filter(member=>!member.is_active&&member.permissions?.access_rejected!==true).length;
+  const result=await supabase.from('organization_members')
+    .select('organization_id,is_active,permissions').eq('user_id',auth.data.user.id).maybeSingle();
+  if(isTenantSchemaUnavailable(result.error))redirect('/setup-required');
+  if(result.error)throw result.error;
+  if(result.data?.is_active)redirect(`/o/${result.data.organization_id}`);
+  const pending=result.data && !result.data.is_active;
+
   return <main className="app panel-page organizations-page">
-    <header className="polymet-panel-heading"><h1>Mis organizaciones</h1><p>Elige el club con el que vas a trabajar.</p></header>
-    <div className="organization-list">{(orgs.data??[]).map(org=><Link className="organization-card ios-card" href={`/o/${org.id}`} key={org.id}><Building2 size={24} aria-hidden="true"/><span><strong>{org.name}</strong><small>{roles.get(org.id)==='admin'?'Administrador':roles.get(org.id)==='editor'?'Editor':'Solo lectura'}</small></span><ChevronRight size={20} aria-hidden="true"/></Link>)}</div>
-    {!(orgs.data??[]).length?<p className="empty compact">Todavía no perteneces a una organización activa. Puedes crear una o abrir el enlace de invitación de tu club.</p>:null}
-    {pending?<p className="auth-alert" role="status">Tienes {pending} membresía{pending===1?'':'s'} pendiente{pending===1?'':'s'} de aprobación.</p>:null}
-    <details className="organization-section ios-card"><summary>Crear una organización</summary><p>Tu cuenta será administradora de esta organización. Podrás invitar al equipo y crear sus camporees.</p><OrganizationForm kind="create-organization" submitLabel="Crear organización"><input type="hidden" name="requestId" value={crypto.randomUUID()}/><label>Nombre del club u organización<input name="name" minLength={2} maxLength={120} required autoComplete="organization"/></label></OrganizationForm></details>
-    <p className="organization-personal-links"><Link href="/profile">Mi perfil</Link></p>
-    <SafeSignoutForm><button type="submit" className="text-btn">Cerrar sesión</button></SafeSignoutForm>
+    <header className="polymet-panel-heading">
+      <h1>{pending?'Tu solicitud está pendiente':'Bienvenido a Camporee App'}</h1>
+      <p>{pending?'Tu director debe aprobar tu acceso antes de entrar.':'Para comenzar, crea el camporee de tu club o únete al que organizó tu director.'}</p>
+    </header>
+    {pending?<section className="organization-section ios-card">
+      <p>{result.data?.permissions?.access_rejected===true?'El director rechazó tu solicitud. Contacta con él para resolverlo.':'Ya recibimos tu solicitud de acceso. Cuando tu director la apruebe, podrás entrar automáticamente.'}</p>
+      <SafeSignoutForm><button className="text-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
+    </section>:<>
+      <section className="organization-section ios-card">
+        <h2>Unirme a mi camporee</h2>
+        <p>Introduce el código que te compartió el director. Si recibiste un enlace de invitación, ábrelo y no tendrás que escribir nada.</p>
+        <OrganizationForm kind="join" submitLabel="Entrar al camporee">
+          <label>Código de invitación<input name="code" placeholder="Código de 16 caracteres" minLength={16} maxLength={24} autoCapitalize="characters" autoComplete="off" required/></label>
+        </OrganizationForm>
+      </section>
+      <section className="organization-section ios-card">
+        <h2>Soy director y crearé el camporee</h2>
+        <p>Crea el espacio de tu club. A continuación registrarás el camporee y compartirás un código para invitar al equipo.</p>
+        <OrganizationForm kind="create-organization" submitLabel="Crear mi club">
+          <input type="hidden" name="requestId" value={crypto.randomUUID()}/>
+          <label>Nombre del club<input name="name" minLength={2} maxLength={120} required autoComplete="organization"/></label>
+        </OrganizationForm>
+      </section>
+      <p className="organization-personal-links"><Link href="/profile">Mi perfil</Link></p>
+      <SafeSignoutForm><button className="text-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
+    </>}
   </main>;
 }
