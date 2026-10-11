@@ -21,7 +21,7 @@ async function render(path,supabase,props) {
  const jsx=(type,props)=>({type,props});const module={exports:{}};
  const avatarModule={'@/lib/avatars':{signedAvatar}};
  const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-schema':{isTenantSchemaUnavailable},'next/headers':{headers:async()=>({get:key=>key==='host'?'localhost:3000':null})},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
- vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??avatarModule[name]??{default:name},crypto:{randomUUID:()=>camp}});
+ vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??avatarModule[name]??{default:name},crypto:{randomUUID:()=>camp},process:{env:{NEXT_PUBLIC_SITE_URL:'http://localhost:3000'}}});
  return module.exports.default(props);
 }
 function all(node,predicate,result=[]) {if(!node||typeof node!=='object')return result;if(predicate(node))result.push(node);const children=node.props?.children;for(const child of Array.isArray(children)?children:[children])all(child,predicate,result);return result;}
