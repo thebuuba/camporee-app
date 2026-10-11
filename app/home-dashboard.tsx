@@ -1,4 +1,5 @@
 import Link from '@/app/components/tenant-link';
+import SyncStatus from '@/app/components/sync-status';
 import { AlertTriangle, BellRing, CalendarDays, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, MapPin, NotebookPen, Package, Play, Search, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import BottomNav from "./components/bottom-nav";
 import NotificationControls from "./components/notification-controls";
@@ -44,7 +45,7 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
 
   return <main className={`app polymet-home home-phase-${phase}`}>
     <header className="polymet-home-head">
-      <div><span className="polymet-sync">☁ Sincronizado</span><h1>Hola, {firstName}</h1><p>{camporee.name}</p></div>
+      <div><SyncStatus/><h1>Hola, {firstName}</h1><p>{camporee.name}</p></div>
       <Link href="/profile" className="polymet-home-avatar" aria-label="Abrir mi perfil">{avatarUrl ? <img src={avatarUrl} alt="" /> : firstName.charAt(0).toUpperCase()}</Link>
     </header>
     <Link href="/search" className="polymet-home-search"><span>Buscar actividades, personas, tareas...</span><span className="polymet-search-icon"><Search size={20}/></span></Link>
