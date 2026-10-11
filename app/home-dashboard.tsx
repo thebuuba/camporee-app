@@ -4,19 +4,20 @@ import BottomNav from "./components/bottom-nav";
 import NotificationControls from "./components/notification-controls";
 import PreparationCard from "./components/preparation-card";
 import ClosingCard from "./components/closing-card";
+import {formatCamporeeMoney} from '@/lib/camporee-locale';
 
 type EventRow = { id:string; title:string; starts_at:string; ends_at:string|null; location:string|null };
 type TaskRow = { id:string; title:string; priority:string; due_at:string|null };
 type UrgentAnnouncement = { id:string; title:string; message:string; created_at:string };
 
 export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, days, progress, pendingTasks, completedTasks, totalTasks, todayPendingTasks, participants, presentParticipants, totalExpenses, totalIncome, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement, preparation, initialNow }: {
-  userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string;starts_on:string;ends_on:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null; preparation:{completed:number;total:number;percent:number}; initialNow:number;
+  userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string;starts_on:string;ends_on:string;currency:string;time_zone:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null; preparation:{completed:number;total:number;percent:number}; initialNow:number;
 }) {
   const active = phase === "during";
   const after = phase === "after";
-  const formatMoney = (value:number) => `RD$ ${value.toLocaleString("es-DO", { maximumFractionDigits:0 })}`;
-  const formatTime = (value:string) => new Date(value).toLocaleTimeString("es-DO", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"America/Santo_Domingo" });
-  const now = new Date().toLocaleTimeString("es-DO", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"America/Santo_Domingo" });
+  const formatMoney = (value:number) => formatCamporeeMoney(value,camporee.currency);
+  const formatTime = (value:string) => new Date(value).toLocaleTimeString("es-DO", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:camporee.time_zone });
+  const now = new Date().toLocaleTimeString("es-DO", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:camporee.time_zone });
   const heroTitle = active ? currentEvent?.title ?? "Tiempo libre" : after ? "Camporee finalizado" : camporee.name;
   const summary = [
     { href:"/tasks", label:"Tareas", value:`${completedTasks}/${totalTasks}`, detail:"completadas", icon:ListChecks, tone:"peach", percent:progress },
