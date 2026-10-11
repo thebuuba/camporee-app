@@ -9,9 +9,9 @@ test('usa el día civil de Santo Domingo cerca de medianoche UTC', () => {
   assert.equal(dateOnlyDistance('2026-09-07', '2026-09-10'), 3);
 });
 
-test('una sincronización solo descarta respuestas idempotentes o exitosas', () => {
+test('una sincronización conserva conflictos y solo descarta éxitos confirmados', () => {
   assert.equal(queuedResponseIsComplete('PATCH', 400), false);
-  assert.equal(queuedResponseIsComplete('POST', 409), true);
+  assert.equal(queuedResponseIsComplete('POST', 409), false);
   assert.equal(queuedResponseIsComplete('DELETE', 404), true);
   assert.equal(queuedResponseIsComplete('PATCH', 503), false);
 });
