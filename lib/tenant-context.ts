@@ -99,7 +99,7 @@ export function safeAuthReturn(value: unknown) {
     const path = url.pathname;
     const orgRoute = /^\/o\/([^/]+)$/.exec(path);
     const allowed = path === '/' || /^\/(organizations|profile|tasks|program|search|more)(\/[^/]+)?$/.test(path)
-      || /^\/invitations\/[a-f0-9]{64}$/.test(path) || Boolean(parseTenantPath(path)) || Boolean(orgRoute && UUID.test(orgRoute[1]));
+      || /^\/invitations\/[a-f0-9]{64}$/.test(path) || /^\/join\/[a-f0-9]{16}$/i.test(path) || Boolean(parseTenantPath(path)) || Boolean(orgRoute && UUID.test(orgRoute[1]));
     return allowed ? `${path}${url.search}` : '/';
   } catch { return '/'; }
 }
