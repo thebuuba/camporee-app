@@ -19,3 +19,23 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm run build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Start isolated PostgreSQL
+        run: docker run --name camporee-multitenant-db --network none -e POSTGRES_PASSWORD=camporee-local-test -d supabase/postgres:15.8.1.085
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 75); do
+            if docker exec camporee-multitenant-db pg_isready -U supabase_admin -d postgres; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Validate migration, data preservation and tenant RLS
+        run: npm run test:db
