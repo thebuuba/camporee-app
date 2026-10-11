@@ -14,7 +14,7 @@ function client(role='admin') {
  const rows={organizations:[{id:org,name:'Club principal'},{id:other,name:'Otro club'}],organization_members:[{organization_id:org,user_id:user,role,is_active:true,permissions:{}}],camporees:[{id:camp,organization_id:org,name:'Camporee actual',status:'planning',starts_on:'2026-01-01',ends_on:'2026-01-05'},{id:otherCamp,organization_id:other,name:'Camporee ajeno',status:'planning',starts_on:'2027-01-01',ends_on:'2027-01-05'}]};
  rows.profiles=[{id:user,full_name:'Persona del club',email:'person@club.test'},{id:'foreign-user',full_name:'Perfil ajeno'}];
  rows.organization_invitations=[{id:'invite',organization_id:org,email:'invite@club.test',role:'viewer',expires_at:'2099-01-01'}];
- return {auth:{getUser:async()=>({data:{user:{id:user,email:'person@club.test'}},error:null})},rpc:async(name)=>({data:name==='read_camporee_join_code'?'A1B2C3D4E5F60708':null,error:null}),from(table){const filters=[];return {select(){return this},eq(k,v){filters.push(row=>row[k]===v);return this},neq(k,v){filters.push(row=>row[k]!==v);return this},in(k,values){filters.push(row=>values.includes(row[k]));return this},order(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const list=(rows[table]??[]).filter(row=>filters.every(fn=>fn(row)));return Promise.resolve({data:this.single?list[0]??null:list,error:null}).then(resolve,reject)}}}};
+ return {auth:{getUser:async()=>({data:{user:{id:user,email:'person@club.test'}},error:null})},rpc:async(name)=>({data:name==='read_camporee_invitation'?{code:'4827',token:'a'.repeat(64)}:null,error:null}),from(table){const filters=[];return {select(){return this},eq(k,v){filters.push(row=>row[k]===v);return this},neq(k,v){filters.push(row=>row[k]!==v);return this},in(k,values){filters.push(row=>values.includes(row[k]));return this},order(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const list=(rows[table]??[]).filter(row=>filters.every(fn=>fn(row)));return Promise.resolve({data:this.single?list[0]??null:list,error:null}).then(resolve,reject)}}}};
 }
 async function render(path,supabase,props) {
  await loadBindings();const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
@@ -39,7 +39,7 @@ test('member administration queries only the chosen organization and its profile
  const managers=all(tree,node=>Array.isArray(node.props?.users));assert.equal(managers.length,1);
  assert.equal(managers[0].props.organizationId,org);assert.equal(managers[0].props.users.length,1);
  assert.equal(managers[0].props.users[0].full_name,'Persona del club');
- assert.doesNotMatch(JSON.stringify(tree),/Perfil ajeno/);assert.match(JSON.stringify(tree),/A1B2C3D4E5F60708/);
+ assert.doesNotMatch(JSON.stringify(tree),/Perfil ajeno/);assert.match(JSON.stringify(tree),/4827/);assert.match(JSON.stringify(tree),new RegExp('/join/'+ 'a'.repeat(64)));
 });
 test('viewer cannot reach member administration even when admin in a different organization',async()=>{
  await assert.rejects(render('app/more/users/page.tsx',client('viewer'),{params:Promise.resolve({organizationId:org}),searchParams:Promise.resolve({})}),/notFound/);
