@@ -1,38 +1,40 @@
 import Link from 'next/link';
 import {notFound,redirect} from 'next/navigation';
 import {createClient} from '@/lib/supabase/server';
-import OrganizationForm from '@/app/organizations/organization-form';
 
+// The invitation URL carries a secret token, separate from the four-digit
+// manual code. A verified user is enrolled automatically on landing here.
 export default async function JoinCamporeePage({params}:{params:Promise<{code:string}>}) {
-  const raw=(await params).code;
-  const code=raw.replace(/[^a-fA-F0-9]/g,'').toUpperCase();
-  if(!/^[A-F0-9]{16}$/.test(code))notFound();
-  const destination=`/join/${code}`;
+  const token=(await params).code.toLowerCase();
+  if(!/^[a-f0-9]{64}$/.test(token))notFound();
+  const destination=`/join/${token}`;
   const supabase=await createClient();
   const {data,error}=await supabase.auth.getUser();
   if(error&&(error.status??0)>=500)throw error;
-  if(!data.user) {
+  if(!data.user){
     return <main className="app panel-page organizations-page">
       <section className="organization-section ios-card">
         <h1>Te invitaron a un camporee</h1>
-        <p>El director compartió contigo un enlace de invitación. No necesitas escribir ningún código.</p>
-        <Link className="primary-btn" href={`/signup?next=${encodeURIComponent(destination)}`}>Crear mi cuenta y unirme</Link>
+        <p>Al registrarte o iniciar sesión quedarás vinculado automáticamente. No necesitas escribir ningún código.</p>
+        <Link className="primary-btn" href={`/signup?next=${encodeURIComponent(destination)}`}>Crear cuenta y unirme</Link>
         <p>¿Ya tienes cuenta? <Link href={`/login?next=${encodeURIComponent(destination)}`}>Iniciar sesión</Link></p>
       </section>
     </main>;
   }
-  const {data:member,error:memberError}=await supabase.from('organization_members')
-    .select('organization_id,is_active').eq('user_id',data.user.id).maybeSingle();
-  if(memberError)throw memberError;
-  if(member?.is_active)redirect('/');
-
+  // The RPC enforces confirmed email, active camporee, one club per account,
+  // and a high-entropy token. It is safe to retry after an interrupted redirect.
+  const {error:joinError}=await supabase.rpc('join_camporee_by_token',{invite_token:token});
+  if(!joinError)redirect('/');
+  const message=joinError.code==='23505'
+    ?'Tu cuenta ya pertenece a otro club. No puedes unirte a dos clubes.'
+    :joinError.code==='42501'
+      ?'Debes confirmar tu correo, o el director debe resolver una solicitud de acceso pendiente.'
+      :'Este enlace de invitación no está disponible o ha dejado de ser válido.';
   return <main className="app panel-page organizations-page">
     <section className="organization-section ios-card">
-      <h1>Unirme al camporee</h1>
-      <p>Estás entrando con {data.user.email}. La invitación ya incluye el código; solo tienes que confirmar.</p>
-      <OrganizationForm kind="join" submitLabel="Unirme a mi camporee">
-        <input type="hidden" name="code" value={code}/>
-      </OrganizationForm>
+      <h1>No pudimos completar la invitación</h1>
+      <p role="alert">{message}</p>
+      <Link href="/organizations" className="primary-btn">Ir a mi cuenta</Link>
     </section>
   </main>;
 }
