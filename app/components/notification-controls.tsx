@@ -41,11 +41,20 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
       return;
     }
 
-    navigator.serviceWorker.ready
+    let cancelled=false;
+    void navigator.serviceWorker.ready
       .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) => { setState(subscription ? 'ready' : 'granted'); setDismissed(false); })
-      .catch(() => { setState('granted'); setDismissed(false); });
-  }, []);
+      .then(async subscription => {
+        if (!subscription) return false;
+        const {data,error}=await supabase.from('push_subscriptions')
+          .select('camporee_ids').eq('endpoint',subscription.endpoint)
+          .eq('user_id',userId).maybeSingle();
+        return !error && Array.isArray(data?.camporee_ids) && data.camporee_ids.includes(camporeeId);
+      })
+      .then(registered => {if(!cancelled){setState(registered?'ready':'granted');setDismissed(false);}})
+      .catch(() => {if(!cancelled){setState('granted');setDismissed(false);}});
+    return ()=>{cancelled=true;};
+  }, [camporeeId,userId,supabase]);
 
   async function activate() {
     if (busy) return;
@@ -91,7 +100,7 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
   }
 
   if (mode === 'prompt') {
-    if (!standalone || state === 'checking' || state === 'denied' || state === 'unsupported' || dismissed) return null;
+    if (!standalone || state === 'checking' || state === 'ready' || state === 'denied' || state === 'unsupported' || dismissed) return null;
     return <section className='notification-prompt ios-card'>
       <button className='notification-prompt-close' type='button' onClick={dismissPrompt} aria-label='Cerrar'><X size={17}/></button>
       <span className='notification-prompt-icon'><BellRing size={22}/></span>
