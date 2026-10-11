@@ -2,8 +2,9 @@ import Link from '@/app/components/tenant-link';
 import { ArrowRight, Circle, CircleCheck, PartyPopper, Sparkles, Trophy, Users, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { closingProgress } from "@/lib/camporee-closing";
+import {formatCamporeeMoney,formatCamporeeDate} from '@/lib/camporee-locale';
 
-export default async function ClosingCard({ camporee }: { camporee: { id:string; starts_on:string; ends_on:string } }) {
+export default async function ClosingCard({ camporee }: { camporee: { id:string; starts_on:string; ends_on:string;currency:string } }) {
   const supabase = await createClient();
   const [tasks, inventory, documents, notes, activities, participants, expenses, income] = await Promise.all([
     supabase.from("tasks").select("phase,status").eq("camporee_id", camporee.id),
@@ -18,9 +19,9 @@ export default async function ClosingCard({ camporee }: { camporee: { id:string;
   const progress = closingProgress(tasks.data ?? [], inventory.data ?? []);
   const results = (activities.data ?? []).filter(activity => activity.score !== null || activity.result?.trim());
   const balance = (income.data ?? []).reduce((sum, row) => sum + Number(row.amount), 0) - (expenses.data ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
-  const formatDate = (value:string) => new Date(`${value}T12:00:00-04:00`).toLocaleDateString("es-DO", { day:"numeric", month:"long", year:"numeric", timeZone:"America/Santo_Domingo" });
-  const start = new Date(`${camporee.starts_on}T12:00:00-04:00`);
-  const end = new Date(`${camporee.ends_on}T12:00:00-04:00`);
+  const formatDate = formatCamporeeDate;
+  const start = new Date(`${camporee.starts_on}T12:00:00Z`);
+  const end = new Date(`${camporee.ends_on}T12:00:00Z`);
   const dates = camporee.starts_on === camporee.ends_on ? formatDate(camporee.starts_on) : start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear() ? `${start.getUTCDate()} – ${formatDate(camporee.ends_on)}` : `${formatDate(camporee.starts_on)} – ${formatDate(camporee.ends_on)}`;
   const rows = [
     { href:"/tasks?phase=after", label:"Tareas de cierre", value:tasks.error ? "—" : `${progress.completed}/${progress.total}`, done:!tasks.error && progress.total > 0 && progress.completed === progress.total },
@@ -35,7 +36,7 @@ export default async function ClosingCard({ camporee }: { camporee: { id:string;
       <div className="closing-stats">
         <Link href="/more/activities" className="closing-stat-gold"><Trophy size={16}/><strong>{activities.error ? "—" : results.length}</strong><small>{results.length ? "resultados" : "sin resultados"}</small></Link>
         <Link href="/more/participants" className="closing-stat-sage"><Users size={16}/><strong>{participants.error ? "—" : participants.data?.length ?? 0}</strong><small>participaron</small></Link>
-        <Link href="/more/budget" className="closing-stat-peach"><WalletCards size={16}/><strong>{income.error || expenses.error ? "—" : `RD$ ${balance.toLocaleString("es-DO", {maximumFractionDigits:0})}`}</strong><small>saldo final</small></Link>
+        <Link href="/more/budget" className="closing-stat-peach"><WalletCards size={16}/><strong>{income.error || expenses.error ? "—" : formatCamporeeMoney(balance,camporee.currency)}</strong><small>saldo final</small></Link>
       </div>
     </section>
     <section className="closing-checklist" aria-label="Pendientes de cierre"><h2><Sparkles size={16}/>Para cerrar del todo</h2><div>{rows.map(row => <Link href={row.href} key={row.label} className={row.done ? "is-complete" : ""}>{row.done ? <CircleCheck size={20}/> : <Circle size={16}/>}<span>{row.label}</span><strong>{row.value}</strong><ArrowRight size={16}/></Link>)}</div>{loadError ? <p role="status">Algunos datos no se pudieron cargar. Abre el módulo para revisarlos.</p> : null}</section>
