@@ -15,7 +15,7 @@ async function load(path, modules) {
 }
 async function actions(auth) {
   const cookies = [];
-  const exports = await load('app/login/actions.ts', { '@/lib/supabase/server': { createClient: async () => ({ auth }) }, 'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect: url => { throw new Error(url); } }, 'next/headers': { cookies: async () => ({ set: (...value) => cookies.push(value) }), headers: async () => ({ get: () => 'http://localhost:3002' }) } });
+  const exports = await load('app/login/actions.ts', { '@/lib/supabase/server': { createClient: async () => ({ auth }) }, 'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect: url => { throw new Error(url); } }, 'next/headers': { cookies: async () => ({ set: (...value) => cookies.push(value) }), headers: async () => ({ get: key => key==='host'?'localhost:3002':'http://localhost:3002' }) } });
   return { ...exports, cookies };
 }
 
