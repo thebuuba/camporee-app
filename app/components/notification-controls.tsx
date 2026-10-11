@@ -68,14 +68,12 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
 
       const json = subscription.toJSON();
       if (!json.keys?.p256dh || !json.keys?.auth) throw new Error('Push subscription keys unavailable');
-      const { error } = await supabase.from('push_subscriptions').upsert({
-        user_id:userId,
-        camporee_id:camporeeId,
-        endpoint:subscription.endpoint,
-        p256dh:json.keys.p256dh,
-        auth:json.keys.auth,
-        updated_at:new Date().toISOString(),
-      }, { onConflict:'endpoint' });
+      const { error } = await supabase.rpc('register_camporee_push', {
+        target_camporee:camporeeId,
+        push_endpoint:subscription.endpoint,
+        push_p256dh:json.keys.p256dh,
+        push_auth:json.keys.auth,
+      });
       if (error) throw error;
       setState('ready');
       setDismissed(false);
@@ -93,7 +91,7 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
   }
 
   if (mode === 'prompt') {
-    if (!standalone || state === 'checking' || state === 'ready' || state === 'denied' || state === 'unsupported' || dismissed) return null;
+    if (!standalone || state === 'checking' || state === 'denied' || state === 'unsupported' || dismissed) return null;
     return <section className='notification-prompt ios-card'>
       <button className='notification-prompt-close' type='button' onClick={dismissPrompt} aria-label='Cerrar'><X size={17}/></button>
       <span className='notification-prompt-icon'><BellRing size={22}/></span>
@@ -116,7 +114,7 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
   return <section className={`notification-settings ios-card state-${state}`}>
     <span className='notification-settings-icon'>{state==='ready'?<CheckCircle2 size={22}/>:<BellRing size={22}/>}</span>
     <div className='notification-settings-copy'><strong>{title}</strong><span>{detail}</span></div>
-    {state !== 'ready' && state !== 'unsupported' && state !== 'denied' ? <button className='secondary-btn' type='button' onClick={activate} disabled={busy}>{busy?'Activando…':'Activar'}</button> : null}
+    {state !== 'unsupported' && state !== 'denied' ? <button className='secondary-btn' type='button' onClick={activate} disabled={busy}>{busy?'Activando…':state==='ready'?'Registrar este camporee':'Activar'}</button> : null}
     {state === 'denied' ? <span className='notification-settings-hint'><ExternalLink size={14}/> Ajustes del dispositivo</span> : null}
   </section>;
 }
