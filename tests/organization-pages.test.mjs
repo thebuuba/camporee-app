@@ -20,7 +20,7 @@ async function render(path,supabase,props) {
  await loadBindings();const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
  const jsx=(type,props)=>({type,props});const module={exports:{}};
  const avatarModule={'@/lib/avatars':{signedAvatar}};
- const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-schema':{isTenantSchemaUnavailable},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
+ const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-schema':{isTenantSchemaUnavailable},'next/headers':{headers:async()=>({get:key=>key==='host'?'localhost:3000':null})},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??avatarModule[name]??{default:name},crypto:{randomUUID:()=>camp}});
  return module.exports.default(props);
 }
