@@ -33,7 +33,7 @@ select pass('outsider denied in every populated module');
 select is((select count(*) from profiles),1::bigint,'outsider sees only own profile');
 select create_organization('Otro club','50000000-0000-4000-8000-000000000001');
 select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001');
-select lives_ok($$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$,'camporee creation retries are idempotent');
+select lives_ok($$$select create_camporee('50000000-0000-4000-8000-000000000001','Otro camporee','2027-01-01','2027-01-05','60000000-0000-4000-8000-000000000001')$$,'camporee creation retries are idempotent');
 select is((select count(*) from areas where camporee_id='60000000-0000-4000-8000-000000000001'),10::bigint,'areas seeded once atomically');
 select create_camporee('50000000-0000-4000-8000-000000000001','Año siguiente','2028-01-01','2028-01-05','60000000-0000-4000-8000-000000000002');
 select is((select count(*) from camporees),2::bigint,'organization can create several camporees');
@@ -45,37 +45,37 @@ select throws_ok($$insert into camporee_documents(camporee_id,title,file_path,cr
 select throws_ok($$insert into tasks(camporee_id,title,assigned_to,created_by) values('60000000-0000-4000-8000-000000000001','Wrong assignee','10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000005')$$,'23514',null,'task assignee must be active in the organization');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 select is((select count(*) from tasks),1::bigint,'legacy member sees only legacy task');
-select lives_ok($$update tasks set title='Editada' where id='30000000-0000-4000-8000-000000000001'$$,'granular tasks permission retained');
-select throws_ok($$update tasks set created_by='10000000-0000-4000-8000-000000000002' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'editing cannot rewrite original author');
+select lives_ok($$$update tasks set title='Editada' where id='30000000-0000-4000-8000-000000000001'$$,'granular tasks permission retained');
+select throws_ok($$$update tasks set created_by='10000000-0000-4000-8000-000000000002' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'editing cannot rewrite original author');
 select throws_ok($$insert into notes(camporee_id,body,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000002')$$,'42501',null,'viewer cannot write another module');
 select throws_ok($$insert into task_checklist_items(task_id,camporee_id,label) values('70000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','Cross-camp')$$,'23503',null,'cross-camp child reference denied');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
 select is((select count(*) from tasks),0::bigint,'pending legacy user still cannot read');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-select throws_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001')$$,'23514',null,'cannot remove organization owner');
-select throws_ok($$update tasks set camporee_id='60000000-0000-4000-8000-000000000001' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'cannot move data to another camporee');
+select throws_ok($$$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001')$$,'23514',null,'cannot remove organization owner');
+select throws_ok($$$update tasks set camporee_id='60000000-0000-4000-8000-000000000001' where id='30000000-0000-4000-8000-000000000001'$$,'23514',null,'cannot move data to another camporee');
 select is((select count(*) from organization_task_assignees('00000000-0000-4000-8000-000000000001')),2::bigint,'directory includes only active members of this organization');
-select lives_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','reject')$$,'legacy pending access can be rejected atomically');
-select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','approve')$$,'23514',null,'stale approval cannot revive rejected request');
-select throws_ok($$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','reject')$$,'23514',null,'stale rejection cannot disable active membership');
+select lives_ok($$$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','reject')$$,'legacy pending access can be rejected atomically');
+select throws_ok($$$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','approve')$$,'23514',null,'stale approval cannot revive rejected request');
+select throws_ok($$$select decide_organization_access('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','reject')$$,'23514',null,'stale rejection cannot disable active membership');
 select is((select permissions->>'notes' from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id='10000000-0000-4000-8000-000000000003'),(select permissions->>'notes' from app_members where user_id='10000000-0000-4000-8000-000000000003'),'access decision retains existing module permissions');
 -- Invitation tokens never appear in table reads; only admin creation returns them.
 select create_organization_invitation('00000000-0000-4000-8000-000000000001','other@club.test','viewer','{}',null) as invite_token \gset
 select set_config('test.invite_token', :'invite_token', true);
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
-select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'42501',null,'invitation cannot be claimed by different email');
-select throws_ok($$select create_organization_invitation('00000000-0000-4000-8000-000000000001','stranger@club.test','admin','{}',null)$$,'42501',null,'nonadmin cannot invite');
+select throws_ok($$$select accept_organization_invitation(current_setting('test.invite_token'))$$,'42501',null,'invitation cannot be claimed by different email');
+select throws_ok($$$select create_organization_invitation('00000000-0000-4000-8000-000000000001','stranger@club.test','admin','{}',null)$$,'42501',null,'nonadmin cannot invite');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select lives_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'verified intended user can accept');
-select throws_ok($$select accept_organization_invitation(current_setting('test.invite_token'))$$,'23514',null,'invitation is one use');
+select lives_ok($$$select accept_organization_invitation(current_setting('test.invite_token'))$$,'verified intended user can accept');
+select throws_ok($$$select accept_organization_invitation(current_setting('test.invite_token'))$$,'23514',null,'invitation is one use');
 select is((select count(*) from tasks),2::bigint,'same account can read both organizations after invitation');
 select is((select role from organization_members where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()),'viewer','account has independent role in legacy organization');
 select throws_ok($$insert into tasks(camporee_id,title,created_by) values('20000000-0000-4000-8000-000000000001','Denied','10000000-0000-4000-8000-000000000005')$$,'42501',null,'admin elsewhere is only viewer here');
-select throws_ok($$update tasks set camporee_id='20000000-0000-4000-8000-000000000001' where id='70000000-0000-4000-8000-000000000001'$$,'23514',null,'reparent forbidden even with membership in both organizations');
-select throws_ok($$update organization_members set role='admin' where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'cannot escalate own membership directly');
-select throws_ok($$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'second owner cannot remove own membership');
+select throws_ok($$$update tasks set camporee_id='20000000-0000-4000-8000-000000000001' where id='70000000-0000-4000-8000-000000000001'$$,'23514',null,'reparent forbidden even with membership in both organizations');
+select throws_ok($$$update organization_members set role='admin' where organization_id='00000000-0000-4000-8000-000000000001' and user_id=auth.uid()$$,'42501',null,'cannot escalate own membership directly');
+select throws_ok($$$select remove_organization_member('50000000-0000-4000-8000-000000000001',auth.uid())$$,'23514',null,'second owner cannot remove own membership');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-select lives_ok($$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000005')$$,'admin removes only organization membership');
+select lives_ok($$$select remove_organization_member('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000005')$$,'admin removes only organization membership');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
 select is((select count(*) from tasks),1::bigint,'revocation hides legacy data immediately');
 select is((select count(*) from organization_members where user_id=auth.uid()),1::bigint,'other membership survives removal');
@@ -87,7 +87,7 @@ reset role;
 -- A legacy organization without an owner cannot be claimed via a retry UUID.
 update organizations set owner_user_id=null where id='00000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select throws_ok($$select create_organization('Claim existing','00000000-0000-4000-8000-000000000001')$$,'23505',null,'creation retry cannot claim ownerless legacy organization');
+select throws_ok($$$select create_organization('Claim existing','00000000-0000-4000-8000-000000000001')$$,'23505',null,'creation retry cannot claim ownerless legacy organization');
 reset role;
 update organizations set owner_user_id='10000000-0000-4000-8000-000000000001' where id='00000000-0000-4000-8000-000000000001';
 select is((select count(*) from auth.users),5::bigint,'membership removal never deletes Auth account');
@@ -103,30 +103,30 @@ select is((select created_by from tasks where id='90000000-0000-4000-8000-000000
 -- must discard ALL of the previous user's event destinations.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select lives_ok($select register_camporee_push(
+select lives_ok($$select register_camporee_push(
   '60000000-0000-4000-8000-000000000001',
   'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
-)$,'verified organization member can register a push endpoint');
-select lives_ok($select register_camporee_push(
+)$$,'verified organization member can register a push endpoint');
+select lives_ok($$select register_camporee_push(
   '60000000-0000-4000-8000-000000000002',
   'https://push.example.test/device-1',repeat('P',64),repeat('A',32)
-)$,'same device can subscribe to a second camporee');
+)$$,'same device can subscribe to a second camporee');
 select is((select count(*) from push_subscriptions where endpoint='https://push.example.test/device-1'),1::bigint,
   'push endpoint remains globally unique');
 select is((select cardinality(camporee_ids) from push_subscriptions where endpoint='https://push.example.test/device-1'),2,
   'both authorized camporees are registered');
-select throws_ok($select register_camporee_push(
+select throws_ok($$select register_camporee_push(
   '20000000-0000-4000-8000-000000000001',
   'https://push.example.test/unallowed',repeat('P',64),repeat('A',32)
-)$,'42501',null,'cannot register a camporee without membership');
-select throws_ok($update push_subscriptions
+)$$,'42501',null,'cannot register a camporee without membership');
+select throws_ok($$update push_subscriptions
   set camporee_ids=array['20000000-0000-4000-8000-000000000001'::uuid]
   where endpoint='https://push.example.test/device-1'$,'42501',null,'direct subscription modifications are blocked');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-select lives_ok($select register_camporee_push(
+select lives_ok($$select register_camporee_push(
   '20000000-0000-4000-8000-000000000001',
   'https://push.example.test/device-1',repeat('Q',64),repeat('B',32)
-)$,'shared browser endpoint can be rebound to the next signed-in account');
+)$$,'shared browser endpoint can be rebound to the next signed-in account');
 select is((select user_id from push_subscriptions where endpoint='https://push.example.test/device-1'),
  '10000000-0000-4000-8000-000000000001'::uuid,'rebind updates endpoint ownership');
 select is((select camporee_ids from push_subscriptions where endpoint='https://push.example.test/device-1'),
