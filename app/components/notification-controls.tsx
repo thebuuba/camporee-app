@@ -49,6 +49,12 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
         const {data,error}=await supabase.from('push_subscriptions')
           .select('camporee_ids').eq('endpoint',subscription.endpoint)
           .eq('user_id',userId).maybeSingle();
+        if (!error && !data) {
+          // The browser may retain a push endpoint owned by another signed-in
+          // account. Unsubscribe it before allowing this account to use it.
+          await subscription.unsubscribe().catch(()=>false);
+          return false;
+        }
         return !error && Array.isArray(data?.camporee_ids) && data.camporee_ids.includes(camporeeId);
       })
       .then(registered => {if(!cancelled){setState(registered?'ready':'granted');setDismissed(false);}})
