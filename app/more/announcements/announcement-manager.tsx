@@ -36,7 +36,7 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       const registration = await navigator.serviceWorker.ready; let subscription = await registration.pushManager.getSubscription();
       if (!subscription) { const { data:keyData, error:keyError } = await supabase.functions.invoke('camporee-push', { body:{ action:'public-key' } }); if (keyError || !keyData?.publicKey) throw keyError ?? new Error('No push key'); subscription = await registration.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(keyData.publicKey) }); }
       const json = subscription.toJSON(); const p256dh = json.keys?.p256dh; const auth = json.keys?.auth; if (!p256dh || !auth) throw new Error('Push subscription keys unavailable');
-      const { error } = await supabase.from('push_subscriptions').upsert({ user_id:userId, camporee_id:camporeeId, endpoint:subscription.endpoint, p256dh, auth, updated_at:new Date().toISOString() }, { onConflict:'endpoint' }); if (error) throw error; setPushReady(true); reportMutationSuccess('Avisos activados.');
+      const { error } = await supabase.rpc('register_camporee_push', { target_camporee:camporeeId, push_endpoint:subscription.endpoint, push_p256dh:p256dh, push_auth:auth }); if (error) throw error; setPushReady(true); reportMutationSuccess('Avisos activados.');
     } catch (error) { setPushReady(false); reportMutationError(error,'No se pudieron activar los avisos en este dispositivo.'); }
   }
 
