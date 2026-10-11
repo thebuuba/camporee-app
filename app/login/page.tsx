@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <button className="pm-login-submit">{resetting ? "Guardar contraseña" : "Iniciar sesión"}</button>
       </form>
       <p className="pm-login-register">{resetting ? <Link href="/login">Volver al inicio de sesión</Link> : <>¿No tienes cuenta? <Link href={`/signup?next=${encodeURIComponent(returnTo)}`}>Crear cuenta</Link></>}</p>
-      <aside className="pm-login-notice">Con tu cuenta puedes crear una organización o unirte a un club mediante invitación.</aside>
+      <aside className="pm-login-notice">Tu cuenta pertenece a un solo club. Únete con el código o enlace del director.</aside>
     </section>
   </main>;
 }
