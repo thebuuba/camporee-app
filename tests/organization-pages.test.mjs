@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {resolveOrganizationContext,tenantPath} from '../lib/tenant-context.ts';
 import {signedAvatar} from '../lib/avatars.ts';
+import {isTenantSchemaUnavailable} from '../lib/tenant-schema.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const org='50000000-0000-4000-8000-000000000001',other='50000000-0000-4000-8000-000000000002';
 const camp='60000000-0000-4000-8000-000000000001',otherCamp='60000000-0000-4000-8000-000000000002';
@@ -19,7 +20,7 @@ async function render(path,supabase,props) {
  await loadBindings();const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
  const jsx=(type,props)=>({type,props});const module={exports:{}};
  const avatarModule={'@/lib/avatars':{signedAvatar}};
- const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
+ const modules={'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase/server':{createClient:async()=>supabase},'@/lib/tenant-context':{tenantPath},'@/lib/tenant-schema':{isTenantSchemaUnavailable},'@/lib/tenant-server':{requireOrganizationContext:id=>resolveOrganizationContext(supabase,id)},'next/navigation':{redirect:path=>{throw new Error(`redirect:${path}`)},notFound:()=>{throw new Error('notFound')}}};
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name]??avatarModule[name]??{default:name},crypto:{randomUUID:()=>camp}});
  return module.exports.default(props);
 }
