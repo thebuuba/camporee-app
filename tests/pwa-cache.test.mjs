@@ -147,13 +147,16 @@ test('una apertura online usa HTML actual aunque exista una versión antigua en 
   assert.equal(worker.networkRequests, 1);
 });
 
-test('una visita a Tareas se conserva para volver a abrirla sin internet', async () => {
+test('Tareas funciona online sin guardar HTML compartido entre sesiones', async () => {
   const page = {source:'tasks',ok:true,clone(){return this}};
   const online = await loadServiceWorker({networkResponse:page});
   assert.equal((await navigate(online, undefined, '/tasks')).source,'tasks');
-  assert.equal(online.writes[0].request.url,'https://camporee.test/tasks');
-  const offline = await loadServiceWorker({cachedResponse:page,networkError:new Error('offline')});
-  assert.equal((await navigate(offline, undefined, '/tasks')).source,'tasks');
+  assert.equal(online.writes.length,0);
+  const offline = await loadServiceWorker({
+    networkError:new Error('offline'),
+    cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):page,
+  });
+  assert.equal(await (await navigate(offline, undefined, '/tasks')).text(),'Sin conexión');
 });
 
 test('las ilustraciones guardadas siguen disponibles cuando falla la red', async () => {
