@@ -63,8 +63,24 @@ export async function signup(formData: FormData) {
   const { data: existingAuth, error: existingAuthError } = await supabase.auth.getClaims();
   if (existingAuth?.claims?.sub) redirect(`/signup?error=${encodeURIComponent("Ya tienes una sesión abierta. Para registrar otra cuenta usa otro navegador o cierra tu sesión primero.")}${nextQuery}`);
   if (existingAuthError && existingAuthError.name !== 'AuthSessionMissingError') redirect(`/signup?error=${encodeURIComponent("No pudimos verificar la sesión. Inténtalo de nuevo.")}${nextQuery}`);
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || (await headers()).get('origin');
-  const callback = origin ? new URL(`/auth/confirm?next=${encodeURIComponent(returnTo)}`, origin).toString() : undefined;
+  // Preserve the invite destination on the SAME host where signup began.
+  // NEXT_PUBLIC_SITE_URL may target production while the director is testing
+  // this branch on localhost or a Cloudflare preview URL.
+  const requestHeaders=await headers();
+  const requestOrigin=requestHeaders.get('origin');
+  const requestHost=requestHeaders.get('x-forwarded-host')||requestHeaders.get('host');
+  let origin=process.env.NEXT_PUBLIC_SITE_URL||undefined;
+  try {
+    if(requestOrigin&&requestHost){
+      const parsed=new URL(requestOrigin);
+      if(parsed.host===requestHost &&
+        (parsed.protocol==='https:' || (parsed.protocol==='http:' &&
+          ['localhost','127.0.0.1'].includes(parsed.hostname)))){
+        origin=parsed.origin;
+      }
+    }
+  } catch { /* use configured site URL */ }
+  const callback=origin?new URL(`/auth/confirm?next=${encodeURIComponent(returnTo)}`,origin).toString():undefined;
   const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, ...(callback ? { emailRedirectTo: callback } : {}) } });
   if (error) {
     const message = error.message.toLowerCase().includes("already") ? "Ya existe una cuenta con ese correo" : error.message;
