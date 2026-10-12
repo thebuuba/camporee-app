@@ -205,4 +205,17 @@ select throws_ok($$select join_camporee_by_code('0000')$$,'42501',null,
  'sixth attempt is rate limited within 24 hours');
 reset role;
 
+-- Inspect the transaction-local HTTP queue; rollback prevents real delivery.
+select is((select count(*) from net.http_request_queue
+ where url like '%/admin-signup-alert'
+ and convert_from(body,'UTF8')::jsonb->>'userId'='10000000-0000-4000-8000-000000000006'),1::bigint,
+ 'repeating a manual code queues exactly one administrator alert');
+select is((select convert_from(body,'UTF8')::jsonb->>'organizationId' from net.http_request_queue
+ where url like '%/admin-signup-alert'
+ and convert_from(body,'UTF8')::jsonb->>'userId'='10000000-0000-4000-8000-000000000006' limit 1),
+ '50000000-0000-4000-8000-000000000001','pending alert carries the correct club');
+select is((select count(*) from net.http_request_queue
+ where url like '%/admin-signup-alert'
+ and convert_from(body,'UTF8')::jsonb->>'userId'='10000000-0000-4000-8000-000000000008'),0::bigint,
+ 'automatic token enrollment does not queue a pending request alert');
 select finish();

@@ -26,7 +26,7 @@ export default async function OrganizationsPage() {
     </header>
     {pending?<section className="organization-section ios-card">
       <p>{result.data?.permissions?.access_rejected===true?'El director rechazó tu solicitud. Contacta con él para resolverlo.':'Ya recibimos tu solicitud de acceso. Cuando tu director la apruebe, podrás entrar automáticamente.'}</p>
-      <SafeSignoutForm><button className="text-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
+      <SafeSignoutForm><button className="secondary-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
     </section>:<>
       <section className="organization-section ios-card">
         <h2>Unirme a mi camporee</h2>
@@ -44,7 +44,7 @@ export default async function OrganizationsPage() {
         </OrganizationForm>
       </section>
       <p className="organization-personal-links"><Link href="/profile">Mi perfil</Link></p>
-      <SafeSignoutForm><button className="text-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
+      <SafeSignoutForm><button className="secondary-btn" type="submit">Cerrar sesión</button></SafeSignoutForm>
     </>}
   </main>;
 }
