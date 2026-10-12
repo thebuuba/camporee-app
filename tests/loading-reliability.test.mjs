@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
+import * as dates from '../lib/date.ts';
+import * as locale from '../lib/camporee-locale.ts';
+const {dateKeyInTimeZone,dateOnlyDistance}=dates;
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 import { resolveCamporeeContext, parseTenantPath } from '../lib/tenant-context.ts';
 import {signedAvatar} from '../lib/avatars.ts';
@@ -162,10 +164,11 @@ async function saveActivityInTest(editing, fields, program = false) {
   const jsx=(type,props)=>({type,props:props??{}});
   const {default:ActivityManager} = await loadModule(program ? 'app/program/program-manager.tsx' : 'app/more/activities/activity-manager.tsx', {
     'react/jsx-runtime':{jsx,jsxs:jsx},
-    react:{useEffect(){},useMemo:callback=>callback(),useState(value){const index=stateIndex++;return [index===2?editing:value,()=>{}]}},
+    react:{useEffect(){},useMemo:callback=>callback(),useState(value){const index=stateIndex++;return [index===2?editing:typeof value==='function'?value():value,()=>{}]}},
     'next/navigation':{useRouter:()=>({refresh(){}})},
     'lucide-react':{}, '@/app/components/bottom-sheet':()=>null,
     '@/lib/supabase/client':{createClient:()=>supabase},
+    '@/lib/date':dates,'@/lib/camporee-locale':locale,
     '@/lib/client-ui':{confirmRemoval:()=>false,reportMutationError:rejectSaved,reportMutationSuccess:resolveSaved},
   }, {FormData:class {constructor(){return fields}}});
   const tree=ActivityManager({camporeeId:'event',canEdit:true,initialActivities:[],participants:[],initialEvents:[],areas:[]});
@@ -200,8 +203,8 @@ test('Nueva actividad de Programa no muestra Lugar y guarda horario y responsabl
   assert.equal(location,undefined);
   assert.equal(payload.location,null);
   assert.equal(payload.title,'Culto');
-  assert.equal(payload.starts_at,new Date('2026-11-06T09:00').toISOString());
-  assert.equal(payload.ends_at,new Date('2026-11-06T10:00').toISOString());
+  assert.equal(payload.starts_at,'2026-11-06T13:00:00.000Z');
+  assert.equal(payload.ends_at,'2026-11-06T14:00:00.000Z');
   assert.equal(payload.responsible_name,'Ana');
 });
 

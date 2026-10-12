@@ -62,7 +62,8 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
         <div className="polymet-hero-times"><span>{active && currentEvent ? formatTime(currentEvent.starts_at) : after ? "100%" : `${progress}% listo`}</span><span>{active && currentEvent?.ends_at ? formatTime(currentEvent.ends_at) : ""}</span></div>
       </div>
     </section>}
-    {active && nextEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>Próxima · {formatTime(nextEvent.starts_at)}</small><strong>{nextEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
+    {!after && !active && currentEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>En curso · {formatTime(currentEvent.starts_at)}</small><strong>{currentEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
+    {!after && nextEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>Próxima · {formatTime(nextEvent.starts_at)}</small><strong>{nextEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
     {active && urgentAnnouncement ? <Link href="/more/announcements" className="polymet-urgent"><span className="polymet-urgent-icon"><AlertTriangle size={22}/></span><span><small>AVISO URGENTE</small><strong>{urgentAnnouncement.title}</strong><span>{urgentAnnouncement.message}</span></span></Link> : null}
 
     <section className="polymet-quick">{quick.map(({href,label,icon:Icon,tone}) => <Link href={href} key={label}><span className={`polymet-quick-icon tone-${tone}`}><Icon size={22}/></span><small>{label}</small></Link>)}</section>

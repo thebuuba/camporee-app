@@ -15,3 +15,9 @@ export function dateKeyInTimeZone(value: Date | string = new Date(), timeZone = 
 export function dateOnlyDistance(from: string, to: string) {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
+
+export function isEventOngoing(event: {starts_at: string; ends_at?: string | null}, now = Date.now()) {
+  const start = Date.parse(event.starts_at);
+  const end = event.ends_at ? Date.parse(event.ends_at) : start + 60 * 60_000;
+  return now >= start && now < end;
+}

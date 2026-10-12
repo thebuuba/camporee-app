@@ -1,6 +1,7 @@
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import BottomNav from "../components/bottom-nav";
 import ProgramManager from "./program-manager";
+import {dateKeyInTimeZone} from '@/lib/date';
 
 export default async function ProgramPage({ params }: { params?: TenantPageParams } = {}) {
   const context = await requireCamporeeContext(params, '/program');
@@ -16,13 +17,12 @@ export default async function ProgramPage({ params }: { params?: TenantPageParam
   if (contentError) throw contentError;
 
   const now = new Date();
-  const start = camporee?.starts_on ? new Date(`${camporee.starts_on}T00:00:00`) : null;
-  const end = camporee?.ends_on ? new Date(`${camporee.ends_on}T23:59:59`) : null;
-  const eventMode = Boolean(start && end && now >= start && now <= end);
+  const today = dateKeyInTimeZone(now,camporee.time_zone);
+  const eventMode = Boolean(camporee.starts_on <= today && today <= camporee.ends_on);
 
   return <main className="app panel-page program-page">
-    <header className="polymet-panel-heading"><h1>Programa</h1><p>{new Date().toLocaleDateString("es-DO",{weekday:"long",day:"numeric",month:"long"})}</p></header>
-    {camporee ? <ProgramManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []} eventMode={eventMode}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    <header className="polymet-panel-heading"><h1>Programa</h1><p>{new Date().toLocaleDateString("es-DO",{weekday:"long",day:"numeric",month:"long",timeZone:camporee.time_zone})}</p></header>
+    {camporee ? <ProgramManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []} eventMode={eventMode} timeZone={camporee.time_zone}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;
 }

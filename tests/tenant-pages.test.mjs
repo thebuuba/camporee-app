@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { resolveCamporeeContext, tenantPath } from '../lib/tenant-context.ts';
 import { songsFromDocuments } from '../lib/songs.ts';
 import {signedAvatar} from '../lib/avatars.ts';
-import { dateKeyInTimeZone, dateOnlyDistance } from '../lib/date.ts';
+import { dateKeyInTimeZone, dateOnlyDistance, isEventOngoing } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 import { formatCamporeeMoney,formatCamporeeDate,camporeeMidnightEpoch } from '../lib/camporee-locale.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
@@ -35,7 +35,7 @@ async function page(supabase,path='app/tasks/page.tsx') {
   '@/lib/songs':{songsFromDocuments},
   '@/lib/avatars':{signedAvatar},
   './avatars':{signedAvatar},
-  '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance},
+  '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance,isEventOngoing},
   '@/lib/tenant-context':{tenantPath},
   '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
   '@/lib/camporee-locale':{formatCamporeeMoney,formatCamporeeDate,camporeeMidnightEpoch},

@@ -1,6 +1,6 @@
 import type { CamporeeContext } from "@/lib/tenant-context";
 import { signedAvatar } from './avatars';
-import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
+import { dateKeyInTimeZone, dateOnlyDistance, isEventOngoing } from "@/lib/date";
 import { camporeePhase, preparationProgress } from "@/lib/camporee-preparation";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -54,7 +54,7 @@ export async function loadHomeData(context: CamporeeContext) {
   const todayTasks = pendingToday.slice(0, 3);
   const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at, camporee.time_zone) === todayKey).length;
   const nowMs = now.getTime();
-  const currentEvent = events.find((event) => { const eventStart = new Date(event.starts_at).getTime(); const eventEnd = event.ends_at ? new Date(event.ends_at).getTime() : eventStart + 60 * 60 * 1000; return nowMs >= eventStart && nowMs <= eventEnd; }) ?? null;
+  const currentEvent = events.find((event) => isEventOngoing(event,nowMs)) ?? null;
   const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
 
   return {

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import webpush from "npm:web-push@3.6.7";
 
 import { messageFor, editorResponsibilities } from "./messages.ts";
+import { sendScheduleReminders } from "./schedule.ts";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,11 +31,14 @@ function milestoneFor(daysLeft: number) {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method !== 'POST') return new Response('Method not allowed', {status: 405});
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
     const suppliedSecret = req.headers.get("x-cron-secret") ?? "";
     const { data: secretRow } = await supabase.from("system_cron_secrets").select("secret").eq("key", "camporee_reminders").maybeSingle();
     if (!secretRow?.secret || suppliedSecret !== secretRow.secret) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+    const body = await req.json().catch(() => ({}));
+    if (body?.action === 'schedule') return new Response(JSON.stringify(await sendScheduleReminders(supabase, webpush)), {headers: jsonHeaders});
 
     const { data: camporees, error: camporeeError } = await supabase.from("camporees")
       .select("id,organization_id,name,starts_on,status,time_zone").neq("status", "archived");

@@ -31,3 +31,27 @@ export function camporeeMidnightEpoch(date: string, timeZone = 'America/Santo_Do
   }
   return instant;
 }
+
+export function camporeeDateTimeInput(value: string | null | undefined, timeZone: string): string {
+  if (!value) return '';
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23',
+  }).formatToParts(new Date(value)).map(part => [part.type,part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export function camporeeDateTimeIso(value: string, timeZone: string): string | null {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error('Fecha u hora inválida.');
+  const target = Date.parse(`${value}:00Z`);
+  let instant = target;
+  for (let i=0;i<3;i++) {
+    const local = camporeeDateTimeInput(new Date(instant).toISOString(),timeZone);
+    const adjustment = target-Date.parse(`${local}:00Z`);
+    instant += adjustment;
+    if (!adjustment) break;
+  }
+  const result = new Date(instant).toISOString();
+  if (camporeeDateTimeInput(result,timeZone) !== value) throw new Error('Esa hora no existe en la zona horaria del camporee.');
+  return result;
+}
