@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as dates from '../lib/date.ts';
 import * as locale from '../lib/camporee-locale.ts';
+import {tenantPath} from '../lib/tenant-context.ts';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
@@ -30,7 +31,7 @@ async function render(path,props){
     'react/jsx-runtime':{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})},
     react:{useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useMemo:fn=>fn(),useEffect(){}},
     'next/navigation':{useRouter:()=>({})},'@/lib/supabase/client':{createClient:()=>({})},
-    '@/lib/date':dates,'@/lib/camporee-locale':locale,
+    '@/lib/date':dates,'@/lib/camporee-locale':locale,'@/lib/tenant-context':{tenantPath},
   };
   const module={exports:{}};
   const FixedDate=class extends Date{constructor(value){super(value??'2026-10-12T05:00:00Z');}static now(){return Date.parse('2026-10-12T05:00:00Z');}};
@@ -39,8 +40,8 @@ async function render(path,props){
 }
 test('preparation homepage still shows the current meeting',async()=>{
   const output=await render('app/home-dashboard.tsx',{
-    userId:'user',firstName:'Ana',avatarUrl:null,
-    camporee:{id:'camp',name:'Camporee',currency:'DOP',time_zone:'America/Santo_Domingo'},phase:'before',
+    organizationId:'50000000-0000-4000-8000-000000000001',userId:'user',firstName:'Ana',avatarUrl:null,
+    camporee:{id:'60000000-0000-4000-8000-000000000001',name:'Camporee',currency:'DOP',time_zone:'America/Santo_Domingo'},phase:'before',
     currentEvent:{id:'meeting',title:'Reunión directiva',starts_at:'2026-10-11T22:00:00Z'},nextEvent:null,preparation:{},
   });
   assert.match(output,/Reunión directiva/);assert.match(output,/En curso/);
