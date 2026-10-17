@@ -7,7 +7,7 @@ import ListDetailManager from './list-detail-manager';
 
 type ListPageParams = Promise<Partial<TenantIds> & { listId: string }>;
 
-export default async function ListDetailPage({ params }: { params: ListPageParams }) {
+export default async function ListDetailPage({ params, searchParams }: { params: ListPageParams; searchParams?: Promise<{ from?: string }> }) {
   const ids = await params;
   if (!isTenantId(ids.listId)) notFound();
   const context = await requireCamporeeContext(params, '/more/lists/' + ids.listId);
@@ -25,7 +25,8 @@ export default async function ListDetailPage({ params }: { params: ListPageParam
     .eq('list_id', list.id).order('sort_order', { ascending: true });
   if (itemsError) throw itemsError;
 
-  const backHref = tenantPath(context, '/more/lists');
+  const fromHome = (await searchParams)?.from === 'home';
+  const backHref = tenantPath(context, fromHome ? '/more/lists?from=home' : '/more/lists');
   return <main className="app panel-page polymet-panel polymet-list-detail-page">
     <header className="subpage-top">
       <Link href="/more/lists" className="back-btn" aria-label="Volver a listas"><ChevronLeft size={21} /></Link>

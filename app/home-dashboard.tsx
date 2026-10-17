@@ -6,14 +6,21 @@ import NotificationControls from "./components/notification-controls";
 import PreparationCard from "./components/preparation-card";
 import ClosingCard from "./components/closing-card";
 import {formatCamporeeMoney} from '@/lib/camporee-locale';
+import {tenantPath} from '@/lib/tenant-context';
 
 type EventRow = { id:string; title:string; starts_at:string; ends_at:string|null; location:string|null };
 type TaskRow = { id:string; title:string; priority:string; due_at:string|null };
 type UrgentAnnouncement = { id:string; title:string; message:string; created_at:string };
 
-export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, days, progress, pendingTasks, completedTasks, totalTasks, todayPendingTasks, participants, presentParticipants, totalExpenses, totalIncome, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement, preparation, initialNow }: {
-  userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string;starts_on:string;ends_on:string;currency:string;time_zone:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null; preparation:{completed:number;total:number;percent:number}; initialNow:number;
+export default function HomeDashboard({ organizationId, userId, firstName, avatarUrl, camporee, days, progress, pendingTasks, completedTasks, totalTasks, todayPendingTasks, participants, presentParticipants, totalExpenses, totalIncome, phase, dayNumber, totalDays, programCount, todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement, preparation, initialNow }: {
+  organizationId:string; userId:string; firstName:string; avatarUrl:string|null; camporee:{id:string;name:string;location:string|null;status:string;starts_on:string;ends_on:string;currency:string;time_zone:string}; days:number; progress:number; pendingTasks:number; completedTasks:number; totalTasks:number; todayPendingTasks:number; participants:number; presentParticipants:number; totalExpenses:number; totalIncome:number; phase:"before"|"during"|"after"; dayNumber:number|null; totalDays:number; programCount:number; todayProgramCount:number; currentEvent:EventRow|null; nextEvent:EventRow|null; todayTasks:TaskRow[]; urgentAnnouncement:UrgentAnnouncement|null; preparation:{completed:number;total:number;percent:number}; initialNow:number;
 }) {
+  // Full-document links keep the most-used home shortcuts tappable even if
+  // client-side route transitions are delayed in the installed iOS PWA.
+  const shortcutHref = (href:string) => tenantPath(
+    { organizationId, camporeeId:camporee.id },
+    href + (href.startsWith('/more/') ? '?from=home' : '')
+  );
   const active = phase === "during";
   const after = phase === "after";
   const formatMoney = (value:number) => formatCamporeeMoney(value,camporee.currency);
@@ -64,10 +71,10 @@ export default function HomeDashboard({ userId, firstName, avatarUrl, camporee, 
     </section>}
     {!after && !active && currentEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>En curso · {formatTime(currentEvent.starts_at)}</small><strong>{currentEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
     {!after && nextEvent ? <Link href="/program" className="polymet-next"><span className="polymet-next-icon"><Play size={18}/></span><span><small>Próxima · {formatTime(nextEvent.starts_at)}</small><strong>{nextEvent.title}</strong></span><ChevronRight size={21}/></Link> : null}
-    {active && urgentAnnouncement ? <Link href="/more/announcements" className="polymet-urgent"><span className="polymet-urgent-icon"><AlertTriangle size={22}/></span><span><small>AVISO URGENTE</small><strong>{urgentAnnouncement.title}</strong><span>{urgentAnnouncement.message}</span></span></Link> : null}
+    {active && urgentAnnouncement ? <Link href="/more/announcements?from=home" className="polymet-urgent"><span className="polymet-urgent-icon"><AlertTriangle size={22}/></span><span><small>AVISO URGENTE</small><strong>{urgentAnnouncement.title}</strong><span>{urgentAnnouncement.message}</span></span></Link> : null}
 
-    <section className="polymet-quick">{quick.map(({href,label,icon:Icon,tone}) => <Link href={href} key={label}><span className={`polymet-quick-icon tone-${tone}`}><Icon size={22}/></span><small>{label}</small></Link>)}</section>
-    <section className="polymet-summary">{summary.map(({href,label,value,detail,icon:Icon,tone,percent}) => <Link href={href} className="polymet-summary-card" key={label}><div><span className={`polymet-summary-icon tone-${tone}`}><Icon size={18}/></span><small>{label}</small></div><strong>{value}</strong><span>{detail}</span><div className="polymet-bar"><i className={`bar-${tone}`} style={{width:`${percent}%`}}/></div></Link>)}</section>
+    <section className="polymet-quick">{quick.map(({href,label,icon:Icon,tone}) => <a href={shortcutHref(href)} key={label}><span className={`polymet-quick-icon tone-${tone}`}><Icon size={22}/></span><small>{label}</small></a>)}</section>
+    <section className="polymet-summary">{summary.map(({href,label,value,detail,icon:Icon,tone,percent}) => <a href={shortcutHref(href)} className="polymet-summary-card" key={label}><div><span className={`polymet-summary-icon tone-${tone}`}><Icon size={18}/></span><small>{label}</small></div><strong>{value}</strong><span>{detail}</span><div className="polymet-bar"><i className={`bar-${tone}`} style={{width:`${percent}%`}}/></div></a>)}</section>
     <BottomNav />
   </main>;
 }

@@ -45,7 +45,7 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
   const Screen = listId ? null : screens[panel as keyof typeof screens];
   const query=Object.fromEntries(Object.entries(await searchParams).map(([key,value])=>[key,Array.isArray(value)?value[0]??'':value??'']));
   const content = listId
-    ? <ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})}/>
+    ? <ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})} searchParams={Promise.resolve(query)}/>
     : Screen ? <Screen params={params} searchParams={Promise.resolve(query)}/> : notFound();
   return <div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
     {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
