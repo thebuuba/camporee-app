@@ -15,6 +15,7 @@ const sampleLists=Array.from({length:6},(_,index)=>({
 
 function all(node,predicate,result=[]) {
  if(!node||typeof node!=='object')return result;
+ if(Array.isArray(node)){for(const child of node)all(child,predicate,result);return result;}
  if(predicate(node))result.push(node);
  const children=node.props?.children;
  for(const child of Array.isArray(children)?children:[children])all(child,predicate,result);
