@@ -415,6 +415,21 @@ test('bundled rollback preserves the document id and restores local audio', asyn
   assert.equal(r2.objects.has(objectKey), true);
 });
 
+test('bundled rollback can reconcile an insert whose response was lost', async () => {
+  const { store } = await tempStore();
+  const repo = createRepo();
+  const originalInsert = repo.insertDocument.bind(repo);
+  repo.insertDocument = async payload => { await originalInsert(payload); throw Error('response lost'); };
+  const r2 = createR2();
+  await runBundledMigration({ repo, r2, manifests: store, readFile: async () => mp3(), files: [BUNDLED_SONGS[0]], camporeeId: CAMP, createdBy: USER, accountId: ACCOUNT, bucket: BUCKET, dryRun: false });
+  const [name] = await store.list();
+  const recovered = await runRollback({ repo, manifests: store, manifestPath: path.join(store.dir, name), apply: true });
+  assert.equal(recovered.totals.rolledBack, 1);
+  assert.equal(repo.state.length, 1);
+  assert.equal(parseR2Audio(repo.state[0].notes), null);
+  assert.equal(repo.state[0].external_url, '/audio/maranata.mp3');
+});
+
 // ---------- SSRF and source scoping ----------
 
 test('only validated storage paths are downloaded; external_url is never fetched', async () => {

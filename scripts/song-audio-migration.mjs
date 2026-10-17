@@ -320,7 +320,7 @@ export async function runBundledMigration({
 
   for (const file of files) {
     const entry = {
-      id: null, camporeeId, title: file.title, source: 'bundled',
+      id: randomUUID(), camporeeId, title: file.title, source: 'bundled',
       legacyFilePath: null, legacyExternalUrl: null, originalNotes: null,
       key: null, sha256: null, size: null, contentType: CONTENT_TYPE,
       writtenNotes: null, status: 'planned', fromBundled: true, protected: false,
@@ -356,6 +356,7 @@ export async function runBundledMigration({
       await persist();
 
       const inserted = await repo.insertDocument({
+        id: entry.id,
         camporee_id: camporeeId,
         title: file.title,
         document_type: `song:${file.category}`,
@@ -364,7 +365,7 @@ export async function runBundledMigration({
         external_url: file.path.replace(/^public/, ''),
         created_by: createdBy,
       });
-      entry.id = inserted?.id ?? null;
+      entry.id = inserted?.id ?? entry.id;
       entry.status = 'applied';
       entry.appliedAt = now().toISOString();
       totals.applied++;

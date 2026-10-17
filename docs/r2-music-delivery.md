@@ -51,7 +51,7 @@ Baseline: 239 pruebas pasaban antes de la implementación. Los resultados finale
 
 | Comprobación final | Resultado |
 |---|---|
-| `npm test` | 283 pruebas aprobadas, 0 fallos |
+| `npm test` | 284 pruebas aprobadas, 0 fallos |
 | `npm run check` | Aprobado |
 | `npm run build` / compilación Next.js | Aprobada |
 | `npx opennextjs-cloudflare build` | Worker generado correctamente |
