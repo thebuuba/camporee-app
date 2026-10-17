@@ -2,14 +2,25 @@
 
 import BottomSheet from '@/app/components/bottom-sheet';
 import Link from '@/app/components/tenant-link';
+import { useLinkStatus } from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Backpack, ChevronRight, Hammer, ListChecks, Plus, ShoppingCart, X } from 'lucide-react';
+import { Backpack, ChevronRight, Hammer, ListChecks, LoaderCircle, Plus, ShoppingCart, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
 type ListItem = { id: string; label: string; is_done: boolean };
 type ListRow = { id: string; title: string; category: string | null; list_items: ListItem[] };
+
+// Follow the real Next.js transition without arbitrary timers or a stuck busy state.
+function ListCardStatus() {
+  const { pending } = useLinkStatus();
+  return <span className={'pm-list-card-status' + (pending ? ' is-opening' : '')}
+    role={pending ? 'status' : undefined} aria-label={pending ? 'Abriendo lista' : undefined}>
+    {pending ? <LoaderCircle size={18} className="pm-list-link-spinner" aria-hidden="true" />
+      : <ChevronRight size={16} aria-hidden="true" />}
+  </span>;
+}
 
 export default function ListManager({ camporeeId, canEdit, initialLists }: {
   camporeeId: string; canEdit: boolean; initialLists: ListRow[];
@@ -68,18 +79,18 @@ export default function ListManager({ camporeeId, canEdit, initialLists }: {
     </div>
 
     <section className="pm-list-cards" aria-label="Listas del camporee">
-      {visibleLists.length ? visibleLists.map(list => {
+      {visibleLists.length ? visibleLists.map((list, index) => {
         const done = (list.list_items || []).filter(item => item.is_done).length;
         const total = list.list_items?.length || 0;
         return <article className="pm-list-card" key={list.id}>
-          <Link href={'/more/lists/' + list.id} className="pm-list-card-main" aria-label={'Abrir lista ' + list.title}>
+          <Link href={'/more/lists/' + list.id} prefetch={index < 4} className="pm-list-card-main" aria-label={'Abrir lista ' + list.title}>
             <span className="pm-icon">{categoryIcon(list.category)}</span>
             <span className="pm-list-copy">
               <strong>{list.title}</strong>
               <small>{list.category || 'Lista'} · {done}/{total} marcados</small>
               <span className="pm-progress"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></span>
             </span>
-            <ChevronRight size={16} aria-hidden="true" />
+            <ListCardStatus />
           </Link>
         </article>;
       }) : <div className="empty compact">No hay listas que coincidan con esta búsqueda.</div>}

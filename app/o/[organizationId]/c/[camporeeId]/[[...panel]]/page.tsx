@@ -1,4 +1,5 @@
 import {notFound,redirect} from 'next/navigation';
+import {Suspense} from 'react';
 import {requireCamporeeContext} from '@/lib/tenant-server';
 import HomeRoute from '@/app/home-route';
 import TasksPage from '@/app/tasks/page';
@@ -15,6 +16,7 @@ import EmergencyPage from '@/app/more/emergency/page';
 import InventoryPage from '@/app/more/inventory/page';
 import ListsPage from '@/app/more/lists/page';
 import ListDetailPage from '@/app/more/lists/[listId]/page';
+import ListDetailLoading from '@/app/more/lists/[listId]/list-detail-loading';
 import MealsPage from '@/app/more/meals/page';
 import NotesPage from '@/app/more/notes/page';
 import ParticipantsPage from '@/app/more/participants/page';
@@ -45,7 +47,7 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
   const Screen = listId ? null : screens[panel as keyof typeof screens];
   const query=Object.fromEntries(Object.entries(await searchParams).map(([key,value])=>[key,Array.isArray(value)?value[0]??'':value??'']));
   const content = listId
-    ? <ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})} searchParams={Promise.resolve(query)}/>
+    ? <Suspense key={listId} fallback={<ListDetailLoading/>}><ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})} searchParams={Promise.resolve(query)}/></Suspense>
     : Screen ? <Screen params={params} searchParams={Promise.resolve(query)}/> : notFound();
   return <div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
     {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}

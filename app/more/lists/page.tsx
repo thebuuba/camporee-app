@@ -11,5 +11,5 @@ export default async function ListsPage({ params }: { params?: TenantPageParams 
   const contentError = listsError;
   if (contentError) throw contentError;
 
-  return <main className="app panel-page polymet-panel polymet-lists"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Listas</h1><small>Compras, equipaje y materiales</small></div></header>{camporee ? <ListManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
+  return <main key="lists-index" className="app panel-page polymet-panel polymet-lists"><header className="subpage-top"><Link href="/more" className="back-btn" aria-label="Volver"><ChevronLeft size={21}/></Link><div><h1>Listas</h1><small>Compras, equipaje y materiales</small></div></header>{camporee ? <ListManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialLists={lists ?? []}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}</main>;
 }

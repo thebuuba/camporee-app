@@ -15,11 +15,16 @@ async function detailPage({ found = true, editable = true } = {}) {
     const query = { table, filters: [] };
     queries.push(query);
     const builder = {
-      select() { return this; },
+      select(fields) { query.fields = fields; return this; },
       eq(column, value) { query.filters.push([column, value]); return this; },
       order() { return this; },
       async maybeSingle() {
-        return { data: found ? { id: listId, title: 'Equipaje', category: 'Materiales' } : null, error: null };
+        return { data: found ? { id: listId, title: 'Equipaje', category: 'Materiales',
+          list_items: [
+            { id: 'item-2', label: 'Brújula', is_done: true, sort_order: 8 },
+            { id: 'item-1', label: 'Linterna', is_done: false, sort_order: 0 },
+          ]
+        } : null, error: null };
       },
       then(resolve, reject) {
         return Promise.resolve({ data: [{ id: 'item-1', label: 'Linterna', is_done: false }], error: null }).then(resolve, reject);
@@ -63,11 +68,11 @@ test('list detail only reads a list inside the active camporee, then its items',
   const tree = await render({ params: Promise.resolve({ listId, organizationId: org, camporeeId: camp }) });
   assert.equal(queries[0].table, 'lists');
   assert.deepEqual(Array.from(queries[0].filters, pair => Array.from(pair)), [['camporee_id', camp], ['id', listId]]);
-  assert.equal(queries[1].table, 'list_items');
-  assert.deepEqual(Array.from(queries[1].filters, pair => Array.from(pair)), [['list_id', listId]]);
+  assert.equal(queries.length, 1, 'items are fetched with their list in one request');
+  assert.match(queries[0].fields, /list_items\(id,label,quantity,unit,is_done,notes,sort_order\)/);
   const manager = tree.props.children[1];
   assert.equal(manager.props.canEdit, false);
-  assert.equal(manager.props.initialItems[0].label, 'Linterna');
+  assert.deepEqual(Array.from(manager.props.initialItems, item => item.label), ['Linterna', 'Brújula']);
 });
 test('missing or invalid list IDs render notFound instead of another camporee list', async () => {
   const missing = await detailPage({ found: false });

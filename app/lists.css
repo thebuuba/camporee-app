@@ -295,3 +295,111 @@
 @media (max-width: 355px) {
   .pm-list-add-two { grid-template-columns: 1fr; }
 }
+
+
+/* The tenant catch-all wraps each page; animate the lists' own content instead
+   of relying on .page-motion > main, which cannot match through that wrapper. */
+.polymet-lists > :is(.subpage-top,.pm-chips,.pm-list-search,.pm-list-cards),
+.polymet-list-detail-page > .subpage-top,
+.polymet-list-detail-page .pm-list-detail-summary,
+.polymet-list-detail-page .pm-list-detail-heading,
+.polymet-list-detail-page .pm-list-detail-items,
+.polymet-list-detail-page .pm-list-open-add,
+.polymet-list-detail-page .pm-list-add-form,
+.polymet-list-detail-page .pm-list-manage {
+  animation:pm-list-screen-enter 370ms cubic-bezier(.22,.8,.3,1) backwards !important;
+}
+.polymet-lists > .pm-chips,
+.polymet-list-detail-page .pm-list-detail-summary { animation-delay:35ms !important; }
+.polymet-lists > .pm-list-search,
+.polymet-list-detail-page .pm-list-detail-heading { animation-delay:70ms !important; }
+.polymet-lists > .pm-list-cards,
+.polymet-list-detail-page .pm-list-detail-items { animation-delay:110ms !important; }
+.polymet-list-detail-page :is(.pm-list-open-add,.pm-list-add-form,.pm-list-manage) {
+  animation-delay:145ms !important;
+}
+@keyframes pm-list-screen-enter {
+  0% { opacity:0; transform:translateY(13px) scale(.992); }
+  72% { opacity:1; transform:translateY(-2px) scale(1); }
+  100% { opacity:1; transform:none; }
+}
+/* Don't animate a transformed parent around the fixed create-list button. */
+.polymet-lists .pm-list-card-main {
+  position:relative;
+  touch-action:manipulation;
+  transition:transform 150ms ease, background-color 150ms ease;
+}
+.polymet-lists .pm-list-card-main:active { transform:scale(.986); }
+.pm-list-card-status {
+  width:22px;
+  height:26px;
+  flex:0 0 22px;
+  display:grid;
+  place-items:center;
+  color:#ae9e94;
+}
+.pm-list-card-status.is-opening { color:var(--pm-orange); }
+.pm-list-link-spinner { animation:pm-list-link-spin .75s linear infinite; }
+@keyframes pm-list-link-spin { to { transform:rotate(360deg); } }
+
+/* Streamed placeholder only appears if the protected list is still loading. */
+.pm-list-loading .pm-list-loading-title {
+  min-width:0;
+  width:100%;
+  display:grid;
+  gap:9px;
+}
+.pm-list-loading-line,
+.pm-list-loading-card {
+  display:block;
+  border-radius:999px;
+  background:linear-gradient(105deg,#eee5de 20%,#fff 45%,#eee5de 70%);
+  background-size:210% 100%;
+  animation:pm-list-loading-shimmer 1.2s ease-in-out infinite;
+}
+.pm-list-loading-heading { width:55%; height:22px; }
+.pm-list-loading-subtitle { width:78%; height:12px; }
+.pm-list-loading-summary {
+  display:grid;
+  gap:15px;
+  border-radius:25px;
+  padding:22px 19px;
+  min-height:145px;
+  background:var(--surface,#fff);
+  box-shadow:var(--pm-shadow);
+  margin:10px 0 27px;
+}
+.pm-list-loading-track { width:100%; height:8px; margin-top:auto; }
+.pm-list-loading-section { display:grid; gap:13px; }
+.pm-list-loading-section .pm-list-loading-heading { width:33%; margin:0 0 4px 4px; }
+.pm-list-loading-card { height:78px; border-radius:22px; }
+.pm-list-loading-text {
+  display:block;
+  margin:13px 0;
+  text-align:center;
+  color:var(--pm-muted);
+  font-size:12px;
+}
+@keyframes pm-list-loading-shimmer {
+  0% { background-position:130% 0; }
+  100% { background-position:-80% 0; }
+}
+:root:is([data-theme="dark"],[data-palette]:not([data-palette="original"])) .pm-list-loading-line,
+:root:is([data-theme="dark"],[data-palette]:not([data-palette="original"])) .pm-list-loading-card {
+  background-image:linear-gradient(105deg,var(--dark-surface-soft) 20%,var(--dark-line) 45%,var(--dark-surface-soft) 70%);
+}
+@media(prefers-reduced-motion:reduce) {
+  .polymet-lists > :is(.subpage-top,.pm-chips,.pm-list-search,.pm-list-cards),
+  .polymet-list-detail-page > .subpage-top,
+  .polymet-list-detail-page .pm-list-detail-summary,
+  .polymet-list-detail-page .pm-list-detail-heading,
+  .polymet-list-detail-page .pm-list-detail-items,
+  .polymet-list-detail-page .pm-list-open-add,
+  .polymet-list-detail-page .pm-list-add-form,
+  .polymet-list-detail-page .pm-list-manage,
+  .pm-list-link-spinner,
+  .pm-list-loading-line,
+  .pm-list-loading-card {
+    animation:none !important;
+  }
+}
