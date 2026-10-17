@@ -14,6 +14,7 @@ import DocumentsPage from '@/app/more/documents/page';
 import EmergencyPage from '@/app/more/emergency/page';
 import InventoryPage from '@/app/more/inventory/page';
 import ListsPage from '@/app/more/lists/page';
+import ListDetailPage from '@/app/more/lists/[listId]/page';
 import MealsPage from '@/app/more/meals/page';
 import NotesPage from '@/app/more/notes/page';
 import ParticipantsPage from '@/app/more/participants/page';
@@ -39,10 +40,13 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
   if(current && current.id!==context.camporeeId)redirect(`/o/${context.organizationId}/c/${current.id}`);
   const panel=(ids.panel??[]).join('/');
   if(panel==='more/users')redirect(`/o/${ids.organizationId}/members`);
-  if(!Object.hasOwn(screens,panel))notFound();
-  const Screen=screens[panel as keyof typeof screens];
+  const listId = panel.startsWith('more/lists/') && ids.panel?.length === 3 ? ids.panel[2] : null;
+  if(!listId && !Object.hasOwn(screens,panel))notFound();
+  const Screen = listId ? null : screens[panel as keyof typeof screens];
   const query=Object.fromEntries(Object.entries(await searchParams).map(([key,value])=>[key,Array.isArray(value)?value[0]??'':value??'']));
-  const content=<Screen params={params} searchParams={Promise.resolve(query)}/>;
+  const content = listId
+    ? <ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})}/>
+    : Screen ? <Screen params={params} searchParams={Promise.resolve(query)}/> : notFound();
   return <div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
     {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
   </div>;
