@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ListChecks, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ListChecks, Plus, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
@@ -16,6 +16,8 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
 }) {
   const [items, setItems] = useState(initialItems);
   const [showAdd, setShowAdd] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [draftLabel, setDraftLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [busyItems, setBusyItems] = useState<string[]>([]);
   const [deletingList, setDeletingList] = useState(false);
@@ -65,6 +67,7 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
       if (error || !data) { reportMutationError(error, 'No se pudo agregar el elemento.'); return; }
       setItems(current => [...current, data]);
       form.reset();
+      setDraftLabel('');
       labelInput.current?.focus();
       reportMutationSuccess('Elemento agregado.');
       router.refresh();
@@ -140,20 +143,41 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
 
     {canEdit ? <>
       {showAdd ? <form className="pm-list-add-form" onSubmit={event => { event.preventDefault(); void addItem(event.currentTarget); }}>
-        <div className="pm-list-add-head"><strong>Nuevo elemento</strong>
-          <button type="button" onClick={() => setShowAdd(false)} aria-label="Cerrar formulario" disabled={adding}><X size={19} /></button>
+        <div className="pm-list-add-head">
+          <strong>Nuevo elemento</strong>
+          <button type="button" onClick={() => { setShowAdd(false); setShowDetails(false); setDraftLabel(''); }}
+            aria-label="Cancelar nuevo elemento" disabled={adding}><X size={17} /></button>
         </div>
-        <label><span>Nombre <b>*</b></span><input name="label" ref={labelInput} autoFocus required maxLength={180} placeholder="¿Qué necesitas llevar o comprar?" /></label>
-        <div className="pm-list-add-two">
-          <label><span>Cantidad</span><input name="quantity" type="number" min="0" step="0.01" defaultValue="1" /></label>
-          <label><span>Unidad (opcional)</span><input name="unit" maxLength={60} placeholder="unidades, kg…" /></label>
+        <div className="pm-list-add-main">
+          <input name="label" ref={labelInput} autoFocus required type="text"
+            maxLength={180} autoComplete="off" enterKeyHint="done"
+            aria-label="Nombre del elemento" placeholder="Ej. Ajo, linterna, agua…"
+            value={draftLabel} onChange={event => setDraftLabel(event.target.value)} />
+          <button type="submit" className="pm-list-add-submit" disabled={!draftLabel.trim() || adding || deletingList}>
+            {adding ? 'Guardando…' : <><Plus size={18} /> Añadir</>}
+          </button>
         </div>
-        <label><span>Notas (opcional)</span><textarea name="notes" rows={2} placeholder="Detalles importantes" /></label>
-        <button type="submit" className="pm-list-add-submit" disabled={adding}>{adding ? 'Guardando…' : <><Plus size={19} /> Guardar elemento</>}</button>
-      </form> : <button type="button" className="pm-list-open-add" onClick={() => setShowAdd(true)} disabled={deletingList}><Plus size={20} /> Agregar elemento</button>}
-      <button type="button" className="pm-list-remove-list" disabled={deletingList} onClick={() => void removeList()}>
-        <Trash2 size={17} /> {deletingList ? 'Eliminando lista…' : 'Eliminar lista'}
-      </button>
+        <button type="button" className="pm-list-add-options" aria-expanded={showDetails}
+          aria-controls={showDetails ? 'pm-list-optional-' + listId : undefined}
+          disabled={adding} onClick={() => setShowDetails(current => !current)}>
+          <ChevronDown size={16} className={showDetails ? 'is-open' : ''} />
+          {showDetails ? 'Ocultar detalles' : 'Cantidad, unidad y notas (opcional)'}
+        </button>
+        {showDetails ? <div className="pm-list-add-more" id={'pm-list-optional-' + listId}>
+          <div className="pm-list-add-two">
+            <label><span>Cantidad</span><input name="quantity" type="number" min="0" step="0.01" defaultValue="1" /></label>
+            <label><span>Unidad</span><input name="unit" maxLength={60} placeholder="Ej. libra, unidad…" /></label>
+          </div>
+          <label><span>Notas</span><textarea name="notes" rows={2} placeholder="Detalles adicionales" /></label>
+        </div> : null}
+      </form> : <button type="button" className="pm-list-open-add" onClick={() => setShowAdd(true)}
+        disabled={deletingList}><Plus size={20} /> Agregar elemento</button>}
+      <details className="pm-list-manage">
+        <summary><ChevronDown size={16} /> Opciones de la lista</summary>
+        <button type="button" className="pm-list-remove-list" disabled={deletingList} onClick={() => void removeList()}>
+          <Trash2 size={17} /> {deletingList ? 'Eliminando lista…' : 'Eliminar esta lista'}
+        </button>
+      </details>
     </> : <p className="pm-list-readonly-note">Puedes consultar esta lista, pero no tienes permisos para modificarla.</p>}
   </div>;
 }
