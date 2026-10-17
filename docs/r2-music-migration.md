@@ -79,7 +79,7 @@ without any environment variable.
 ## Commands
 
 Dry-run is the default for every command; nothing uploads, updates the database
-or deletes unless `--apply` is present.
+unless `--apply` is present. CLI cleanup is always inventory-only and rejects `--apply`.
 
 ```bash
 # Inventory only (no downloads/uploads) — safe by default.
@@ -96,8 +96,8 @@ node scripts/migrate-song-audio.mjs --include-bundled \
 # Restore documents exactly as they were before a manifest's migration.
 node scripts/migrate-song-audio.mjs --rollback <manifest> [--apply]
 
-# Delete verified orphan objects recorded by our own manifests.
-node scripts/migrate-song-audio.mjs --cleanup [--apply] [--grace-hours 48]
+# Inventory possible orphan objects recorded by our own manifests.
+node scripts/migrate-song-audio.mjs --cleanup [--grace-hours 48]
 ```
 
 Other flags: `--manifest-dir <dir>` (default `.music-migration`, git-ignored),
@@ -166,8 +166,7 @@ this migrator:
 - It skips keys still referenced by any `camporee_documents` row's
   `notes.audio`, keys belonging to rollback-protected entries, and objects newer
   than the grace period (minimum 48 h).
-- It deletes only the exact object key from a manifest — never a prefix and
-  never the bucket.
+- It reports exact object keys from manifests; it never deletes objects.
 
 CLI cleanup inventories candidates only. Physical deletion uses the authenticated native R2 cleanup endpoint, which can verify actual upload timestamps. A manifest age alone cannot safely establish a 48-hour grace period after a later re-upload.
 

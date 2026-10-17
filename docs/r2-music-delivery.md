@@ -47,7 +47,7 @@ No se borran MP3 de Supabase ni de `public/audio`; su eliminación exige una aut
 
 ## Validación y límites
 
-Baseline: 239 pruebas pasaban antes de la implementación. Los resultados finales se registran al terminar la integración. El Worker local respondió HTTP 401 sin sesión; Wrangler local confirmó escritura/lectura del binding. El cuerpo SQL de la RPC fue validado con `EXPLAIN` contra el esquema actual sin ejecutar actualizaciones. Las pruebas pgTAP están preparadas, pero no se pudieron ejecutar porque Docker no está iniciado.
+Baseline: 239 pruebas pasaban antes de la implementación. Los resultados finales se registran al terminar la integración. El Worker local respondió HTTP 401 sin sesión; Wrangler local confirmó escritura/lectura del binding. El cuerpo SQL de la RPC fue validado con `EXPLAIN` contra el esquema actual sin ejecutar actualizaciones. Las pruebas pgTAP/RLS aprobaron en GitHub Actions; la ejecución local requiere iniciar Docker.
 
 | Comprobación final | Resultado |
 |---|---|
@@ -57,7 +57,7 @@ Baseline: 239 pruebas pasaban antes de la implementación. Los resultados finale
 | `npx opennextjs-cloudflare build` | Worker generado correctamente |
 | Range HTTP y fuentes MP3 actuales | 200/206/304/416, sufijos, rangos abiertos, If-Range y HEAD verificados en pruebas |
 | Worker y R2 locales | 401 sin sesión; objeto de prueba escrito y leído exclusivamente en almacenamiento local |
-| `npm run test:db` | Bloqueado localmente: Docker no está iniciado; CI incluye los casos de RPC/RLS |
+| `npm run test:db` / CI `database` | Aprobado en GitHub Actions, incluidos los casos RPC/RLS; Docker local no iniciado |
 | iOS/Android físicos y migración remota | Pendientes de dispositivos y credenciales de la cuenta correcta |
 
 La revisión con DeepSeek motivó la RPC para letras largas, la recuperación de actualizaciones confirmadas sin acuse, la protección de referencias incompletas y el uso de fechas reales R2 para la limpieza. Reemplazar el audio intencionalmente cambia su identidad de descarga; migrar los mismos bytes conserva la identidad anterior.
@@ -65,6 +65,10 @@ La revisión con DeepSeek motivó la RPC para letras largas, la recuperación de
 La validación automatizada no equivale a una prueba física en iPhone o Android. Antes de activar en producción, comprobar en Safari iOS y Chrome Android: reproducción desde toque, pausa, bloqueo de pantalla, cambio de canción, seek, descarga, modo avión y cambio de cuenta. También verificar 200/206/416 y HEAD con una sesión del mismo camporee, y denegación con sesión ajena. No publicar claves ni URLs de sesión al registrar resultados.
 
 El límite de subida se conserva en 15 MiB. Las fuentes antiguas de otros formatos siguen siendo reproducibles; los nuevos archivos que se almacenan en R2 son MP3 validados. Subir un archivo y confirmar la fila en Supabase son operaciones separadas: los fallos se compensan cuando es seguro y los huérfanos se reconcilian de manera conservadora. La entrega depende de la red y de los permisos del navegador para reproducción/almacenamiento local.
+
+## Pull Request y activación
+
+[PR #2](https://github.com/thebuuba/camporee-app/pull/2), en borrador y sin fusionar. Los checks `verify`, `database` y Cloudflare Workers Builds aprobaron la implementación en `536e685`. La automatización ejecuta `wrangler versions upload`: genera una versión de preview y no promociona producción. Antes de activar, aplicar la migración SQL, completar las comprobaciones móviles y ejecutar el inventario/migración con credenciales de la cuenta correcta. No se migraron ni eliminaron MP3 originales.
 
 ## Costos
 
