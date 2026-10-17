@@ -60,7 +60,7 @@ async function manager(pending=false) {
 
 test('visible list cards prefetch only the first four details, preventing a request storm',async()=>{
  const tree=await manager();
- const links=all(tree,node=>node.type==='tenant-link' && node.props?.className==='pm-list-card-main');
+ const links=all(tree,node=>node.props?.className==='pm-list-card-main' && typeof node.props.href==='string');
  assert.equal(links.length,6);
  assert.deepEqual(Array.from(links,link=>link.props.prefetch),[true,true,true,true,false,false]);
  assert.equal(links[0].props.href,'/more/lists/'+sampleLists[0].id);
@@ -69,7 +69,7 @@ test('visible list cards prefetch only the first four details, preventing a requ
 test('the chevron becomes an accessible loading spinner during actual route transitions',async()=>{
  for(const pending of [false,true]){
   const tree=await manager(pending);
-  const link=all(tree,node=>node.type==='tenant-link' && node.props?.className==='pm-list-card-main')[0];
+  const link=all(tree,node=>node.props?.className==='pm-list-card-main' && typeof node.props.href==='string')[0];
   const status=all(link,node=>typeof node.type==='function')[0]?.type();
   assert.ok(status);
   assert.equal(status.props.role,pending?'status':undefined);
