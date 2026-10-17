@@ -70,6 +70,13 @@ function memoryIndexedDB({ failWrite = false, failAfterSuccess = false, failOpen
 const song = { id: 'one', title: 'Marcha', category: 'club', lyrics: 'Letra', chords: 'Do', audioUrl: 'https://example.com/audio.mp3', stored: true };
 async function library() { return import('../lib/song-downloads.ts'); }
 
+test('la identidad de descarga prefiere audioSourceKey para conservar las migradas a R2', async () => {
+  const { songSourceKey } = await library();
+  assert.equal(songSourceKey({ audioSourceKey: 'club/marcha.mp3', filePath: 'r2/cancion.mp3', audioUrl: '/api/music/x' }), 'club/marcha.mp3');
+  assert.equal(songSourceKey({ filePath: 'club/marcha.mp3', audioUrl: 'https://example.com/audio.mp3' }), 'club/marcha.mp3');
+  assert.equal(songSourceKey({ audioUrl: 'https://example.com/audio.mp3' }), 'https://example.com/audio.mp3');
+});
+
 test('descargas conservan audio y metadatos, reemplazan la misma fuente y aíslan la cuenta y camporee', async t => {
   const db = memoryIndexedDB(); t.mock.property(globalThis, 'indexedDB', db);
   const { saveDownloadedSong, listDownloadedSongs, removeDownloadedSong, songSourceKey } = await library();

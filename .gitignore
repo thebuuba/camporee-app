@@ -9,3 +9,7 @@ out
 npm-debug.log*
 *.tsbuildinfo
 supabase/.temp/
+.dev.vars
+.dev.vars.*
+.music-migration/
+.open-next/

@@ -218,4 +218,31 @@ select is((select count(*) from net.http_request_queue
  where url like '%/admin-signup-alert'
  and convert_from(body,'UTF8')::jsonb->>'userId'='10000000-0000-4000-8000-000000000008'),0::bigint,
  'automatic token enrollment does not queue a pending request alert');
+
+-- R2 song compare-and-swap uses request bodies and retains existing RLS.
+select ok(not has_function_privilege('anon','public.compare_and_update_song_document(uuid,uuid,jsonb,jsonb)','EXECUTE'),
+ 'anonymous cannot execute song compare-and-swap');
+select ok(not (select prosecdef from pg_proc where oid='public.compare_and_update_song_document(uuid,uuid,jsonb,jsonb)'::regprocedure),
+ 'song compare-and-swap uses invoker permissions');
+insert into camporee_documents(id,camporee_id,title,document_type,notes,created_by) values
+ ('a7000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','R2 CAS fixture','song:club',
+  jsonb_build_object('lyrics',repeat('a',20000))::text,'10000000-0000-4000-8000-000000000001');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select is((select count(*) from compare_and_update_song_document(
+ '20000000-0000-4000-8000-000000000001','a7000000-0000-4000-8000-000000000001',
+ jsonb_build_object('notes',jsonb_build_object('lyrics',repeat('a',20000))::text),
+ jsonb_build_object('notes','{"lyrics":"after"}'::text))),1::bigint,'admin can compare long song lyrics in RPC body');
+select is((select count(*) from compare_and_update_song_document(
+ '20000000-0000-4000-8000-000000000001','a7000000-0000-4000-8000-000000000001',
+ jsonb_build_object('notes','outdated'),jsonb_build_object('notes','wrong'))),0::bigint,'stale song version is not overwritten');
+select is((select notes from camporee_documents where id='a7000000-0000-4000-8000-000000000001'),
+ '{"lyrics":"after"}','song contents survive a stale write');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
+select is((select count(*) from compare_and_update_song_document(
+ '20000000-0000-4000-8000-000000000001','a7000000-0000-4000-8000-000000000001',
+ jsonb_build_object('notes','{"lyrics":"after"}'::text),jsonb_build_object('notes','cross tenant'))),0::bigint,
+ 'another organization cannot update a song through RPC');
+reset role;
+
 select finish();
