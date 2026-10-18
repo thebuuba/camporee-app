@@ -21,14 +21,14 @@ async function player({records=[],supabase,fetchAudio,saveDownload,navigatorMock
   return {render,find,audio,effects,counts:()=>({pauseCalls,playCalls})};
 }
 
-test('cerrar el panel conserva el audio y la burbuja',async()=>{
+test('cerrar el panel conserva el audio y la barra compacta',async()=>{
   const view=await player();let tree=view.render();
   const api=tree.props.value;
   api.playSong({id:'maranata',title:'Maranata',audioUrl:'/audio/maranata.mp3'});
   tree=view.render();view.find(tree,node=>node.type==='sheet').props.onClose();tree=view.render();
   assert.equal(view.audio.paused,false);
   assert.equal(view.counts().pauseCalls,0);
-  assert.ok(view.find(tree,node=>node.type==='bubble'));
+  assert.ok(view.find(tree,node=>node.props?.className==='music-mini'));
 });
 
 test('cambiar de canción usa el mismo audio y quitar el reproductor lo detiene',async()=>{
@@ -39,7 +39,35 @@ test('cambiar de canción usa el mismo audio y quitar el reproductor lo detiene'
   assert.equal(view.audio.src,'/audio/maranata.mp3');assert.equal(view.audio.currentTime,0);
   api=view.render().props.value;api.stop();
   assert.equal(view.audio.paused,true);assert.equal(view.audio.src,'');
-  assert.equal(view.find(view.render(),node=>node.type==='bubble'),undefined);
+  assert.equal(view.find(view.render(),node=>node.props?.className==='music-mini'),undefined);
+});
+
+test('la barra compacta pausa sin abrir el panel y permite retomarlo',async()=>{
+  const view=await player();
+  view.render().props.value.playSong({id:'one',title:'Una',audioUrl:'/audio/maranata.mp3'});
+  let tree=view.render();view.find(tree,node=>node.type==='audio').props.onPlay();
+  tree=view.render();
+  const mini=view.find(tree,node=>node.props?.className==='music-mini');
+  view.find(mini,node=>node.props?.['aria-label']==='Pausar').props.onClick();
+  assert.equal(view.audio.paused,true);
+  assert.equal(view.find(view.render(),node=>node.type==='sheet').props.open,false);
+  view.find(tree,node=>node.type==='audio').props.onPause();
+  const next=view.find(view.render(),node=>node.props?.className==='music-mini');
+  view.find(next,node=>node.props?.['aria-label']==='Reproducir').props.onClick();
+  assert.equal(view.audio.paused,false);
+});
+
+test('la cola pausa la canción activa y el progreso cambia la posición del mismo audio',async()=>{
+  const view=await player();const song={id:'one',title:'Una',audioUrl:'/audio/maranata.mp3'};
+  view.render().props.value.setSongs([song],'user:event');
+  view.render().props.value.playSong(song);
+  let tree=view.render();const audio=view.find(tree,node=>node.type==='audio');
+  audio.props.onPlay();audio.props.onLoadedMetadata({currentTarget:view.audio});
+  tree=view.render();
+  const queue=view.find(tree,node=>node.props?.className==='music-playlist');
+  const row=queue.props.children[0];row.props.onClick();assert.equal(view.audio.paused,true);
+  view.find(tree,node=>node.props?.type==='range').props.onChange({target:{value:'80'}});
+  assert.equal(view.audio.currentTime,80);
 });
 
 test('una descarga guardada se reproduce desde Blob sin pedir audio a la red',async()=>{
