@@ -21,7 +21,7 @@ export default async function TasksPage({ searchParams, params }: { searchParams
 
   return <main className="app panel-page">
     <header className="polymet-panel-heading"><h1>Tareas</h1><p>{(tasks ?? []).filter((task) => task.status === "done").length} de {(tasks ?? []).length} completadas</p></header>
-    {camporee ? <TaskManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []} initialPhase={initialPhase}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
+    {camporee ? <TaskManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} userId={userId} canEdit={canEdit} initialTasks={tasks ?? []} areas={areas ?? []} assignees={profiles ?? []} initialPhase={initialPhase} timeZone={camporee.time_zone}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;
 }

@@ -36,7 +36,8 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
     if (permission === 'denied') { setState('denied'); setDismissed(false); return; }
     if (permission === 'default') {
       setState('default');
-      const hidden = sessionStorage.getItem('camporee-notification-prompt-dismissed') === '1';
+      let hidden = false;
+      try { hidden = sessionStorage.getItem('camporee-notification-prompt-dismissed') === '1'; } catch { /* The prompt still works when browser storage is blocked. */ }
       setDismissed(hidden);
       return;
     }
@@ -101,7 +102,7 @@ export default function NotificationControls({ camporeeId, userId, mode }: Props
   }
 
   function dismissPrompt() {
-    sessionStorage.setItem('camporee-notification-prompt-dismissed','1');
+    try { sessionStorage.setItem('camporee-notification-prompt-dismissed','1'); } catch { /* Dismiss for this render even without persistent storage. */ }
     setDismissed(true);
   }
 

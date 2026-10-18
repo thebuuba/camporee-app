@@ -5,6 +5,9 @@ out
 .env.local
 .env.*.local
 .wrangler
+.open-next/
+.dev.vars
+.dev.vars.*
 .DS_Store
 npm-debug.log*
 *.tsbuildinfo

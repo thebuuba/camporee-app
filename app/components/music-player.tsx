@@ -47,7 +47,8 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   useEffect(() => { if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) { stop(); scope.current = ''; saved.current = []; signedSources.current.clear(); updateDownloads([]); downloadJob.current?.abort(); setDownloading(''); } }, [pathname, stop]);
   useEffect(() => () => { generation.current++; releaseBlob(); downloadJob.current?.abort(); }, [releaseBlob]);
   function resume() {
-    setError(''); void audio.current?.play().catch((cause: unknown) => { if ((cause as { name?: string })?.name !== 'AbortError') { setBuffering(false); setError('No se pudo reproducir. Pulsa Reproducir otra vez o descarga el audio con conexión.'); } });
+    const request = generation.current;
+    setError(''); void audio.current?.play().catch((cause: unknown) => { if (generation.current === request && (cause as { name?: string })?.name !== 'AbortError') { setBuffering(false); setError('No se pudo reproducir. Pulsa Reproducir otra vez o descarga el audio con conexión.'); } });
   }
   const prepareSong = useCallback(async (song: Song) => {
     if (!song.filePath || saved.current.some(record => songSourceKey(record.song) === songSourceKey(song))) return;
@@ -115,7 +116,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   }, [current, playing, songs, downloads, stop]);
   return <MusicContext.Provider value={{ current, playing, downloads, downloading, playSong, prepareSong, showPlayer: () => setOpen(true), setSongs, stop, downloadSong, removeDownload }}>
     {children}
-    <audio ref={audio} data-camporee-player hidden preload="none" onPlay={() => setPlaying(true)} onPlaying={() => setBuffering(false)} onWaiting={() => setBuffering(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { setPlaying(false); const index = playlist.findIndex(song => current && songSourceKey(song) === songSourceKey(current)); if (index >= 0 && index < playlist.length - 1) playSong(playlist[index + 1]); }} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onError={() => { if (audio.current?.getAttribute('src')) { setPlaying(false); setBuffering(false); setError('No se pudo cargar el audio. Descárgalo con conexión para escucharlo sin internet.'); } }}/>
+    <audio ref={audio} data-camporee-player hidden preload="none" onPlay={() => setPlaying(true)} onPlaying={() => setBuffering(false)} onWaiting={() => setBuffering(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { setPlaying(false); const index = playlist.findIndex(song => current && songSourceKey(song) === songSourceKey(current)); if (index >= 0 && index < playlist.length - 1) playSong(playlist[index + 1]); }} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onError={() => { if (audio.current?.getAttribute('src')) { activeSource.current = ''; if (current?.filePath) signedSources.current.delete(current.filePath); setPlaying(false); setBuffering(false); setError('No se pudo cargar el audio. Descárgalo con conexión para escucharlo sin internet.'); } }}/>
     {current && !open ? <aside className="music-mini" aria-label="Reproductor compacto">
       <button type="button" className="music-mini-open" onClick={() => setOpen(true)} aria-label={`Abrir reproductor: ${current.title}`} aria-haspopup="dialog">
         <span className="music-mini-art" aria-hidden="true"><Music2 size={23}/></span>

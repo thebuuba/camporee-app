@@ -25,7 +25,7 @@ const STORE = 'requests';
 const REST_TABLES_WITH_UUID_ID = new Set([
   'camporees','areas','tasks','task_checklist_items','schedule_events','lists','list_items','meals','meal_ingredients','participants','expenses','income_entries','notes','inventory_items','emergency_contacts','camporee_documents','announcements','attendance_sessions','camporee_activities'
 ]);
-let flushing = false;
+let flushJob: Promise<{ remaining:number; failed:boolean }> | null = null;
 
 export function queuedResponseIsComplete(method: string, status: number) {
   // A 409 can be a real database conflict, not an idempotent duplicate.
@@ -102,39 +102,44 @@ async function deleteQueued(id: string) {
 }
 
 export async function flushOfflineWrites(authOverride?: string): Promise<{ remaining:number; failed:boolean }> {
-  if (typeof window === 'undefined' || !navigator.onLine || flushing) return { remaining: await getOfflineQueueCount(), failed:false };
+  while (flushJob) await flushJob;
+  const job = flushScopedWrites(authOverride);
+  flushJob = job;
+  try { return await job; }
+  finally { if (flushJob === job) flushJob = null; }
+}
+
+async function flushScopedWrites(authOverride?: string): Promise<{ remaining:number; failed:boolean }> {
+  if (typeof window === 'undefined' || typeof indexedDB === 'undefined' || !navigator.onLine) return { remaining: await getOfflineQueueCount(), failed:false };
   const auth = authOverride ?? '';
   const ownerId = subjectFromAccessToken(auth);
   const context = parseTenantPath(window.location.pathname);
   // Never replay from a logout screen, another account, a legacy unscoped
   // route or an unidentified session.
   if (!ownerId || !context) return { remaining:await getOfflineQueueCount(), failed:false };
-  flushing = true;
   let failed = false;
-  try {
-    const queued = await getQueued();
-    for (const item of queued) {
-      if (!item.ownerId || !item.organizationId || !item.camporeeId) {
-        // Keep pre-migration queue items for explicit/manual recovery.
-        failed = true;
-        continue;
-      }
-      if (item.ownerId !== ownerId || item.organizationId !== context.organizationId ||
-          item.camporeeId !== context.camporeeId) continue;
-      const headers = new Headers(item.headers);
-      headers.set('authorization', auth);
-      try {
-        const response = await fetch(item.url, { method:item.method, headers, body:item.body });
-        if (queuedResponseIsComplete(item.method, response.status)) await deleteQueued(item.id);
-        else { failed = true; break; }
-      } catch { failed = true; break; }
+  const queued = await getQueued();
+  for (const item of queued) {
+    if (!item.ownerId || !item.organizationId || !item.camporeeId) {
+      // Keep pre-migration queue items for explicit/manual recovery.
+      failed = true;
+      continue;
     }
-    const count = await getOfflineQueueCount();
-    window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
-    if (queued.length > 0 && count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
-    if (failed) window.dispatchEvent(new CustomEvent('camporee:sync-error', { detail: { count } }));
-    return { remaining:count, failed };
-  } finally { flushing = false; }
+    if (item.ownerId !== ownerId || item.organizationId !== context.organizationId ||
+        item.camporeeId !== context.camporeeId) continue;
+    const headers = new Headers(item.headers);
+    headers.set('authorization', auth);
+    try {
+      const response = await fetch(item.url, { method:item.method, headers, body:item.body });
+      if (queuedResponseIsComplete(item.method, response.status)) await deleteQueued(item.id);
+      else { failed = true; break; }
+    } catch { failed = true; break; }
+  }
+  const count = await getOfflineQueueCount();
+  window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count } }));
+  if (queued.length > 0 && count === 0) window.dispatchEvent(new CustomEvent('camporee:queue-flushed'));
+  if (failed) window.dispatchEvent(new CustomEvent('camporee:sync-error', { detail: { count } }));
+  return { remaining:count, failed };
 }
 
 function tableFromUrl(url: URL) {
@@ -152,7 +157,7 @@ function syntheticResponse(request: Request, payload: any, method: string, id?: 
   if (method === 'DELETE') return new Response(null, { status: 204, headers: { 'x-camporee-offline':'queued' } });
   const result = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload, ...(id ? { id } : {}) } : payload;
   const wantsObject = request.headers.get('accept')?.includes('application/vnd.pgrst.object+json');
-  return new Response(JSON.stringify(wantsObject ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
+  return new Response(JSON.stringify(wantsObject ? result : Array.isArray(result) ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
 }
 
 export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -160,10 +165,12 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
   let request = new Request(input, init);
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
-  const isRestMutation = url.origin.includes('.supabase.co') && url.pathname.includes('/rest/v1/') && ['POST','PATCH','DELETE'].includes(method);
+  const isRestMutation = url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/rest/v1/') && tableFromUrl(url) !== 'rpc' && ['POST','PATCH','DELETE'].includes(method);
   const auth = request.headers.get('authorization') || '';
+  const ownerId = subjectFromAccessToken(auth);
+  const context = parseTenantPath(window.location.pathname);
   if (!isRestMutation) {
-    if (navigator.onLine && subjectFromAccessToken(auth)) void flushOfflineWrites(auth);
+    if (navigator.onLine && subjectFromAccessToken(auth)) void flushOfflineWrites(auth).catch(() => window.dispatchEvent(new CustomEvent('camporee:sync-error')));
     const response = await fetch(request);
     const isDataRequest = url.origin.includes('.supabase.co') && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
     if (isDataRequest && !response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
@@ -183,13 +190,25 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
 
   try {
     if (!navigator.onLine) throw new TypeError('offline');
+    if (ownerId && context && typeof indexedDB !== 'undefined') {
+      // Finish older writes before sending a newer edit. A failed replay stays
+      // ahead of this request instead of overwriting it after reconnection.
+      const belongsToRequest = (item:QueuedRequest) => item.ownerId === ownerId && item.organizationId === context.organizationId && item.camporeeId === context.camporeeId;
+      const queued = await getQueued().catch(error => {
+        // A browser that disables local storage must still allow online saves.
+        if ((error as {name?:string})?.name === 'SecurityError') return [];
+        throw error;
+      });
+      if (queued.some(belongsToRequest)) {
+        await flushOfflineWrites(auth);
+        if ((await getQueued()).some(belongsToRequest)) throw new TypeError('Pending changes must synchronize first');
+      }
+    }
     const response = await fetch(request);
     if (!response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
-    if (subjectFromAccessToken(auth)) void flushOfflineWrites(auth);
+    if (subjectFromAccessToken(auth)) void flushOfflineWrites(auth).catch(() => window.dispatchEvent(new CustomEvent('camporee:sync-error')));
     return response;
   } catch (networkError) {
-    const ownerId = subjectFromAccessToken(auth);
-    const context = parseTenantPath(window.location.pathname);
     // Fail closed: never pretend an unscoped mutation succeeded offline.
     if (!ownerId || !context) throw networkError;
     const explicitScope = url.searchParams.get('camporee_id');
