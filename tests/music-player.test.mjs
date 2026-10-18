@@ -111,3 +111,26 @@ test('preparar un audio privado permite comenzar dentro del toque de reproducci�
   view.render().props.value.playSong(song);
   assert.equal(view.audio.src,'https://example.com/song.mp3');assert.equal(view.audio.paused,false);assert.equal(signs,1);
 });
+
+const r2Org='50000000-0000-4000-8000-000000000001',r2Camp='60000000-0000-4000-8000-000000000001',r2Song='70000000-0000-4000-8000-000000000001';
+const r2Key=`camporee-app/${r2Camp}/songs/${r2Song}.mp3`;
+const r2audio={provider:'r2',key:r2Key,size:1024,contentType:'audio/mpeg',sha256:'c'.repeat(64)};
+
+test('una canción R2 reproduce la ruta del API sin firmar Storage y migradas conservan filePath',async()=>{
+  let signs=0;
+  const supabase={storage:{from:()=>({async createSignedUrl(){signs++;return {data:{signedUrl:'https://example.com/signed.mp3'}}}})}};
+  const view=await player({supabase});
+  const apiUrl=`/api/music/${r2Camp}/${r2Song}?organization_id=${r2Org}`;
+  view.render().props.value.playSong({id:r2Song,title:'R2',audioUrl:apiUrl,audio:r2audio,audioSourceKey:`r2:${r2Key}`,stored:true});
+  assert.equal(view.audio.src,apiUrl);assert.equal(view.audio.paused,false);assert.equal(signs,0);
+  await view.render().props.value.prepareSong({id:r2Song,title:'R2',audioUrl:apiUrl,audio:r2audio,audioSourceKey:`r2:${r2Key}`,stored:true});
+  assert.equal(signs,0);
+});
+
+test('una canción R2 migrada reproduce desde Blob descargado antes de tocar la red',async()=>{
+  const song={id:r2Song,title:'R2',audioUrl:`/api/music/${r2Camp}/${r2Song}?organization_id=${r2Org}`,audio:r2audio,audioSourceKey:`${r2Camp}/songs/legacy.mp3`,stored:true};
+  const view=await player({records:[{song,blob:new Blob(['audio'],{type:'audio/mpeg'})}]});
+  view.render().props.value.setSongs([song],'user:event');await Promise.resolve();
+  view.render().props.value.playSong(song);
+  assert.match(view.audio.src,/^blob:/);
+});

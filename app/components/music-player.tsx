@@ -11,6 +11,8 @@ const MusicContext = createContext<Player | null>(null);
 export function useMusicPlayer() { const player = useContext(MusicContext); if (!player) throw new Error('El cancionero necesita el reproductor de la app.'); return player; }
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 async function sourceUrl(song: Song) {
+  // R2 audio is streamed same-origin through the authorized API; no Storage signed URL is used for it.
+  if (song.audio) return safeAudioUrl(song.audioUrl);
   if (!song.filePath) return safeAudioUrl(song.audioUrl);
   const { data, error } = await createClient().storage.from('camporee-files').createSignedUrl(song.filePath, 3600);
   if (error || !data?.signedUrl) throw new Error('No se pudo abrir el audio del club. Intenta con conexión.');
@@ -50,7 +52,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
     setError(''); void audio.current?.play().catch((cause: unknown) => { if ((cause as { name?: string })?.name !== 'AbortError') { setBuffering(false); setError('No se pudo reproducir. Pulsa Reproducir otra vez o descarga el audio con conexión.'); } });
   }
   const prepareSong = useCallback(async (song: Song) => {
-    if (!song.filePath || saved.current.some(record => songSourceKey(record.song) === songSourceKey(song))) return;
+    if (song.audio || !song.filePath || saved.current.some(record => songSourceKey(record.song) === songSourceKey(song))) return;
     const cached = signedSources.current.get(song.filePath);
     if (cached && cached.expires > Date.now()) return;
     const owner = scope.current, url = await sourceUrl(song);
@@ -67,6 +69,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
     const begin = (url: string) => { if (generation.current !== request || !audio.current) return; audio.current.src = url; audio.current.currentTime = 0; activeSource.current = key; resume(); };
     const record = saved.current.find(item => songSourceKey(item.song) === key);
     if (record) { objectUrl.current = URL.createObjectURL(record.blob); begin(objectUrl.current); }
+    else if (song.audio) begin(safeAudioUrl(song.audioUrl));
     else if (!song.filePath) begin(safeAudioUrl(song.audioUrl));
     else {
       const cached = signedSources.current.get(song.filePath);

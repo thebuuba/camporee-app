@@ -2,7 +2,7 @@ import type { Song } from './songs';
 
 export type DownloadedSong = { key: string; scope: string; song: Song; blob: Blob; bytes: number; createdAt: number };
 
-export function songSourceKey(song: Song) { return song.filePath || song.audioUrl; }
+export function songSourceKey(song: Song) { return song.audioSourceKey || song.filePath || song.audioUrl; }
 
 function openDownloads(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
