@@ -51,7 +51,7 @@ Baseline: 239 pruebas pasaban antes de la implementación. Los resultados finale
 
 | Comprobación final | Resultado |
 |---|---|
-| `npm test` | 284 pruebas aprobadas, 0 fallos |
+| `npm test` | 286 pruebas aprobadas, 0 fallos |
 | `npm run check` | Aprobado |
 | `npm run build` / compilación Next.js | Aprobada |
 | `npx opennextjs-cloudflare build` | Worker generado correctamente |
@@ -67,6 +67,8 @@ La validación automatizada no equivale a una prueba física en iPhone o Android
 El límite de subida se conserva en 15 MiB. Las fuentes antiguas de otros formatos siguen siendo reproducibles; los nuevos archivos que se almacenan en R2 son MP3 validados. Subir un archivo y confirmar la fila en Supabase son operaciones separadas: los fallos se compensan cuando es seguro y los huérfanos se reconcilian de manera conservadora. La entrega depende de la red y de los permisos del navegador para reproducción/almacenamiento local.
 
 ## Pull Request y activación
+
+La mejora visual del reproductor se publicó por separado en `main` mediante el [PR #3](https://github.com/thebuuba/camporee-app/pull/3). Esta rama incorpora esa versión, manteniendo la integración R2 pendiente y las fuentes de audio compatibles.
 
 [PR #2](https://github.com/thebuuba/camporee-app/pull/2), en borrador y sin fusionar. Los checks `verify`, `database` y Cloudflare Workers Builds aprobaron la implementación en `536e685`. La automatización ejecuta `wrangler versions upload`: genera una versión de preview y no promociona producción. Antes de activar, aplicar la migración SQL, completar las comprobaciones móviles y ejecutar el inventario/migración con credenciales de la cuenta correcta. No se migraron ni eliminaron MP3 originales.
 
