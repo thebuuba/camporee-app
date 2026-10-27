@@ -34,6 +34,19 @@ export default function BudgetManager({ camporeeId, userId, canEdit, currency, t
   const movements = useMemo(() => [...expenses.map((row) => ({ ...row, movement_type: 'expense' as const, movement_date: row.spent_on, party: row.paid_by })),...income.map((row) => ({ ...row, movement_type: 'income' as const, movement_date: row.received_on, party: row.received_from }))].sort((a,b) => `${b.movement_date}${b.created_at ?? ''}`.localeCompare(`${a.movement_date}${a.created_at ?? ''}`)), [expenses, income]);
   const visible = useMemo(() => movements.filter((movement) => { const text = `${movement.description} ${movement.category || ''} ${movement.party || ''}`.toLowerCase(); return text.includes(query.toLowerCase()) && (filter === 'all' || movement.movement_type === filter); }), [movements, query, filter]);
 
+  const days = useMemo(() => {
+    const grouped = new Map<string, { date: string; movements: typeof visible; income: number; expenses: number }>();
+    for (const movement of visible) {
+      const date = movement.movement_date;
+      const day = grouped.get(date) ?? { date, movements: [] as typeof visible, income: 0, expenses: 0 };
+      day.movements.push(movement);
+      if (movement.movement_type === 'income') day.income += Number(movement.amount || 0);
+      else day.expenses += Number(movement.amount || 0);
+      grouped.set(date, day);
+    }
+    return [...grouped.values()];
+  }, [visible]);
+
   function openNew(nextKind:MovementType = 'expense') { setKind(nextKind); setEditing(null); setFormError(''); setOpen(true); }
   function openEdit(movement:any) { setKind(movement.movement_type); setEditing(movement); setFormError(''); setOpen(true); }
   function closeSheet(){if(saving)return;setOpen(false);setEditing(null);setFormError('')}
@@ -88,15 +101,15 @@ export default function BudgetManager({ camporeeId, userId, canEdit, currency, t
             <label className="pm-field"><span>Monto ({currency}) <b className="pm-required">*</b></span><input name="amount" type="number" min="0.01" step="0.01" inputMode="decimal" defaultValue={editing?.amount ?? ''} required/></label>
           </div>
           <label className="pm-field"><span>Concepto <b className="pm-required">*</b></span><input name="description" defaultValue={editing?.description || ''} required/></label>
-          <div className="form-two">
-            <label className="pm-field"><span>Categoría</span><input name="category" defaultValue={editing?.category || ''}/></label>
-            <label className="pm-field"><span>Fecha</span><input name="movement_date" type="date" defaultValue={movementDate}/></label>
-          </div>
+          <input type="hidden" name="category" defaultValue={editing?.category || ''}/>
+          <label className="pm-field"><span>Fecha</span><input name="movement_date" type="date" defaultValue={movementDate}/></label>
           <input type="hidden" name="area_id" value={editing?.area_id || ''}/><input type="hidden" name="party" value={party || ''}/><input type="hidden" name="notes" value={editing?.notes || ''}/>
         </div>
         <div className="pm-sheet-footer">{editing ? <button type="button" className="row-icon-btn danger" aria-label="Eliminar" disabled={saving} onClick={()=>void removeMovement(editing)}><Trash2 size={20}/></button> : null}<button type="submit" className="primary-btn" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div>
       </form>
     </BottomSheet>
-    <section className="panel-list">{visible.length ? visible.map((movement) => <article className="panel-row ios-card" key={`${movement.movement_type}-${movement.id}`}><span className={`stat-icon ${movement.movement_type === 'income' ? 'stat-green' : 'stat-red'}`}>{movement.movement_type === 'income' ? <ArrowDownLeft size={18}/> : <ArrowUpRight size={18}/>}</span><div className="panel-row-copy"><strong>{movement.description}</strong><small>{new Date(`${movement.movement_date}T00:00:00`).toLocaleDateString("es-DO", { dateStyle: "medium" })}{movement.category ? ` · ${movement.category}` : ""}</small><b className={movement.movement_type === 'income' ? 'money-in' : 'money-out'}>{movement.movement_type === 'income' ? '+' : '−'} {money(Number(movement.amount || 0),2)}</b>{movement.party ? <small>{movement.movement_type === 'income' ? 'Recibido de' : 'Pagado por'} {movement.party}</small> : null}</div>{canEdit ? <div className="row-actions"><button type="button" className="row-icon-btn" onClick={()=>openEdit(movement)} aria-label="Editar"><Pencil size={16}/></button><button type="button" className="row-icon-btn danger" onClick={() => removeMovement(movement)} aria-label="Eliminar"><Trash2 size={17}/></button></div> : null}</article>) : <div className="empty compact"><WalletCards size={22}/> No hay movimientos que coincidan con esta búsqueda.</div>}</section>
+    <div className="budget-days">{days.length ? days.map((day) => <section className="budget-day" key={day.date} aria-labelledby={`budget-day-${day.date}`}>
+      <header className="budget-day-heading"><h2 id={`budget-day-${day.date}`}><time dateTime={day.date}>{new Date(`${day.date}T00:00:00`).toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</time></h2><dl className="budget-day-totals"><div><dt>Ingresos</dt><dd className="money-in">{money(day.income, 2)}</dd></div><div><dt>Gastos</dt><dd className="money-out">{money(day.expenses, 2)}</dd></div><div><dt>Saldo del día</dt><dd className={day.income - day.expenses < 0 ? 'money-out' : 'money-in'}>{money(day.income - day.expenses, 2)}</dd></div></dl></header>
+      <div className="panel-list">{day.movements.map((movement) => <article className="panel-row ios-card" key={`${movement.movement_type}-${movement.id}`}><span className={`stat-icon ${movement.movement_type === 'income' ? 'stat-green' : 'stat-red'}`}>{movement.movement_type === 'income' ? <ArrowDownLeft size={18}/> : <ArrowUpRight size={18}/>}</span><div className="panel-row-copy"><strong>{movement.description}</strong><small>{new Date(`${movement.movement_date}T00:00:00`).toLocaleDateString("es-DO", { dateStyle: "medium" })}{movement.category ? ` · ${movement.category}` : ""}</small><b className={movement.movement_type === 'income' ? 'money-in' : 'money-out'}>{movement.movement_type === 'income' ? '+' : '−'} {money(Number(movement.amount || 0),2)}</b>{movement.party ? <small>{movement.movement_type === 'income' ? 'Recibido de' : 'Pagado por'} {movement.party}</small> : null}</div>{canEdit ? <div className="row-actions"><button type="button" className="row-icon-btn" onClick={()=>openEdit(movement)} aria-label="Editar"><Pencil size={16}/></button><button type="button" className="row-icon-btn danger" onClick={() => removeMovement(movement)} aria-label="Eliminar"><Trash2 size={17}/></button></div> : null}</article>)}</div></section>) : <div className="empty compact"><WalletCards size={22}/> No hay movimientos que coincidan con esta búsqueda.</div>}</div>
   </>;
 }

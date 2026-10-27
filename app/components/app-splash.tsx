@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
+// Survives component remounts when sessionStorage is unavailable.
+let launchChecked = false;
+
 export default function AppSplash() {
   const pathname = usePathname();
   // Start hidden on the server too, so offline HTML never flashes a splash
@@ -10,14 +13,27 @@ export default function AppSplash() {
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
   const checked = useRef(false);
+  const entryPath = useRef(pathname);
   useEffect(() => {
-    if (checked.current) return;
+    if (checked.current) {
+      if (pathname !== entryPath.current) setVisible(false);
+      return;
+    }
     checked.current = true;
-    if (pathname === '/signup' || pathname === '/offline' || !navigator.onLine) return;
+    if (launchChecked) return;
+    launchChecked = true;
+    if (pathname === '/signup' || pathname === '/offline' || pathname.startsWith('/auth/') || !navigator.onLine) return;
+    // Installed apps already have a system launch screen. A reload, history
+    // restoration or same-origin document navigation is not a fresh launch.
+    const installed = window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone;
+    const navigation = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const internal = document.referrer && new URL(document.referrer).origin === window.location.origin;
+    if (installed || internal || (navigation && navigation.type !== 'navigate')) return;
     try {
       if (window.sessionStorage.getItem('camporee:splash-seen') === 'yes') return;
       window.sessionStorage.setItem('camporee:splash-seen', 'yes');
-    } catch { /* Storage can be blocked; the mount guard still prevents replay. */ }
+    } catch { /* The document guard still prevents replay when storage is blocked. */ }
     setVisible(true);
   }, [pathname]);
   useEffect(() => {
@@ -27,7 +43,7 @@ export default function AppSplash() {
     const dismissTimer = window.setTimeout(() => setVisible(false), reduced ? 180 : 1650);
     return () => { window.clearTimeout(readyTimer); window.clearTimeout(dismissTimer); };
   }, [visible]);
-  if (!visible || pathname === '/signup') return null;
+  if (!visible || pathname !== entryPath.current) return null;
   return <div className="pm-launch-screen" aria-label="Cargando Camporee" role="status">
     <div className="pm-launch-panel">
       <img className="pm-launch-scene" src="/polymet-camp-preparation.svg" alt="" aria-hidden="true" />

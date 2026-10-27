@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 
-async function splash(reduced = false, pathname = '/', {online=true,storage=new Map(),storageBlocked=false}={}) {
+async function splash(reduced = false, pathname = '/', {online=true,storage=new Map(),storageBlocked=false,standalone=false,iosStandalone=false,navigationType='navigate',referrer=''}={}) {
   await loadBindings();
   const { code } = await transform(await readFile(new URL('../app/components/app-splash.tsx', import.meta.url), 'utf8'), {
     filename: 'app-splash.tsx', jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022', transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' },
@@ -19,9 +19,9 @@ async function splash(reduced = false, pathname = '/', {online=true,storage=new 
     'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react': { Tent: 'tent', TentTree: 'tent-tree' },
   };
   const module = { exports: {} };
-  vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], navigator:{onLine:online}, window: { sessionStorage:{getItem(key){if(storageBlocked)throw new Error('blocked');return storage.get(key)??null},setItem(key,value){if(storageBlocked)throw new Error('blocked');storage.set(key,value)}}, matchMedia: () => ({ matches: reduced }), setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; }, clearTimeout: id => cleared.push(id) } });
+  vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name], URL, document:{referrer}, navigator:{onLine:online,standalone:iosStandalone}, window: { location:{origin:'https://camporee.test'}, performance:{getEntriesByType:()=>[{type:navigationType}]}, sessionStorage:{getItem(key){if(storageBlocked)throw new Error('blocked');return storage.get(key)??null},setItem(key,value){if(storageBlocked)throw new Error('blocked');storage.set(key,value)}}, matchMedia: query => ({ matches: query==='(display-mode: standalone)'?standalone:reduced }), setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; }, clearTimeout: id => cleared.push(id) } });
   const render=()=>{cursor=0;effects.length=0;return module.exports.default()};
-  return { render, start(){render();effects.forEach(effect=>effect());return render()}, effects, timers, cleared };
+  return { render, start(){render();effects.forEach(effect=>effect());return render()}, navigate(next){pathname=next;return render()}, remount(){states.length=0;refs.length=0;return this.start()}, effects, timers, cleared };
 }
 
 test('la bienvenida usa el paisaje y los textos de Polymet sin botón de comenzar', async () => {
@@ -82,4 +82,42 @@ test('blocked session storage does not prevent dismissal or restart splash on ef
  const ui=await splash(false,'/',{storageBlocked:true});assert.notEqual(ui.start(),null);
  ui.effects.forEach(effect=>effect());ui.timers.forEach(timer=>timer.callback());
  assert.equal(ui.render(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.render(),null);
+});
+
+test('installed PWA does not show another launch cover on Android or iOS',async()=>{
+ for(const options of [{standalone:true},{iosStandalone:true}]){
+  const ui=await splash(false,'/',options);
+  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
+ }
+});
+
+test('reload and history restoration never replay the welcome even without a session marker',async()=>{
+ for(const navigationType of ['reload','back_forward']){
+  const ui=await splash(false,'/',{navigationType});
+  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
+ }
+});
+
+test('internal full-page navigation does not replay the launch when session storage is blocked or cleared',async()=>{
+ for(const storageBlocked of [false,true]){
+  const ui=await splash(false,'/tasks',{referrer:'https://camporee.test/program',storageBlocked});
+  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
+ }
+});
+
+test('component remount in the same document cannot repeat the welcome with blocked storage',async()=>{
+ const ui=await splash(false,'/',{storageBlocked:true});assert.notEqual(ui.start(),null);
+ ui.effects.forEach(effect=>effect());ui.timers.forEach(timer=>timer.callback());assert.equal(ui.render(),null);
+ assert.equal(ui.remount(),null);
+});
+
+test('changing route dismisses the startup cover immediately and returning does not restore it',async()=>{
+ const ui=await splash();assert.notEqual(ui.start(),null);
+ assert.equal(ui.navigate('/tasks'),null);ui.effects.forEach(effect=>effect());
+ assert.equal(ui.navigate('/'),null);
+});
+
+test('a fresh browser visit from an external site may still show the welcome once',async()=>{
+ const ui=await splash(false,'/',{referrer:'https://example.com/'});
+ assert.notEqual(ui.start(),null);
 });
