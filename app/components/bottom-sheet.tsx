@@ -25,8 +25,13 @@ export default function BottomSheet({ open, onClose, title, description, childre
   useEffect(() => {
     if (!present || !dialog.current) return;
     const element = dialog.current;
+    const returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
     element.showModal();
-    return () => { element.close(); };
+    return () => {
+      element.close();
+      // React can detach the dialog before this cleanup, skipping native restoration.
+      if(returnFocus?.isConnected&&document.activeElement===document.body)returnFocus.focus({preventScroll:true});
+    };
   }, [present]);
 
   function close() { if (!busy) onClose(); }
