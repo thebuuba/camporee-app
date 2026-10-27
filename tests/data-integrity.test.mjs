@@ -28,10 +28,10 @@ test('home uses authorized SQL summary even when REST only returns the first 100
   const calls = [];
   const supabase = {
     rpc: async (name, args) => { calls.push([name,args]); return { data: { totalTasks:1200, completedTasks:600, pendingTasks:600, progress:50, preparation:{total:1200,completed:600,percent:50}, totalExpenses:2400, totalIncome:3600, participants:1200, presentParticipants:1001, todayPendingTasks:1100, programCount:1200, todayProgramCount:1100, todayTasks:[], currentEvent:null, nextEvent:null }, error:null }; },
-    from(table) { const b = { select(){return this},eq(){return this},order(){return this},maybeSingle(){return this},then(resolve){return Promise.resolve({data:table==='profiles'?{full_name:'Ana'}:Array.from({length:1000},(_,id)=>({id,status:'pending',phase:'before',amount:1})),error:null}).then(resolve)} }; return b; },
+    from(table) { const b = { select(){return this},eq(){return this},neq(){return this},limit(){return this},order(){return this},maybeSingle(){return this},then(resolve){return Promise.resolve({data:table==='profiles'?{full_name:'Ana'}:Array.from({length:1000},(_,id)=>({id,status:'pending',phase:'before',amount:1})),error:null}).then(resolve)} }; return b; },
   };
   const {loadHomeData} = await load('lib/home-data.ts', {'./avatars':{signedAvatar:async()=>null},'@/lib/date':dates,'@/lib/camporee-preparation':preparation});
-  const result = await loadHomeData({supabase,userId:'user',user:{user_metadata:{}},membership:{},camporee:{id:'camp',status:'planning',time_zone:'America/La_Paz',starts_on:'2026-10-01',ends_on:'2026-10-30'}});
+  const result = await loadHomeData({supabase,userId:'user',user:{user_metadata:{}},membership:{},camporeeId:'camp',organization:{name:'Club'},canEdit:()=>true,camporee:{id:'camp',status:'planning',time_zone:'America/La_Paz',starts_on:'2026-10-01',ends_on:'2026-10-30'}});
   assert.equal(result.totalTasks,1200);
   assert.equal(result.totalExpenses,2400);
   assert.equal(result.preparation.total,1200);

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { closingProgress } from "@/lib/camporee-closing";
 import {formatCamporeeMoney,formatCamporeeDate} from '@/lib/camporee-locale';
 
-export default async function ClosingCard({ camporee }: { camporee: { id:string; starts_on:string; ends_on:string;currency:string } }) {
+export default async function ClosingCard({ camporee, checklistOnly=false }: { camporee: { id:string; starts_on:string; ends_on:string;currency:string };checklistOnly?:boolean }) {
   const supabase = await createClient();
   const [tasks, inventory, documents, notes, activities, participants, expenses, income] = await Promise.all([
     supabase.from("tasks").select("phase,status").eq("camporee_id", camporee.id),
@@ -31,14 +31,14 @@ export default async function ClosingCard({ camporee }: { camporee: { id:string;
   ];
   const loadError = [tasks, inventory, documents, notes, activities, participants, expenses, income].some(result => result.error);
   return <div className="closing-stage">
-    <section className="closing-card" aria-label="Resumen final del camporee">
+    {!checklistOnly?<section className="closing-card" aria-label="Resumen final del camporee">
       <div className="closing-scene"><img src="/polymet-camp-finished.svg" alt=""/><div><span><PartyPopper size={14}/>Camporee finalizado</span><h2>¡Misión cumplida!</h2><p>{dates}</p></div></div>
       <div className="closing-stats">
         <Link href="/more/activities" className="closing-stat-gold"><Trophy size={16}/><strong>{activities.error ? "—" : results.length}</strong><small>{results.length ? "resultados" : "sin resultados"}</small></Link>
         <Link href="/more/participants" className="closing-stat-sage"><Users size={16}/><strong>{participants.error ? "—" : participants.data?.length ?? 0}</strong><small>participaron</small></Link>
         <Link href="/more/budget" className="closing-stat-peach"><WalletCards size={16}/><strong>{income.error || expenses.error ? "—" : formatCamporeeMoney(balance,camporee.currency)}</strong><small>saldo final</small></Link>
       </div>
-    </section>
+    </section>:null}
     <section className="closing-checklist" aria-label="Pendientes de cierre"><h2><Sparkles size={16}/>Para cerrar del todo</h2><div>{rows.map(row => <Link href={row.href} key={row.label} className={row.done ? "is-complete" : ""}>{row.done ? <CircleCheck size={20}/> : <Circle size={16}/>}<span>{row.label}</span><strong>{row.value}</strong><ArrowRight size={16}/></Link>)}</div>{loadError ? <p role="status">Algunos datos no se pudieron cargar. Abre el módulo para revisarlos.</p> : null}</section>
   </div>;
 }

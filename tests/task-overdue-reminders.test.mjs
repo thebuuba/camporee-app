@@ -77,9 +77,9 @@ async function reminder({failed=false,secret='trusted',now=MORNING,stale=[],rows
     sent.push({endpoint:subscription.endpoint,payload:JSON.parse(payload)});
   }};
   const FixedDate=class extends Date{constructor(value){super(value??clock);}static now(){return Date.parse(clock);}};
-  let handler;const dependencies={};
+  let handler;const dependencies={'../_shared/sunset.ts':await import('../supabase/functions/_shared/sunset.ts')};
   const context={Request,Response,Date:FixedDate,console:{error(){}},Deno:{serve(fn){handler=fn;},env:{get:()=> 'test'}},require:name=>name.startsWith('npm:@supabase/')?{createClient:()=>client}:name.startsWith('npm:web-push')?{__esModule:true,default:webpush}:dependencies[name]};
-  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts']){
+  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts','sunset.ts']){
     let code;try{code=await compile(`supabase/functions/camporee-reminders/${name}`);}catch(e){if(e.code==='ENOENT')continue;throw e;}
     const module={exports:{}};vm.runInNewContext(code,{...context,module,exports:module.exports});dependencies[`./${name}`]=module.exports;
   }

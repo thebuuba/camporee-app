@@ -9,6 +9,7 @@ export type Camporee = {
   id: string; organization_id: string; owner_id: string | null; name: string;
   theme: string | null; location: string | null; starts_on: string; ends_on: string;
   status: 'planning' | 'active' | 'finished' | 'archived'; currency: string; time_zone: string;
+  navigation_panels?: string[];
 };
 export type CamporeeContext = TenantIds & {
   supabase: SupabaseClient; user: User; userId: string;
@@ -62,7 +63,7 @@ export async function resolveCamporeeContext(supabase: SupabaseClient, ids: Tena
   const user = await authenticatedUser(supabase);
   const [scope,camporeeResult] = await Promise.all([
     organizationScope(supabase,ids.organizationId,user),
-    supabase.from('camporees').select('id,organization_id,owner_id,name,theme,location,starts_on,ends_on,status,currency,time_zone').eq('organization_id', ids.organizationId).eq('id', ids.camporeeId).maybeSingle(),
+    supabase.from('camporees').select('id,organization_id,owner_id,name,theme,location,starts_on,ends_on,status,currency,time_zone,navigation_panels').eq('organization_id', ids.organizationId).eq('id', ids.camporeeId).maybeSingle(),
   ]);
   if (camporeeResult.error) {
     const failure = new Error(camporeeResult.error.message) as Error & {code?: string};

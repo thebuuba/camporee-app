@@ -34,7 +34,7 @@ const sql = [
   `] : []),
   ...(process.argv.includes('--legacy') ? [] : tenant.map(name => read(`supabase/migrations/${name}`))),
   read('supabase/tests/multi-tenant.sql').replace(/select finish\(\);\s*$/, ''),
-  read('supabase/tests/data-contracts.sql'), read('supabase/tests/durable-delivery.sql'), 'select finish();', 'rollback;',
+  read('supabase/tests/data-contracts.sql'), read('supabase/tests/durable-delivery.sql'), read('supabase/tests/navigation.sql'), 'select finish();', 'rollback;',
 ].join('\n');
 const result = spawnSync('docker', ['exec', '-i', '-e', 'PGPASSWORD=camporee-local-test', container, 'psql', '-U', 'supabase_admin', '-d', 'postgres', '-X', '-v', 'ON_ERROR_STOP=1'], { input: sql, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
 const output = result.stdout + result.stderr;

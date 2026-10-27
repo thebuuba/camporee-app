@@ -36,7 +36,7 @@ function homeClient(taskError = null) {
       await new Promise(resolve=>setTimeout(resolve,35));
       return {data:taskError?null:{totalTasks:1,completedTasks:1,pendingTasks:0,preparation:{total:1,completed:1,percent:100}},error:taskError};
     },from(table){
-    const builder = {select(){return this},eq(){return this},order(){return this},maybeSingle(){return this},then(resolve,reject){
+    const builder = {select(){return this},eq(){return this},neq(){return this},limit(){return this},order(){return this},maybeSingle(){return this},then(resolve,reject){
       return new Promise(done => setTimeout(()=>done({data:taskError && table==='tasks' ? null : rows[table],error:table==='tasks'?taskError:null}), table==='tasks'?35:0)).then(resolve,reject);
     }};
     return builder;
@@ -51,7 +51,7 @@ async function loadHome(client) {
     '@/lib/camporee-preparation':{camporeePhase,preparationProgress},
   }, {setTimeout:(callback,ms)=>setTimeout(callback,ms>=1200?1:ms)});
   return {loadHomeData:()=>api.loadHomeData({
-    supabase:client,userId:'user',user:{id:'user',user_metadata:{}},
+    supabase:client,userId:'user',user:{id:'user',user_metadata:{}},camporeeId:'event',organization:{name:'Club'},canEdit:()=>true,
     camporee:{id:'event',name:'Camporee',starts_on:'2026-11-06',ends_on:'2026-11-09',status:'planning',time_zone:'America/Santo_Domingo'},
     membership:{role:'admin',is_active:true,permissions:{}},
   })};

@@ -4,6 +4,8 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as locale from '../lib/camporee-locale.ts';
+import * as navigationPanels from '../lib/navigation-panels.ts';
+import * as camporeeCard from '../lib/camporee-card.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 export function all(node,predicate){if(Array.isArray(node))return node.flatMap(child=>all(child,predicate));if(!node||typeof node!=='object')return [];return [...(predicate(node)?[node]:[]),...all(node.props?.children,predicate)];}
@@ -12,11 +14,53 @@ async function ui(path,props,client,overrides={}){
   await loadBindings();const {code}=await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const states=[],errors=[],successes=[];let cursor=0;const jsx=(type,props)=>({type,props});
   const modules={react:{useEffect(){},useMemo:fn=>fn(),useState(initial){const index=cursor++;if(!(index in states))states[index]=index in overrides?overrides[index]:typeof initial==='function'?initial():initial;return [states[index],value=>states[index]=typeof value==='function'?value(states[index]):value]}},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>client},'@/lib/client-ui':{confirmRemoval:()=>true,reportMutationError:(error,message)=>{errors.push({error,message});return message},reportMutationSuccess:message=>successes.push(message)},'@/lib/mutation-result':await optional('../lib/mutation-result.ts'),'@/lib/meal-stock':await optional('../lib/meal-stock.ts'),'@/app/components/bottom-sheet':{__esModule:true,default:'sheet'},'lucide-react':{}};
+  modules['@/lib/navigation-panels']=navigationPanels;
+  modules['@/lib/camporee-card']=camporeeCard;
+  modules['@/app/components/tenant-link']={default:'tenant-link'};
+  modules['@/supabase/functions/_shared/sunset']=await import('../supabase/functions/_shared/sunset.ts');
+  for(const [path,name] of [['camporee-scene','CamporeeScene'],['countdown-unit','CountdownUnit'],['progress-ring','ProgressRing'],['camporee-club-strip','CamporeeClubStrip'],['sabbath-banner','SabbathBanner'],['daily-sunset','DailySunset']])modules[`./${path}`]={[name]:name};
   const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date,Map,Set,Promise,console});
   return {render(){cursor=0;return module.exports.default(props)},states,errors,successes};
 }
 function attendance(client,people=[{id:'person',full_name:'Ana'}]){return ui('app/more/attendance/attendance-manager.tsx',{camporeeId:'camp',userId:'user',canEdit:true,participants:people,initialSessions:[{id:'session',title:'Salida',occurred_at:'2026-10-27T12:00:00Z',attendance_marks:[]}]},client)}
 function openAttendance(app){all(app.render(),n=>n.props.className?.includes('attendance-session-row'))[0].props.onClick();return ()=>all(app.render(),n=>n.type==='button'&&n.props.className?.includes('attendance-person'))[0]}
+
+test('navigation editor is unavailable to non-administrators',async()=>{
+ const app=await ui('app/more/settings/navigation-settings.tsx',{camporeeId:'camp',organizationId:'org',canEdit:false,initialPanels:['tasks']},{});
+ assert.equal(app.render(),null);
+});
+
+const cardProps={camporee:{id:'camp',starts_on:'2026-11-06',ends_on:'2026-11-09',time_zone:'America/Santo_Domingo',location:'Santiago'},phase:'before',initialNow:Date.parse('2026-10-27T12:00:00Z'),firstName:'Ana',participants:1,presentParticipants:0,programCount:0,preparation:{total:1,completed:0,percent:0},data:{organizationName:'Club',canEditTasks:true,tasks:[{id:'task',title:'Preparar uniforme'}],schedule:[],results:[],resultCount:0,people:[],loadError:false}};
+for(const [status,data,success] of [[200,[],false],[200,[{id:'task'}],true],[202,[{id:'task'}],true]])test(`home preparation confirms scoped task before changing progress: ${status} ${JSON.stringify(data)}`,async()=>{
+ const scopes=[];let payload;
+ const builder={eq(key,value){scopes.push([key,value]);return this},neq(){return this},select:async()=>({data,error:null,status})};
+ const props={...cardProps,preparation:{total:3,completed:0,percent:0},data:{...cardProps.data,tasks:[...cardProps.data.tasks,{id:'next',title:'Confirmar transporte'},{id:'third',title:'Revisar equipo'}]}};
+ const app=await ui('app/components/camporee-card/camporee-card.tsx',props,{from(table){assert.equal(table,'tasks');return {update(value){payload=value;return builder}}}});
+ assert.equal(all(app.render(),n=>n.type==='button'&&n.props['aria-label']?.startsWith('Completar ')).length,1);
+ all(app.render(),n=>n.props['aria-label']==='Completar Preparar uniforme')[0].props.onClick();await tick();
+ assert.equal(payload.status,'done');assert.ok(scopes.some(([key,value])=>key==='camporee_id'&&value==='camp'));assert.ok(scopes.some(([key,value])=>key==='id'&&value==='task'));assert.ok(scopes.some(([key,value])=>key==='phase'&&value==='before'));
+ assert.equal(app.states[1].length,success?1:0);assert.equal(app.errors.length,success?0:1);
+ const remaining=all(app.render(),n=>n.type==='button'&&n.props['aria-label']?.startsWith('Completar '));
+ assert.equal(remaining.length,1);assert.equal(remaining[0].props['aria-label'],success?'Completar Confirmar transporte':'Completar Preparar uniforme');
+ if(status===202)assert.match(app.successes[0],/pendiente/i);
+});
+
+test('home preparation keeps read-only tasks navigable without offering a completion mutation',async()=>{
+ const app=await ui('app/components/camporee-card/camporee-card.tsx',{...cardProps,data:{...cardProps.data,canEditTasks:false}},{});
+ assert.equal(all(app.render(),n=>n.props['aria-label']==='Completar Preparar uniforme').length,0);
+ assert.ok(all(app.render(),n=>n.props.href==='/tasks?phase=before').length>0);
+});
+
+for(const [status,data,success] of [[200,[],false],[200,[{id:'camp'}],true],[202,[{id:'camp'}],true]])test(`navigation save confirms camporee and organization before success: ${status} ${JSON.stringify(data)}`,async()=>{
+ const scopes=[];let payload;
+ const builder={eq(key,value){scopes.push([key,value]);return this},select:async()=>({data,error:null,status})};
+ const app=await ui('app/more/settings/navigation-settings.tsx',{camporeeId:'camp',organizationId:'org',canEdit:true,initialPanels:['program','budget','participants']},{from(table){assert.equal(table,'camporees');return {update(value){payload=value;return builder}}}});
+ all(app.render(),n=>n.type==='form')[0].props.onSubmit({preventDefault(){}});await tick();
+ assert.deepEqual(Array.from(payload.navigation_panels),['program','budget','participants']);
+ assert.deepEqual(scopes,[['organization_id','org'],['id','camp']]);
+ assert.equal(app.successes.length,success?1:0);assert.equal(app.errors.length,success?0:1);
+ if(status===202)assert.match(app.successes[0],/pendiente/i);
+});
 
 test('attendance serializes writes and preserves the final accepted choice',async()=>{
   const pending=[];let stored=false;

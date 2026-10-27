@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import * as sunset from '../supabase/functions/_shared/sunset.ts';
+const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
+const flat=node=>Array.isArray(node)?node.flatMap(flat):node&&typeof node==='object'?[node,...flat(node.props?.children)]:node==null?[]:[node];
+test('sunset displays only the daily label and time, without a colored panel or geolocation control',async()=>{
+ await loadBindings();
+ const path='app/components/camporee-card/daily-sunset.tsx';
+ const {code}=await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
+ const rows=['santiago','moca'].map(id=>({id,label:id,timeZone:sunset.SUNSET_ZONE,date:'2026-10-27',sunset:'2026-10-27T18:11:27-04:00',sunrise:'2026-10-27T06:41:27-04:00'}));
+ const jsx=(type,props)=>({type,props});
+ const modules={react:{useEffect(){},useState(){return [rows,()=>{}]}},'react/jsx-runtime':{jsx,jsxs:jsx},'@/supabase/functions/_shared/sunset':sunset};
+ const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date,Intl});
+ const elements=flat(module.exports.DailySunset({now:Date.parse('2026-10-27T20:00:00Z')}));
+ assert.equal(elements.filter(node=>typeof node==='string').join(' '),'Puesta de sol hoy 6:11 p. m.');
+ assert.ok(elements.filter(node=>typeof node==='object').every(node=>!node.props.className?.includes('bg-')&&node.type!=='button'));
+ assert.equal(elements.find(node=>node.type==='a').props.href,'https://sunrise-sunset.org/');
+});

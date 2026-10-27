@@ -4,19 +4,27 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {parseTenantPath,tenantPath} from '@/lib/tenant-context';
-import { CalendarClock, House, LayoutGrid, ListChecks } from "lucide-react";
+import { CalendarClock, ClipboardCheck, FileText, HeartPulse, House, LayoutGrid, ListChecks, Megaphone, Music2, NotebookPen, PackageCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
+import {NAVIGATION_PANELS,normalizeNavigationPanels} from '@/lib/navigation-panels';
+import {useNavigationPanels} from './navigation-panels-provider';
 
-const items = [
-  ["/", "Inicio", House],
-  ["/program", "Hoy", CalendarClock],
-  ["/tasks", "Tareas", ListChecks],
-  ["/more", "Más", LayoutGrid],
-] as const;
+const icons = {inventory:PackageCheck,tasks:ListChecks,program:CalendarClock,activities:Trophy,announcements:Megaphone,attendance:ClipboardCheck,meals:Soup,participants:Users,lists:ListChecks,budget:WalletCards,documents:FileText,emergency:HeartPulse,notes:NotebookPen,songs:Music2};
 
-export default function BottomNav() {
+export default function BottomNav({panels}:{panels?:unknown} = {}) {
+  const configuredPanels = useNavigationPanels();
+  const selectedPanels = normalizeNavigationPanels(panels ?? configuredPanels);
+  const items = [
+    ["/", "Inicio", House],
+    ...selectedPanels.map(id => {const panel=NAVIGATION_PANELS.find(panel=>panel.id===id)!;return [panel.href,panel.label,icons[id]] as const;}),
+    ["/more", "Más", LayoutGrid],
+  ] as const;
   const pathname = usePathname();
   const context=parseTenantPath(pathname);
   const panelPath=context?.panel??pathname;
+  const activePanelHref = items.find(([href]) => href === "/"
+    ? panelPath === "/"
+    : panelPath === href || panelPath.startsWith(href + "/"))?.[0]
+    ?? (panelPath === "/profile" ? "/more" : null);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,10 +38,10 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="nav nav-reference" aria-label="Navegación principal">
+    <nav className="nav nav-reference" style={{'--nav-columns':items.length} as React.CSSProperties} aria-label="Navegación principal">
       {items.map(([panelHref, label, Icon]) => {
         const href=context?tenantPath(context,panelHref):panelHref;
-        const routeActive = panelHref === "/" ? panelPath === "/" : panelPath.startsWith(panelHref) || (panelHref === "/more" && panelPath === "/profile");
+        const routeActive = panelHref === activePanelHref;
         const active = pendingHref ? pendingHref === href : routeActive;
         return (
           <Link

@@ -27,7 +27,7 @@ async function dashboard(phase) {
     'lucide-react':{},
     './components/bottom-nav':{default:'bottom-nav'},
     './components/notification-controls':{default:'notification-controls'},
-    './components/preparation-card':{default:'preparation-card'},
+    './components/camporee-card/camporee-card':{default:'camporee-card'},
     './components/closing-card':{default:'closing-card'},
     '@/lib/camporee-locale':{formatCamporeeMoney:n=>String(n)},
     '@/lib/tenant-context':{tenantPath}
