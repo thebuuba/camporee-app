@@ -53,7 +53,7 @@ export function TaskSwipeRow({title,opened,onOpenChange,onEdit,onDetails,onDelet
     setDragOffset(null);
   }
   function action(callback:()=>void){onOpenChange(false);root.current?.querySelector<HTMLElement>('.task-swipe-surface')?.focus({preventScroll:true});callback();}
-  return <div ref={root} className='task-swipe-row' data-open={opened} data-dragging={dragOffset!==null} style={{'--task-swipe-width':`${width}px`,'--task-swipe-offset':`${offset}px`} as CSSProperties}
+  return <div ref={root} className='task-swipe-row' data-open={opened} data-revealed={offset>0} data-dragging={dragOffset!==null} style={{'--task-swipe-width':`${width}px`,'--task-swipe-offset':`${offset}px`,'--task-swipe-progress':offset/width} as CSSProperties}
     onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))onOpenChange(false);}}
     onKeyDown={event=>{
       if(event.key==='ArrowLeft'){event.preventDefault();onOpenChange(true);requestAnimationFrame(()=>root.current?.querySelector<HTMLElement>('.task-swipe-actions button')?.focus({preventScroll:true}));}

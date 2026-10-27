@@ -29,6 +29,20 @@ test('left swipe reveals actions; right swipe closes without executing a task mu
  assert.equal(all(h.render()).find(node=>node.props.className==='task-swipe-actions').props.inert,false);
  h.gesture(140);assert.equal(h.opened,false);assert.deepEqual(h.calls,[]);
 });
+test('the action area follows each drag position and is fully hidden at rest',async()=>{
+ const h=await harness();assert.equal(h.render().props['data-revealed'],false);
+ h.surface().props.onPointerDown(h.pointer(220));
+ let previous=0;
+ for(const distance of [24,56,112]){
+  h.surface().props.onPointerMove(h.pointer(220-distance));
+  const row=h.render();assert.equal(row.props['data-revealed'],true);
+  assert.equal(row.props.style['--task-swipe-offset'],`${distance}px`);
+  assert.ok(row.props.style['--task-swipe-progress']>previous);
+  previous=row.props.style['--task-swipe-progress'];assert.equal(h.opened,false);
+ }
+ h.surface().props.onPointerCancel(h.pointer(108));
+ assert.equal(h.render().props['data-revealed'],false);assert.equal(h.render().props.style['--task-swipe-progress'],0);
+});
 test('vertical scroll, a short tap and gestures starting on buttons do not reveal actions',async()=>{
  const h=await harness();h.gesture(5,90);assert.equal(h.opened,false);
  h.gesture(3);assert.equal(h.opened,false);
