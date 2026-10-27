@@ -14,7 +14,7 @@ import {CountdownUnit} from './countdown-unit';
 import {ProgressRing} from './progress-ring';
 import {CamporeeClubStrip} from './camporee-club-strip';
 import {SabbathBanner} from './sabbath-banner';
-import {DailySunset} from './daily-sunset';
+import {DailySunset,useDailySunset} from './daily-sunset';
 import {supportsSunsetRegion} from '@/supabase/functions/_shared/sunset';
 
 type Camporee={id:string;theme?:string|null;starts_on:string;ends_on:string;location:string|null;time_zone:string};
@@ -35,7 +35,9 @@ export default function CamporeeCard({camporee,phase,initialNow,firstName,partic
   const now=tick;
   const zone=camporee.time_zone;
   const clock=camporeeClock(now,zone);
-  const sabbath=sabbathState(data.schedule,now,zone);
+  const regionalSunset=supportsSunsetRegion(camporee.location,zone);
+  const sunset=useDailySunset(now,regionalSunset);
+  const sabbath=regionalSunset?{active:sunset?.sabbath??false,endsAt:sunset?.weekday===6?sunset.sunsetAt:null}:sabbathState(data.schedule,now,zone);
   const isSabbath=phase==='during'&&sabbath.active;
   const ui=phase==='before'?{label:'Preparando el camporee',Icon:Tent,pill:null}:phase==='after'?{label:'Camporee finalizado',Icon:PartyPopper,pill:'Finalizado'}:isSabbath?{label:'Feliz sábado',Icon:Sun,pill:'Reposo'}:{label:'Camporee en curso',Icon:Flame,pill:'En vivo'};
   const start=camporeeMidnightEpoch(camporee.starts_on,zone);
@@ -84,7 +86,7 @@ export default function CamporeeCard({camporee,phase,initialNow,firstName,partic
         </div>}
       </div>
       <div className='space-y-2 p-3 pt-3'>
-        {supportsSunsetRegion(camporee.location,zone)?<DailySunset now={now}/>:null}
+        {regionalSunset?<DailySunset sunset={sunset}/>:null}
         {phase==='before'?<>
           <section className={panelClass}><div className='flex items-center gap-3'><ProgressRing value={pct} size={64} strokeWidth={7}/><div className='min-w-0'><h3 className='text-base font-bold leading-tight text-foreground'>{headline}</h3><p className='mt-0.5 text-[13px] text-muted-foreground'><span className='font-semibold text-secondary-foreground'>{done} de {preparation.total}</span> tareas de preparación completadas</p></div></div>
             {pending.length?<ul className='mt-3 space-y-1.5'>{pending.map(task=><li key={task.id}>{data.canEditTasks?<button type='button' aria-label={`Completar ${task.title}`} disabled={Boolean(savingTask)} onClick={()=>void completeTask(task.id)} className='group flex min-h-11 w-full items-center gap-3 rounded-xl border-0 bg-card/70 px-3 py-2 text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60'><span className='flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-chart-2/50'><Check className='size-3 text-chart-2 opacity-0 group-hover:opacity-100'/></span><span className='flex-1 truncate text-[13px] font-medium text-foreground'>{task.title}</span><span className='shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground/80'>{task.areas?.name||'Preparación'}</span></button>:<Link href='/tasks?phase=before' className='flex min-h-11 items-center gap-3 rounded-xl bg-card/70 px-3 py-2 text-[13px] font-medium text-foreground'><span className='size-5 shrink-0 rounded-full border-2 border-chart-2/50'/><span className='flex-1 truncate'>{task.title}</span><span className='max-w-[32%] shrink-0 truncate rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground/80'>{task.areas?.name||'Preparación'}</span></Link>}</li>)}</ul>:<div className='mt-3 flex items-center gap-2 rounded-xl bg-card/70 px-3 py-2.5 text-[13px] font-medium text-foreground'><PartyPopper className='size-4 text-primary'/>{preparation.total===0?'Añade las tareas de preparación para empezar.':done===preparation.total?'Todo listo. ¡Nos vemos en el campamento!':'Revisa todas las tareas de preparación.'}</div>}

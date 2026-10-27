@@ -37,6 +37,23 @@ export function sunsetReference(rows:SunsetReport[],date:string){
  // One regional clock without GPS: Santiago is the shared reference on Home.
  return rows.find(row=>row.id==='santiago'&&row.date===date&&row.timeZone===SUNSET_ZONE&&Number.isFinite(Date.parse(row.sunset))&&localDate(Date.parse(row.sunset))===date)??null;
 }
+export function sunsetStatus(now:number,rows:SunsetReport[]){
+ const date=localDate(now),reference=sunsetReference(rows,date);
+ if(!reference)return null;
+ const sunsetAt=Date.parse(reference.sunset),passed=now>=sunsetAt;
+ const weekday=new Date(`${date}T12:00:00Z`).getUTCDay();
+ const sabbath=(weekday===5&&passed)||(weekday===6&&!passed);
+ const greeting=sabbath?'¡Feliz sábado!':weekday===6&&passed?'¡Feliz semana!':null;
+ const time=new Intl.DateTimeFormat('es-DO',{timeZone:reference.timeZone,hour:'numeric',minute:'2-digit'}).format(sunsetAt).replace(/\u00a0|\u202f/g,' ');
+ return {date,weekday,sunsetAt,passed,sabbath,greeting,time,label:passed?'La puesta de sol fue a las':'Puesta de sol hoy'};
+}
+export function sunsetTransitionReminder(now:number,rows:SunsetReport[]){
+ const status=sunsetStatus(now,rows);
+ if(!status?.passed||!status.greeting)return null;
+ const expires=status.sunsetAt+5*60000;
+ return now<expires?{date:status.date,key:`sunset-passed:${status.date}`,due:status.sunsetAt,expires,
+  title:status.greeting,body:`La puesta de sol ya pasó; fue a las ${status.time}.`}:null;
+}
 export function fridaySunsetReminder(now:number,rows:SunsetReport[]){
  const date=localDate(now);
  const reference=sunsetReference(rows,date);

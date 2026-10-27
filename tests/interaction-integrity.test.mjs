@@ -10,7 +10,7 @@ const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/s
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 export function all(node,predicate){if(Array.isArray(node))return node.flatMap(child=>all(child,predicate));if(!node||typeof node!=='object')return [];return [...(predicate(node)?[node]:[]),...all(node.props?.children,predicate)];}
 async function optional(path){try{return await import(path)}catch(error){if(error.code!=='ERR_MODULE_NOT_FOUND')throw error;return {}}}
-async function ui(path,props,client,overrides={}){
+async function ui(path,props,client,overrides={},extraModules={}){
   await loadBindings();const {code}=await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const states=[],errors=[],successes=[];let cursor=0;const jsx=(type,props)=>({type,props});
   const modules={react:{useEffect(){},useMemo:fn=>fn(),useState(initial){const index=cursor++;if(!(index in states))states[index]=index in overrides?overrides[index]:typeof initial==='function'?initial():initial;return [states[index],value=>states[index]=typeof value==='function'?value(states[index]):value]}},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>client},'@/lib/client-ui':{confirmRemoval:()=>true,reportMutationError:(error,message)=>{errors.push({error,message});return message},reportMutationSuccess:message=>successes.push(message)},'@/lib/mutation-result':await optional('../lib/mutation-result.ts'),'@/lib/meal-stock':await optional('../lib/meal-stock.ts'),'@/app/components/bottom-sheet':{__esModule:true,default:'sheet'},'lucide-react':{}};
@@ -19,6 +19,8 @@ async function ui(path,props,client,overrides={}){
   modules['@/app/components/tenant-link']={default:'tenant-link'};
   modules['@/supabase/functions/_shared/sunset']=await import('../supabase/functions/_shared/sunset.ts');
   for(const [path,name] of [['camporee-scene','CamporeeScene'],['countdown-unit','CountdownUnit'],['progress-ring','ProgressRing'],['camporee-club-strip','CamporeeClubStrip'],['sabbath-banner','SabbathBanner'],['daily-sunset','DailySunset']])modules[`./${path}`]={[name]:name};
+  modules['./daily-sunset']={DailySunset:'DailySunset',useDailySunset:()=>null};
+  Object.assign(modules,extraModules);
   const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date,Map,Set,Promise,console});
   return {render(){cursor=0;return module.exports.default(props)},states,errors,successes};
 }
@@ -49,6 +51,20 @@ test('home preparation keeps read-only tasks navigable without offering a comple
  const app=await ui('app/components/camporee-card/camporee-card.tsx',{...cardProps,data:{...cardProps.data,canEditTasks:false}},{});
  assert.equal(all(app.render(),n=>n.props['aria-label']==='Completar Preparar uniforme').length,0);
  assert.ok(all(app.render(),n=>n.props.href==='/tasks?phase=before').length>0);
+});
+
+for(const [date,now,expected,program] of [
+ ['2026-11-06','2026-11-06T22:05:00Z','during',true],
+ ['2026-11-06','2026-11-06T22:12:00Z','sabbath',false],
+ ['2026-11-07','2026-11-07T22:11:26Z','sabbath',false],
+ ['2026-11-07','2026-11-07T22:11:27Z','during',false],
+])test(`home greeting follows astronomical sunset even with missing or different program times: ${now}`,async()=>{
+ const solar=await import('../supabase/functions/_shared/sunset.ts');
+ const snapshot=solar.sunsetStatus(Date.parse(now),[{id:'santiago',label:'Santiago',date,timeZone:solar.SUNSET_ZONE,sunrise:`${date}T06:41:00-04:00`,sunset:`${date}T18:11:27-04:00`}]);
+ const schedule=program?[{id:'reception',title:'Recepción del sábado',starts_at:'2026-11-06T22:00:00Z'},{id:'farewell',title:'Despedida del sábado',starts_at:'2026-11-07T22:00:00Z'}]:[];
+ const props={...cardProps,phase:'during',initialNow:Date.parse(now),data:{...cardProps.data,schedule,tasks:[]}};
+ const app=await ui('app/components/camporee-card/camporee-card.tsx',props,{}, {},{'./daily-sunset':{DailySunset:'DailySunset',useDailySunset:()=>snapshot}});
+ assert.equal(all(app.render(),node=>node.props['data-phase'])[0].props['data-phase'],expected);
 });
 
 for(const [status,data,success] of [[200,[],false],[200,[{id:'camp'}],true],[202,[{id:'camp'}],true]])test(`navigation save confirms camporee and organization before success: ${status} ${JSON.stringify(data)}`,async()=>{

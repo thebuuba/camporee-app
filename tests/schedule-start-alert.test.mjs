@@ -143,3 +143,23 @@ test('sunset alerts skip unavailable daily data, unrelated regions and finished 
   assert.equal(api.logs.length,0);assert.equal(api.sent.length,0);
  }
 });
+
+for(const [date,title] of [['2026-10-30','¡Feliz sábado!'],['2026-10-31','¡Feliz semana!']])test(`${title}: sunset greeting retries and deduplicates for active subscribed recipients`,async()=>{
+ const sunsets=[{id:'santiago',label:'Santiago',timeZone:'America/Santo_Domingo',date,sunrise:`${date}T06:43:00-04:00`,sunset:`${date}T18:10:42-04:00`}];
+ const api=await reminder({now:`${date}T22:10:42Z`,sunsets,failed:true});
+ assert.equal((await api.invoke()).status,200);
+ assert.equal(api.logs.length,1);assert.equal(api.logs[0].milestone,`sunset-passed:${date}`);
+ assert.equal(api.logs[0].user_id,'admin');assert.equal(api.logs[0].state,'pending');
+ api.recover();await api.invoke();await api.invoke();
+ assert.equal(api.logs.length,1);assert.equal(api.sent.length,1);
+ assert.equal(api.sent[0].payload.title,title);assert.match(api.sent[0].payload.body,/puesta de sol ya pasó/);
+ assert.equal(api.sent[0].payload.url,'/o/club/c/camp');
+});
+
+test('Friday preparation reminder and sunset greeting have separate delivery identities',async()=>{
+ const date='2026-10-30',sunsets=[{id:'santiago',label:'Santiago',timeZone:'America/Santo_Domingo',date,sunrise:`${date}T06:43:00-04:00`,sunset:`${date}T18:10:42-04:00`}];
+ const api=await reminder({now:`${date}T20:40:00Z`,sunsets});
+ await api.invoke();api.setNow(`${date}T22:10:42Z`);await api.invoke();await api.invoke();
+ assert.deepEqual(api.logs.map(log=>log.milestone),[`sunset:${date}`,`sunset-passed:${date}`]);
+ assert.equal(api.sent.length,2);assert.equal(api.sent[1].payload.title,'¡Feliz sábado!');
+});
