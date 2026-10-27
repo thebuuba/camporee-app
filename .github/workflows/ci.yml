@@ -20,6 +20,30 @@ jobs:
       - run: npm run check
       - run: npm run build
 
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_test_only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.10.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec opennextjs-cloudflare build
+      - name: Check actual Workers runtime
+        run: |
+          pnpm exec wrangler dev --ip 127.0.0.1 --port 8787 > /tmp/camporee-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+          node scripts/test-worker.mjs || { cat /tmp/camporee-worker.log; exit 1; }
+
   database:
     runs-on: ubuntu-latest
     timeout-minutes: 18
