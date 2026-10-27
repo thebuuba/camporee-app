@@ -61,3 +61,24 @@ Además del dominio corregido, señaló estos límites del adaptador existente:
 - La respuesta optimista no emula por completo la negociación singular de PostgREST para arrays enviados junto con `Accept: application/vnd.pgrst.object+json`. Los flujos de lotes revisados no piden ese formato; conviene cubrirlo antes de introducir esa combinación.
 
 Estas observaciones quedan abiertas; no se borraron operaciones pendientes ni se relajó el aislamiento de cuentas para ocultarlas. Las pruebas previas de `tests/loading-reliability.test.mjs` cubren replay básico, conflictos y cambio de cuenta; las pruebas nuevas cubren los tres errores corregidos.
+
+## Integración con main
+
+Antes de publicar se incorporaron los 12 commits que ya estaban en `origin/main`
+(`cff0597`). Se conservaron sus mejoras de orden y ámbito de la cola offline.
+La prueba de zona horaria de tareas se actualizó para enviar fecha y hora, como
+exige el campo `datetime-local` incorporado por esos commits. Sobre la versión
+integrada: **275 pruebas aprobadas**, `npm run check` y `npm run build` correctos,
+e instalación limpia con `npm ci` y auditoría de dependencias sin vulnerabilidades.
+Los cambios locales previos de presupuesto y descripción de tareas quedaron
+fuera de esta publicación.
+
+### Integración completa posterior
+
+La siguiente fusión incorpora también el presupuesto por día, la descripción
+de tareas y la corrección de reapariciones de la pantalla inicial, conservando
+las mejoras actuales de asignación y horarios de `main`. Se corrigió la
+configuración de pnpm y se sincronizó su lockfile. Verificación del conjunto:
+286 pruebas aprobadas, TypeScript y build de producción correctos, auditoría npm
+sin vulnerabilidades y lockfile pnpm validado con `--frozen-lockfile`.
+El empaquetado completo de OpenNext para Cloudflare también terminó correctamente.

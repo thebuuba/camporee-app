@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import * as songs from '../lib/songs.ts';
 import { songSourceKey } from '../lib/song-downloads.ts';
 
-async function player({records=[],supabase,fetchAudio,saveDownload,navigatorMock={}}={}) {
+async function player({records=[],supabase,fetchAudio,saveDownload,navigatorMock={},playAudio}={}) {
   const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');await loadBindings();
   const {code}=await transform(await readFile(new URL('../app/components/music-player.tsx',import.meta.url),'utf8'),{filename:'music-player.tsx',jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const states=[],refs=[],effects=[];let stateIndex=0,refIndex=0;
@@ -16,19 +16,19 @@ async function player({records=[],supabase,fetchAudio,saveDownload,navigatorMock
   function render(){stateIndex=0;refIndex=0;return module.exports.default({children:'page'})}
   function find(node,predicate){if(!node||typeof node!=='object')return;if(predicate(node))return node;for(const child of [node.props?.children].flat()){const found=find(child,predicate);if(found)return found}}
   const tree=render();let pauseCalls=0,playCalls=0;
-  const audio={src:'',currentTime:0,duration:240,paused:true,async play(){playCalls++;this.paused=false},pause(){pauseCalls++;this.paused=true},getAttribute(){return this.src},removeAttribute(){this.src=''},load(){}};
+  const audio={src:'',currentTime:0,duration:240,paused:true,async play(){playCalls++;this.paused=false;if(playAudio)return playAudio()},pause(){pauseCalls++;this.paused=true},getAttribute(){return this.src},removeAttribute(){this.src=''},load(){}};
   find(tree,node=>node.type==='audio').props.ref.current=audio;
   return {render,find,audio,effects,counts:()=>({pauseCalls,playCalls})};
 }
 
-test('cerrar el panel conserva el audio y la burbuja',async()=>{
+test('cerrar el panel conserva el audio y la barra compacta',async()=>{
   const view=await player();let tree=view.render();
   const api=tree.props.value;
   api.playSong({id:'maranata',title:'Maranata',audioUrl:'/audio/maranata.mp3'});
   tree=view.render();view.find(tree,node=>node.type==='sheet').props.onClose();tree=view.render();
   assert.equal(view.audio.paused,false);
   assert.equal(view.counts().pauseCalls,0);
-  assert.ok(view.find(tree,node=>node.type==='bubble'));
+  assert.ok(view.find(tree,node=>node.props?.className==='music-mini'));
 });
 
 test('cambiar de canción usa el mismo audio y quitar el reproductor lo detiene',async()=>{
@@ -39,7 +39,35 @@ test('cambiar de canción usa el mismo audio y quitar el reproductor lo detiene'
   assert.equal(view.audio.src,'/audio/maranata.mp3');assert.equal(view.audio.currentTime,0);
   api=view.render().props.value;api.stop();
   assert.equal(view.audio.paused,true);assert.equal(view.audio.src,'');
-  assert.equal(view.find(view.render(),node=>node.type==='bubble'),undefined);
+  assert.equal(view.find(view.render(),node=>node.props?.className==='music-mini'),undefined);
+});
+
+test('la barra compacta pausa sin abrir el panel y permite retomarlo',async()=>{
+  const view=await player();
+  view.render().props.value.playSong({id:'one',title:'Una',audioUrl:'/audio/maranata.mp3'});
+  let tree=view.render();view.find(tree,node=>node.type==='audio').props.onPlay();
+  tree=view.render();
+  const mini=view.find(tree,node=>node.props?.className==='music-mini');
+  view.find(mini,node=>node.props?.['aria-label']==='Pausar').props.onClick();
+  assert.equal(view.audio.paused,true);
+  assert.equal(view.find(view.render(),node=>node.type==='sheet').props.open,false);
+  view.find(tree,node=>node.type==='audio').props.onPause();
+  const next=view.find(view.render(),node=>node.props?.className==='music-mini');
+  view.find(next,node=>node.props?.['aria-label']==='Reproducir').props.onClick();
+  assert.equal(view.audio.paused,false);
+});
+
+test('la cola pausa la canción activa y el progreso cambia la posición del mismo audio',async()=>{
+  const view=await player();const song={id:'one',title:'Una',audioUrl:'/audio/maranata.mp3'};
+  view.render().props.value.setSongs([song],'user:event');
+  view.render().props.value.playSong(song);
+  let tree=view.render();const audio=view.find(tree,node=>node.type==='audio');
+  audio.props.onPlay();audio.props.onLoadedMetadata({currentTarget:view.audio});
+  tree=view.render();
+  const queue=view.find(tree,node=>node.props?.className==='music-playlist');
+  const row=queue.props.children[0];row.props.onClick();assert.equal(view.audio.paused,true);
+  view.find(tree,node=>node.props?.type==='range').props.onChange({target:{value:'80'}});
+  assert.equal(view.audio.currentTime,80);
 });
 
 test('una descarga guardada se reproduce desde Blob sin pedir audio a la red',async()=>{
@@ -82,4 +110,25 @@ test('preparar un audio privado permite comenzar dentro del toque de reproducci�
   await view.render().props.value.prepareSong(song);
   view.render().props.value.playSong(song);
   assert.equal(view.audio.src,'https://example.com/song.mp3');assert.equal(view.audio.paused,false);assert.equal(signs,1);
+});
+
+test('un rechazo tardío de la canción anterior no muestra un fallo sobre la siguiente',async()=>{
+  let rejectFirst,calls=0;
+  const view=await player({playAudio:()=>++calls===1?new Promise((_,reject)=>{rejectFirst=reject}):Promise.resolve()});
+  view.render().props.value.playSong({id:'one',title:'Una',audioUrl:'/audio/maranata.mp3'});
+  view.render().props.value.playSong({id:'two',title:'Otra',audioUrl:'/audio/contracorriente.mp3'});
+  rejectFirst(new Error('old source failed'));await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(view.find(view.render(),node=>node.props?.role==='alert'),undefined);
+});
+
+test('reintentar un audio privado que falló renueva su enlace firmado',async()=>{
+  let signs=0;const song={id:'private',title:'Privada',audioUrl:'',filePath:'event/songs/song.mp3'};
+  const view=await player({supabase:{storage:{from:()=>({async createSignedUrl(){return {data:{signedUrl:`https://example.com/audio-${++signs}.mp3`}}}})}}});
+  await view.render().props.value.prepareSong(song);
+  view.render().props.value.playSong(song);
+  view.find(view.render(),node=>node.type==='audio').props.onError();
+  const mini=view.find(view.render(),node=>node.props?.className==='music-mini');
+  view.find(mini,node=>node.props?.['aria-label']==='Reproducir').props.onClick();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(signs,2);assert.equal(view.audio.src,'https://example.com/audio-2.mp3');
 });

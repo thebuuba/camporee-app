@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import * as locale from '../lib/camporee-locale.ts';
 
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 const SHEET = '@/app/components/bottom-sheet';
@@ -37,12 +38,13 @@ async function harness(initialTasks) {
     } },
     'next/navigation': { useRouter: () => ({}) },
     '@/lib/supabase/client': { createClient: () => ({}) },
+    '@/lib/camporee-locale': locale,
   };
   const module = { exports: {} };
   vm.runInNewContext(code, { module, exports: module.exports, require: name => modules[name] ?? new Proxy({ __esModule: true, default: name }, { get: (obj, key) => obj[key] ?? String(key) }) });
   return () => {
     cursor = 0;
-    return module.exports.default({ camporeeId: 'camp', userId: 'user', canEdit: false, initialTasks, areas: [], assignees: [] });
+    return module.exports.default({ camporeeId: 'camp', userId: 'user', canEdit: false, initialTasks, areas: [], assignees: [], participants: [] });
   };
 }
 const base = overrides => ({ id: 't1', title: 'Tarea', description: null, status: 'pending', priority: 'normal', phase: 'before', assigned_to: null, task_checklist_items: [], ...overrides });

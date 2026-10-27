@@ -47,9 +47,19 @@ export default function DocumentManager({ camporeeId, userId, canEdit, initialDo
   }
 
   async function openStoredFile(filePath: string) {
-    const { data, error } = await supabase.storage.from('camporee-files').createSignedUrl(filePath, 60 * 10);
-    if (!error && data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
-    else {const message=reportMutationError(error,'No se pudo abrir el archivo.');setErrorMessage(message);}
+    // Reserve the tab during the gesture; mobile browsers block window.open
+    // after the asynchronous request for a private signed URL.
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    try {
+      const { data, error } = await supabase.storage.from('camporee-files').createSignedUrl(filePath, 60 * 10);
+      if (error || !data?.signedUrl) throw error ?? new Error('No se pudo abrir el archivo.');
+      if (popup) { if (!popup.closed) popup.location.replace(data.signedUrl); }
+      else window.location.assign(data.signedUrl);
+    } catch (error) {
+      popup?.close();
+      setErrorMessage(reportMutationError(error,'No se pudo abrir el archivo.'));
+    }
   }
 
   async function removeDocument(document: any) {

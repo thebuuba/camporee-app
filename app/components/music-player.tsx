@@ -1,9 +1,8 @@
 'use client';
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { Music2, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react';
+import { Check, ChevronUp, Download, ListMusic, LoaderCircle, Music2, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react';
 import BottomSheet from './bottom-sheet';
-import FloatingMusicBubble from './floating-music-bubble';
 import { isPlayableSong, safeAudioUrl, songsFromDocuments, type Song } from '@/lib/songs';
 import { listDownloadedSongs, removeDownloadedSong, saveDownloadedSong, songSourceKey, type DownloadedSong } from '@/lib/song-downloads';
 import { createClient } from '@/lib/supabase/client';
@@ -28,6 +27,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [downloads, updateDownloads] = useState<DownloadedSong[]>([]);
   const [downloading, setDownloading] = useState('');
+  const [buffering, setBuffering] = useState(false);
   const scope = useRef(''), saved = useRef<DownloadedSong[]>([]), objectUrl = useRef(''), generation = useRef(0), activeSource = useRef('');
   const downloadJob = useRef<AbortController | null>(null);
   const signedSources = useRef(new Map<string, { url: string; expires: number }>());
@@ -35,7 +35,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   const releaseBlob = useCallback(() => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); objectUrl.current = ''; }, []);
   const stop = useCallback(() => {
     generation.current++; audio.current?.pause(); audio.current?.removeAttribute('src'); audio.current?.load();
-    activeSource.current = ''; releaseBlob(); setCurrent(null); setPlaying(false); setOpen(false); setTime(0); setDuration(0); setError('');
+    activeSource.current = ''; releaseBlob(); setCurrent(null); setPlaying(false); setOpen(false); setTime(0); setDuration(0); setError(''); setBuffering(false);
   }, [releaseBlob]);
   const setSongs = useCallback((items: Song[], owner: string) => {
     updateSongs(items.filter(isPlayableSong));
@@ -47,7 +47,8 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   useEffect(() => { if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) { stop(); scope.current = ''; saved.current = []; signedSources.current.clear(); updateDownloads([]); downloadJob.current?.abort(); setDownloading(''); } }, [pathname, stop]);
   useEffect(() => () => { generation.current++; releaseBlob(); downloadJob.current?.abort(); }, [releaseBlob]);
   function resume() {
-    setError(''); void audio.current?.play().catch((cause: unknown) => { if ((cause as { name?: string })?.name !== 'AbortError') setError('No se pudo reproducir. Pulsa Reproducir otra vez o descarga el audio con conexión.'); });
+    const request = generation.current;
+    setError(''); void audio.current?.play().catch((cause: unknown) => { if (generation.current === request && (cause as { name?: string })?.name !== 'AbortError') { setBuffering(false); setError('No se pudo reproducir. Pulsa Reproducir otra vez o descarga el audio con conexión.'); } });
   }
   const prepareSong = useCallback(async (song: Song) => {
     if (!song.filePath || saved.current.some(record => songSourceKey(record.song) === songSourceKey(song))) return;
@@ -63,7 +64,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
     if (activeSource.current === key && audio.current.getAttribute('src')) { setCurrent(song); resume(); return; }
     const request = ++generation.current;
     if (activeSource.current) audio.current.pause(); activeSource.current = ''; releaseBlob();
-    setCurrent(song); setPlaying(false); setError(''); setTime(0); setDuration(0);
+    setCurrent(song); setPlaying(false); setError(''); setTime(0); setDuration(0); setBuffering(true);
     const begin = (url: string) => { if (generation.current !== request || !audio.current) return; audio.current.src = url; audio.current.currentTime = 0; activeSource.current = key; resume(); };
     const record = saved.current.find(item => songSourceKey(item.song) === key);
     if (record) { objectUrl.current = URL.createObjectURL(record.blob); begin(objectUrl.current); }
@@ -71,7 +72,7 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
     else {
       const cached = signedSources.current.get(song.filePath);
       if (cached && cached.expires > Date.now()) begin(cached.url);
-      else void sourceUrl(song).then(begin).catch(cause => { if (generation.current === request) setError(cause.message); });
+      else void sourceUrl(song).then(begin).catch(cause => { if (generation.current === request) { setError(cause.message); setBuffering(false); } });
     }
   }
   async function downloadSong(song: Song) {
@@ -96,6 +97,14 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
     saved.current = saved.current.filter(item => songSourceKey(item.song) !== songSourceKey(song)); updateDownloads(saved.current);
   }
   const playlist = [...songs, ...downloads.map(item => item.song).filter(song => !songs.some(item => songSourceKey(item) === songSourceKey(song)))];
+  const downloaded = Boolean(current && downloads.some(item => songSourceKey(item.song) === songSourceKey(current)));
+  const isDownloading = Boolean(current && downloading === songSourceKey(current));
+  const progress = duration ? Math.min(100, Math.max(0, time / duration * 100)) : 0;
+  function togglePlayback() {
+    if (playing) audio.current?.pause();
+    else if (current && !activeSource.current) playSong(current);
+    else resume();
+  }
   function skip(direction: number) { if (!playlist.length) return; const index = playlist.findIndex(song => current && songSourceKey(song) === songSourceKey(current)); playSong(playlist[(index + direction + playlist.length) % playlist.length]); }
   useEffect(() => {
     if (!('mediaSession' in navigator) || !current) return;
@@ -107,15 +116,29 @@ export default function MusicPlayer({ children }: { children: ReactNode }) {
   }, [current, playing, songs, downloads, stop]);
   return <MusicContext.Provider value={{ current, playing, downloads, downloading, playSong, prepareSong, showPlayer: () => setOpen(true), setSongs, stop, downloadSong, removeDownload }}>
     {children}
-    <audio ref={audio} data-camporee-player hidden preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); const index = playlist.findIndex(song => current && songSourceKey(song) === songSourceKey(current)); if (index >= 0 && index < playlist.length - 1) playSong(playlist[index + 1]); }} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onError={() => { if (audio.current?.getAttribute('src')) { setPlaying(false); setError('No se pudo cargar el audio. Descárgalo con conexión para escucharlo sin internet.'); } }}/>
-    {current ? <FloatingMusicBubble title={current.title} playing={playing} onOpen={() => setOpen(true)}/> : null}
-    <BottomSheet open={open && Boolean(current)} onClose={() => setOpen(false)} title="Reproductor" description={current?.title} footer={<button type="button" className="music-remove" onClick={stop}><X size={18} aria-hidden="true"/> Quitar reproductor</button>}>
+    <audio ref={audio} data-camporee-player hidden preload="none" onPlay={() => setPlaying(true)} onPlaying={() => setBuffering(false)} onWaiting={() => setBuffering(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { setPlaying(false); const index = playlist.findIndex(song => current && songSourceKey(song) === songSourceKey(current)); if (index >= 0 && index < playlist.length - 1) playSong(playlist[index + 1]); }} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onLoadedMetadata={event => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} onError={() => { if (audio.current?.getAttribute('src')) { activeSource.current = ''; if (current?.filePath) signedSources.current.delete(current.filePath); setPlaying(false); setBuffering(false); setError('No se pudo cargar el audio. Descárgalo con conexión para escucharlo sin internet.'); } }}/>
+    {current && !open ? <aside className="music-mini" aria-label="Reproductor compacto">
+      <button type="button" className="music-mini-open" onClick={() => setOpen(true)} aria-label={`Abrir reproductor: ${current.title}`} aria-haspopup="dialog">
+        <span className="music-mini-art" aria-hidden="true"><Music2 size={23}/></span>
+        <span className="music-mini-copy"><strong>{current.title}</strong><small>{error ? 'No se pudo reproducir · Ver detalle' : buffering ? 'Cargando audio…' : downloaded ? 'Disponible sin conexión' : 'Canciones del club'}</small></span>
+        <ChevronUp size={17} aria-hidden="true"/>
+      </button>
+      <button type="button" className="music-mini-toggle" aria-label={playing ? 'Pausar' : 'Reproducir'} onClick={togglePlayback}>{playing ? <Pause size={23} fill="currentColor" aria-hidden="true"/> : <Play size={23} fill="currentColor" aria-hidden="true"/>}</button>
+      <div className="music-mini-progress" aria-hidden="true"><span style={{ width: `${progress}%` }}/></div>
+    </aside> : null}
+    <BottomSheet open={open && Boolean(current)} onClose={() => setOpen(false)} title="Ahora suena" footer={<button type="button" className="music-remove" onClick={stop}><X size={16} aria-hidden="true"/> Detener y cerrar</button>}>
       <div className="music-panel">
         {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
-        <div className="music-controls"><button type="button" className="music-skip" aria-label="Canción anterior" onClick={() => skip(-1)} disabled={playlist.length < 2}><SkipBack size={22}/></button><button type="button" className="primary-btn music-toggle" onClick={() => { if (playing) audio.current?.pause(); else if (current && !activeSource.current) playSong(current); else resume(); }}>{playing ? <Pause size={20} aria-hidden="true"/> : <Play size={20} aria-hidden="true"/>}{playing ? 'Pausar' : 'Reproducir'}</button><button type="button" className="music-skip" aria-label="Canción siguiente" onClick={() => skip(1)} disabled={playlist.length < 2}><SkipForward size={22}/></button></div>
-        <label className="music-seek"><span className="sr-only">Posición de la canción</span><input aria-label="Posición de la canción" type="range" min={0} max={duration || 1} step={1} value={Math.min(time, duration || 0)} disabled={!duration} onChange={event => { const value = Number(event.target.value); if (audio.current) audio.current.currentTime = value; setTime(value); }}/><span><small>{clock(time)}</small><small>{clock(duration)}</small></span></label>
-        <h3>Otra canción</h3>
-        <div className="music-playlist">{playlist.map(song => <button type="button" key={`${song.id}:${songSourceKey(song)}`} className={current && songSourceKey(current) === songSourceKey(song) ? 'active' : ''} aria-pressed={Boolean(current && songSourceKey(current) === songSourceKey(song))} onClick={() => playSong(song)}><Music2 size={18} aria-hidden="true"/><span>{song.title}{downloads.some(item => songSourceKey(item.song) === songSourceKey(song)) ? <small className="music-downloaded">Descargada · Sin internet</small> : null}</span>{current && songSourceKey(current) === songSourceKey(song) && playing ? <Pause size={16} aria-hidden="true"/> : <Play size={16} aria-hidden="true"/>}</button>)}</div>
+        <div className="music-artwork" aria-hidden="true"><span className="music-artwork-ring"/><Music2 size={66} strokeWidth={1.25}/><span className="music-artwork-label">CAMPOREE · MÚSICA</span></div>
+        <div className="music-track-info"><div><h3>{current?.title}</h3><p>Canciones del club</p></div><button type="button" className="music-download" disabled={downloaded || Boolean(downloading)} aria-label={downloaded ? 'Canción descargada' : isDownloading ? 'Descargando canción' : 'Descargar para escuchar sin conexión'} onClick={() => { if (current) void downloadSong(current).catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo descargar el audio.')); }}>{downloaded ? <Check size={22}/> : isDownloading ? <LoaderCircle size={22} className="music-loading"/> : <Download size={22}/>}</button></div>
+        <label className="music-seek"><span className="sr-only">Posición de la canción</span><input aria-label="Posición de la canción" aria-valuetext={`${clock(time)} de ${clock(duration)}`} style={{ '--music-progress': `${progress}%` } as CSSProperties} type="range" min={0} max={duration || 1} step={1} value={Math.min(time, duration || 0)} disabled={!duration} onChange={event => { const value = Number(event.target.value); if (audio.current) audio.current.currentTime = value; setTime(value); }}/><span><small>{clock(time)}</small><small>{clock(duration)}</small></span></label>
+        <div className="music-controls"><button type="button" className="music-skip" aria-label="Canción anterior" onClick={() => skip(-1)} disabled={playlist.length < 2}><SkipBack size={28} fill="currentColor" aria-hidden="true"/></button><button type="button" className="music-toggle" aria-label={playing ? 'Pausar' : 'Reproducir'} onClick={togglePlayback}>{playing ? <Pause size={30} fill="currentColor" aria-hidden="true"/> : <Play size={30} fill="currentColor" aria-hidden="true"/>}</button><button type="button" className="music-skip" aria-label="Canción siguiente" onClick={() => skip(1)} disabled={playlist.length < 2}><SkipForward size={28} fill="currentColor" aria-hidden="true"/></button></div>
+        <p className="music-playback-status" role="status">{buffering ? 'Cargando audio…' : downloaded ? 'Descargada · Disponible sin conexión' : playing ? 'Reproduciendo' : 'En pausa'}</p>
+        <div className="music-queue-heading"><h3><ListMusic size={19} aria-hidden="true"/> En esta cola</h3><span>{playlist.length} canciones</span></div>
+        <div className="music-playlist">{playlist.map((song, index) => {
+          const active = Boolean(current && songSourceKey(current) === songSourceKey(song));
+          return <button type="button" key={`${song.id}:${songSourceKey(song)}`} className={active ? 'active' : ''} aria-pressed={active} aria-label={`${active && playing ? 'Pausar' : 'Reproducir'} ${song.title}`} onClick={() => active ? togglePlayback() : playSong(song)}><span className="music-queue-number" aria-hidden="true">{active && playing ? <span className="music-equalizer"><i/><i/><i/></span> : String(index + 1).padStart(2, '0')}</span><span className="music-queue-copy">{song.title}<small className="music-downloaded">{downloads.some(item => songSourceKey(item.song) === songSourceKey(song)) ? 'Descargada · Sin conexión' : active ? 'Selección actual' : 'Canciones del club'}</small></span>{active && playing ? <Pause size={18} aria-hidden="true"/> : <Play size={18} aria-hidden="true"/>}</button>;
+        })}</div>
       </div>
     </BottomSheet>
   </MusicContext.Provider>;
