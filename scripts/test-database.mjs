@@ -6,7 +6,9 @@ const inspect = spawnSync('docker', ['inspect', '--format', '{{.Config.Image}}|{
 if (inspect.status || inspect.stdout.trim() !== 'supabase/postgres:15.8.1.085|none') throw new Error('Start the documented isolated test container with --network none first.');
 const readyDeadline = Date.now() + 30_000;
 for (;;) {
-  const ready = spawnSync('docker', ['exec', container, 'pg_isready', '-U', 'supabase_admin', '-d', 'postgres'], { encoding: 'utf8', timeout: 2000 });
+  // The image's initialization server accepts Unix sockets before init scripts
+  // finish. TCP is enabled only by the final server, avoiding catalog races.
+  const ready = spawnSync('docker', ['exec', container, 'pg_isready', '-h', '127.0.0.1', '-U', 'supabase_admin', '-d', 'postgres'], { encoding: 'utf8', timeout: 2000 });
   if (ready.status === 0) break;
   if (Date.now() >= readyDeadline) throw new Error('The isolated test database did not become ready within 30 seconds.');
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
