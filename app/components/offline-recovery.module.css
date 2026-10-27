@@ -1,0 +1,7 @@
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+.entries{display:grid;gap:12px}
+.entry{display:grid;gap:12px;padding:16px;border:1px solid var(--line,#ddd);border-radius:16px;overflow-wrap:anywhere}
+.entry small{color:var(--muted)}
+.entry summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.entry pre{white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;font-size:13px}
+.entry button{min-height:44px}

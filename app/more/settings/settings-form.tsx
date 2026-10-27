@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 export default function SettingsForm({ camporee, canEdit }: { camporee: any; canEdit: boolean }) {
   const [saving, setSaving] = useState(false);
@@ -26,9 +27,10 @@ export default function SettingsForm({ camporee, canEdit }: { camporee: any; can
     if (new Date(endsOn) < new Date(startsOn)) { setError('La fecha final no puede ser anterior a la fecha de inicio.'); return; }
     setSaving(true); setSaved(false); setError('');
     try{
-      const { error } = await supabase.from('camporees').update({ name, location: String(formData.get('location') || '').trim() || null, starts_on: startsOn, ends_on: endsOn, status: String(formData.get('status') || 'planning') }).eq('id', camporee.id);
+      const result = await supabase.from('camporees').update({ name, location: String(formData.get('location') || '').trim() || null, starts_on: startsOn, ends_on: endsOn, status: String(formData.get('status') || 'planning') }).eq('id', camporee.id).select('id');
+      const error = mutationProblem(result,[camporee.id]);
       if (error){const message=reportMutationError(error,'No se pudo guardar la configuración.');setError(message);return;}
-      setSaved(true);reportMutationSuccess('Configuración guardada.');router.refresh();
+      setSaved(result.status !== 202);reportMutationSuccess(mutationNotice(result.status,'Configuración guardada.'));if (result.status !== 202) router.refresh();
     }catch(err){const message=reportMutationError(err,'No se pudo guardar la configuración.');setError(message)}finally{setSaving(false)}
   }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,18 +27,22 @@ export default function EmergencyManager({ camporeeId, canEdit, initialContacts 
     setSaving(true);setFormError('');
     try{
       const payload = { camporee_id: camporeeId, name, role: String(formData.get('role') || '').trim() || null, phone: String(formData.get('phone') || '').trim() || null, notes: String(formData.get('notes') || '').trim() || null, priority: Number(formData.get('priority') || 0) };
-      const { data, error } = await (editing ? supabase.from('emergency_contacts').update(payload).eq('id',editing.id) : supabase.from('emergency_contacts').insert(payload)).select('*').single();
+      const result = await (editing ? supabase.from('emergency_contacts').update(payload).eq('id',editing.id).eq('camporee_id',camporeeId) : supabase.from('emergency_contacts').insert(payload)).select('*').single();
+      const { data } = result; const error = mutationProblem(result,editing?[editing.id]:undefined);
       if(error||!data){const message=reportMutationError(error,'No se pudo guardar el contacto.');setFormError(message);return;}
-      setContacts((current) => (editing ? current.map((item) => item.id === data.id ? data : item) : [...current, data]).sort((a,b) => (a.priority ?? 0) - (b.priority ?? 0))); setOpen(false); setEditing(null); reportMutationSuccess('Contacto guardado.'); router.refresh();
+      setContacts((current) => (editing ? current.map((item) => item.id === data.id ? data : item) : [...current, data]).sort((a,b) => (a.priority ?? 0) - (b.priority ?? 0))); setOpen(false); setEditing(null); reportMutationSuccess(mutationNotice(result.status,'Contacto guardado.')); if (result.status !== 202) router.refresh();
     }catch(error){const message=reportMutationError(error,'No se pudo guardar el contacto.');setFormError(message)}finally{setSaving(false)}
   }
 
   async function removeContact(id: string) {
     if (!canEdit || !confirmRemoval('este contacto')) return;
-    const previous = contacts;
-    setContacts((current) => current.filter((item) => item.id !== id));
-    const { error } = await supabase.from('emergency_contacts').delete().eq('id', id);
-    if (error){setContacts(previous);reportMutationError(error,'No se pudo eliminar el contacto.');}else{reportMutationSuccess('Contacto eliminado.');router.refresh();}
+    try {
+      const result = await supabase.from('emergency_contacts').delete().eq('id', id).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[id]);
+      if (error) throw error;
+      setContacts((current) => current.filter((item) => item.id !== id));
+      reportMutationSuccess(mutationNotice(result.status,'Contacto eliminado.'));if (result.status !== 202) router.refresh();
+    } catch(error) {reportMutationError(error,'No se pudo eliminar el contacto.');}
   }
 
   return <>

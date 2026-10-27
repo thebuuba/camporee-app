@@ -1,3 +1,4 @@
+import {deliveryRpc} from './helpers/delivery-rpc.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -9,6 +10,7 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
   let pushFailed=failed;
   await loadBindings();
   const compile=async path=>(await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript'},target:'es2022'},module:{type:'commonjs'}})).code;
+  let clock=now;
   const sent=[],logs=[];
   const rows={
     system_cron_secrets:[{key:'camporee_reminders',secret:'trusted'}],
@@ -44,17 +46,18 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
       then(a,b){return Promise.resolve(result()).then(a,b);},
     };
   }};
+  client.rpc=deliveryRpc(rows,()=>clock);
   const webpush={setVapidDetails(){},async sendNotification(subscription,payload){if(pushFailed)throw {statusCode:503};sent.push({endpoint:subscription.endpoint,payload:JSON.parse(payload)});}};
-  const FixedDate=class extends Date{constructor(value){super(value??now);}static now(){return Date.parse(now);}};
+  const FixedDate=class extends Date{constructor(value){super(value??clock);}static now(){return Date.parse(clock);}};
   let handler;const dependencies={};
   const context={Request,Response,Date:FixedDate,console:{error(){}},Deno:{serve(fn){handler=fn;},env:{get:()=> 'test'}},require:name=>name.startsWith('npm:@supabase/')?{createClient:()=>client}:name.startsWith('npm:web-push')?{__esModule:true,default:webpush}:dependencies[name]};
-  for(const name of ['messages.ts','schedule.ts','tasks.ts']){
+  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts']){
     let code;try{code=await compile(`supabase/functions/camporee-reminders/${name}`);}catch(e){if(e.code==='ENOENT')continue;throw e;}
     const module={exports:{}};vm.runInNewContext(code,{...context,module,exports:module.exports});dependencies[`./${name}`]=module.exports;
   }
   const module={exports:{}};vm.runInNewContext(await compile('supabase/functions/camporee-reminders/index.ts'),{...context,module,exports:module.exports});
   const invoke=(action='schedule')=>handler(new Request('https://edge.test',{method:'POST',headers:{'x-cron-secret':secret},body:JSON.stringify({action})}));
-  return {invoke,sent,logs,rows,recover(){pushFailed=false;}};
+  return {invoke,sent,logs,rows,setNow(value){clock=value;},recover(){pushFailed=false;clock=new Date(new Date(clock).getTime()+31000).toISOString();}};
 }
 test('a planning meeting starting now alerts only active members of its camporee',async()=>{
   const api=await reminder();assert.equal((await api.invoke()).status,200);
@@ -66,8 +69,14 @@ test('repeated or concurrent cron calls do not duplicate an activity notificatio
   assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
 });
 test('failed delivery remains retryable without recording a successful reminder',async()=>{
-  const api=await reminder({failed:true});await api.invoke();assert.equal(api.logs.length,0);
+  const api=await reminder({failed:true});api.rows.schedule_events.length=1;await api.invoke();assert.equal(api.logs.length,1);assert.equal(api.logs[0].state,'pending');
   api.recover();await api.invoke();assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
+});
+test('a persisted activity delivery is retried after the candidate polling window',async()=>{
+  const api=await reminder({failed:true});api.rows.schedule_events.length=1;
+  await api.invoke();assert.equal(api.logs[0].state,'pending');
+  api.recover();api.setNow('2026-10-11T22:06:00.000Z');await api.invoke();
+  assert.equal(api.sent.length,1);assert.equal(api.logs[0].state,'delivered');
 });
 test('unauthorized calls, ended activities and archived camporees send nothing',async()=>{
   const unauthorized=await reminder({secret:'wrong'});assert.equal((await unauthorized.invoke()).status,401);assert.equal(unauthorized.sent.length,0);
@@ -110,6 +119,6 @@ test('los avisos previos conservan el cron diario y no se repiten cada minuto',a
 
 test('el aviso del primer día puede reintentarse si ningún dispositivo acepta el envío',async()=>{
   const api=await reminder({now:'2026-11-06T12:00:00.000Z',failed:true});
-  await api.invoke();assert.equal(api.logs.length,0);
+  await api.invoke();assert.equal(api.logs.length,1);assert.equal(api.logs[0].state,'pending');
   api.recover();await api.invoke();assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
 });

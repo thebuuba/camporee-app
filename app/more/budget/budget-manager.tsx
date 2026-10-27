@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -57,32 +58,40 @@ export default function BudgetManager({ camporeeId, userId, canEdit, currency, t
     if (!description || !Number.isFinite(amount) || amount <= 0){setFormError('Completa una descripción y un monto mayor que cero.');return;}
     setSaving(true);setFormError('');
     try{
+      let savedStatus: number | undefined;
       if (kind === 'expense') {
         const payload:any = { camporee_id: camporeeId, description, amount, spent_on: String(formData.get("movement_date") || dateKeyInTimeZone(new Date(), timeZone)), category: String(formData.get("category") || "").trim() || null, paid_by: String(formData.get("party") || "").trim() || null, notes: String(formData.get("notes") || "").trim() || null, area_id: String(formData.get("area_id") || "") || null };
         if (!editing) payload.created_by = userId;
-        const request = editing ? supabase.from("expenses").update(payload).eq("id", editing.id).eq("camporee_id",camporeeId).eq("camporee_id",camporeeId) : supabase.from("expenses").insert(payload);
-        const { data, error } = await request.select("id,description,amount,spent_on,category,paid_by,notes,area_id,created_at").single();
+        const request = editing ? supabase.from("expenses").update(payload).eq("id", editing.id).eq("camporee_id",camporeeId) : supabase.from("expenses").insert(payload);
+        const result = await request.select("id,description,amount,spent_on,category,paid_by,notes,area_id,created_at").single();
+        const { data } = result; const error = mutationProblem(result,editing?[editing.id]:undefined);
+        savedStatus = result.status;
         if(error||!data){const message=reportMutationError(error,'No se pudo guardar el gasto.');setFormError(message);return;}
         setExpenses((current) => editing ? current.map((item) => item.id === data.id ? data : item) : [data, ...current]);
       } else {
         const payload:any = { camporee_id: camporeeId, description, amount, received_on: String(formData.get("movement_date") || dateKeyInTimeZone(new Date(), timeZone)), category: String(formData.get("category") || "").trim() || null, received_from: String(formData.get("party") || "").trim() || null, notes: String(formData.get("notes") || "").trim() || null };
         if (!editing) payload.created_by = userId;
-        const request = editing ? supabase.from("income_entries").update(payload).eq("id", editing.id) : supabase.from("income_entries").insert(payload);
-        const { data, error } = await request.select("id,description,amount,received_on,category,received_from,notes,created_at").single();
+        const request = editing ? supabase.from("income_entries").update(payload).eq("id", editing.id).eq('camporee_id',camporeeId) : supabase.from("income_entries").insert(payload);
+        const result = await request.select("id,description,amount,received_on,category,received_from,notes,created_at").single();
+        const { data } = result; const error = mutationProblem(result,editing?[editing.id]:undefined);
+        savedStatus = result.status;
         if(error||!data){const message=reportMutationError(error,'No se pudo guardar el ingreso.');setFormError(message);return;}
         setIncome((current) => editing ? current.map((item) => item.id === data.id ? data : item) : [data, ...current]);
       }
-      reportMutationSuccess(editing?'Movimiento actualizado.':'Movimiento guardado.');setOpen(false);setEditing(null);router.refresh();
+      reportMutationSuccess(mutationNotice(savedStatus,editing?'Movimiento actualizado.':'Movimiento guardado.'));setOpen(false);setEditing(null);if (savedStatus !== 202) router.refresh();
     }catch(error){const message=reportMutationError(error,'No se pudo guardar el movimiento.');setFormError(message)}finally{setSaving(false)}
   }
 
   async function removeMovement(movement:any) {
     if (!canEdit || !confirmRemoval('este movimiento')) return;
-    const previousExpenses = expenses; const previousIncome = income;
-    if (movement.movement_type === 'income') setIncome((current) => current.filter((item) => item.id !== movement.id)); else setExpenses((current) => current.filter((item) => item.id !== movement.id));
-    const table = movement.movement_type === 'income' ? 'income_entries' : 'expenses'; const { error } = await supabase.from(table).delete().eq('id', movement.id).eq('camporee_id',camporeeId);
-    if (error) { setExpenses(previousExpenses); setIncome(previousIncome); reportMutationError(error,'No se pudo eliminar el movimiento.'); return; }
-    reportMutationSuccess('Movimiento eliminado.');setOpen(false);setEditing(null);router.refresh();
+    try {
+      const table = movement.movement_type === 'income' ? 'income_entries' : 'expenses';
+      const result = await supabase.from(table).delete().eq('id', movement.id).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[movement.id]);
+      if (error) throw error;
+      if (movement.movement_type === 'income') setIncome((current) => current.filter((item) => item.id !== movement.id)); else setExpenses((current) => current.filter((item) => item.id !== movement.id));
+      reportMutationSuccess(mutationNotice(result.status,'Movimiento eliminado.'));setOpen(false);setEditing(null);if (result.status !== 202) router.refresh();
+    } catch(error) {reportMutationError(error,'No se pudo eliminar el movimiento.');}
   }
 
   const movementDate = editing ? (kind === 'income' ? editing.received_on : editing.spent_on) : dateKeyInTimeZone(new Date(), timeZone); const party = editing ? (kind === 'income' ? editing.received_from : editing.paid_by) : '';

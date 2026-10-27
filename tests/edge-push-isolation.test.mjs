@@ -64,9 +64,9 @@ async function edge({verified=true,member=true}={}) {
   });
   return {
     deliveries,
-    invoke:()=>handler(new Request('https://edge.test/',{
+    invoke:(action='send')=>handler(new Request('https://edge.test/',{
       method:'POST',headers:{authorization:'Bearer fabricated.jwt.signature','content-type':'application/json'},
-      body:JSON.stringify({action:'send',camporeeId:camp,title:'Aviso',message:'Solo miembros activos'}),
+      body:JSON.stringify({action,camporeeId:camp,title:'Aviso',message:'Solo miembros activos'}),
     })),
   };
 }
@@ -76,17 +76,20 @@ test('JWT sin validación de Supabase Auth no autoriza enviar notificaciones',as
   assert.equal(result.status,401);
   assert.equal(fn.deliveries.length,0);
 });
-test('un administrador ajeno al camporee no puede enviar notificaciones',async()=>{
+test('un administrador ajeno no puede usar el envio anterior para eludir la cola',async()=>{
   const fn=await edge({member:false});
   const result=await fn.invoke();
-  assert.equal(result.status,403);
+  assert.equal(result.status,410);
   assert.equal(fn.deliveries.length,0);
 });
-test('solo el destino activo y asociado al camporee recibe la alerta',async()=>{
+test('un cliente anterior no duplica el envio durable del aviso',async()=>{
   const fn=await edge();
   const result=await fn.invoke();
-  assert.equal(result.status,200);
-  assert.equal(fn.deliveries.length,1);
-  assert.equal(fn.deliveries[0].subscription.endpoint,'https://push.test/active');
-  assert.equal(fn.deliveries[0].payload.url,`/o/${org}/c/${camp}/more/announcements`);
+  assert.equal(result.status,410);
+  assert.equal(fn.deliveries.length,0);
+});
+test('la clave publica sigue disponible para activar dispositivos verificados',async()=>{
+  const fn=await edge();const result=await fn.invoke('public-key');
+  assert.equal(result.status,200);assert.deepEqual(await result.json(),{publicKey:'public-test'});
+  assert.equal(fn.deliveries.length,0);
 });

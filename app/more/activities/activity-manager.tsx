@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 import { camporeeDateTimeInput, camporeeDateTimeIso } from '@/lib/camporee-locale';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 const activityTypes = [
   ['competition','Competencia'],['honor','Especialidad'],['sport','Deporte'],['march','Marcha'],['talent','Talento'],['other','Otra'],
@@ -47,15 +48,15 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
   async function toggleComplete(activity:any){
     if(!canEdit) return;
     const next=!activity.is_completed;
-    setActivities((current)=>current.map((item)=>item.id===activity.id?{...item,is_completed:next}:item).sort(sortActivities));
-    const {error}=await supabase.from('camporee_activities').update({is_completed:next}).eq('id',activity.id).eq('camporee_id',camporeeId);
-    if(error){
-      setActivities((current)=>current.map((item)=>item.id===activity.id?{...item,is_completed:activity.is_completed}:item).sort(sortActivities));
-      reportMutationError(error,'No se pudo cambiar el estado de la actividad.');
-      return;
-    }
-    reportMutationSuccess(next?'Actividad completada.':'Actividad reactivada.');
-    router.refresh();
+    try {
+      const result=await supabase.from('camporee_activities').update({is_completed:next})
+        .eq('id',activity.id).eq('camporee_id',camporeeId).select('id');
+      const problem=mutationProblem(result,[activity.id]);
+      if(problem) throw problem;
+      setActivities((current)=>current.map((item)=>item.id===activity.id?{...item,is_completed:next}:item).sort(sortActivities));
+      reportMutationSuccess(mutationNotice(result.status,next?'Actividad completada.':'Actividad reactivada.'));
+      if(result.status!==202) router.refresh();
+    } catch(error){ reportMutationError(error,'No se pudo cambiar el estado de la actividad.'); }
   }
 
   async function saveActivity(formData:FormData){
@@ -84,66 +85,24 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
         score,
         notes:String(formData.get('notes')||'').trim()||null,
       };
-      const request=editing ? supabase.from('camporee_activities').update(payload).eq('id',editing.id).eq('camporee_id',camporeeId) : supabase.from('camporee_activities').insert(payload);
-      const {data,error}=await request.select('id,title,activity_type,starts_at,location,responsible_name,materials,result,score,notes,schedule_event_id,is_completed,created_at').single();
-      if(error || !data){
+      const {data,error}=await supabase.rpc('save_camporee_activity', {
+        target_camporee:camporeeId,
+        activity_id:editing?.id??null,
+        activity_data:payload,
+        participant_ids:formData.getAll('participants').map(String),
+        sync_program:syncProgram,
+      });
+      if(error || !data?.id){
         const message=reportMutationError(error,'No se pudo guardar la actividad. Revisa tu conexión y permisos e inténtalo otra vez.');
         setFormError(message);
         return;
       }
-
-      let scheduleEventId=data.schedule_event_id || editing?.schedule_event_id || null;
-      let secondaryWarning='';
-      if(syncProgram && startsAt){
-        const eventPayload={camporee_id:camporeeId,title,description:payload.notes,location:payload.location,responsible_name:payload.responsible_name,starts_at:startsAt,ends_at:null};
-        if(scheduleEventId){
-          const {error:eventError}=await supabase.from('schedule_events').update(eventPayload).eq('id',scheduleEventId).eq('camporee_id',camporeeId);
-          if(eventError){ secondaryWarning='La actividad se guardó, pero no se pudo actualizar en Programa.'; reportMutationError(eventError,secondaryWarning); }
-        }else{
-          const {data:eventData,error:eventError}=await supabase.from('schedule_events').insert(eventPayload).select('id').single();
-          if(eventError||!eventData){
-            secondaryWarning='La actividad se guardó, pero no se pudo agregar a Programa.';
-            reportMutationError(eventError,secondaryWarning);
-          }else{
-            scheduleEventId=eventData.id;
-            const {error:linkError}=await supabase.from('camporee_activities').update({schedule_event_id:scheduleEventId}).eq('id',data.id).eq('camporee_id',camporeeId);
-            if(linkError){ secondaryWarning='La actividad se guardó, pero no se pudo vincular con Programa.'; reportMutationError(linkError,secondaryWarning); }
-          }
-        }
-      }else if(scheduleEventId){
-        const {error:unlinkError}=await supabase.from('camporee_activities')
-          .update({schedule_event_id:null}).eq('id',data.id).eq('camporee_id',camporeeId);
-        if(unlinkError){
-          secondaryWarning='La actividad se guardó, pero no se pudo desvincular de Programa.';
-          reportMutationError(unlinkError,secondaryWarning);
-        }else{
-          const {error:deleteEventError}=await supabase.from('schedule_events')
-            .delete().eq('id',scheduleEventId).eq('camporee_id',camporeeId);
-          if(deleteEventError){
-            secondaryWarning='La actividad se desvinculó, pero no se pudo quitar su evento de Programa.';
-            reportMutationError(deleteEventError,secondaryWarning);
-          }else scheduleEventId=null;
-        }
-      }
-
-      const selected=formData.getAll('participants').map(String);
-      const {error:clearParticipantsError}=await supabase.from('camporee_activity_participants').delete().eq('activity_id',data.id);
-      let participantError=clearParticipantsError;
-      if(!participantError && selected.length){
-        const result=await supabase.from('camporee_activity_participants').insert(selected.map((participant_id)=>({activity_id:data.id,participant_id})));
-        participantError=result.error;
-      }
-      if(participantError){
-        secondaryWarning=secondaryWarning || 'La actividad se guardó, pero no se pudieron actualizar todos los participantes.';
-        reportMutationError(participantError,secondaryWarning);
-      }
-
-      const hydrated={...data,schedule_event_id:scheduleEventId,camporee_activity_participants:selected.map((participant_id)=>({participant_id}))};
+      const hydrated=data;
       setActivities((current)=>(editing ? current.map((item)=>item.id===data.id?hydrated:item) : [...current,hydrated]).sort(sortActivities));
       setOpen(false);
       setEditing(null);
       setFormError('');
-      if(!secondaryWarning) reportMutationSuccess(editing?'Actividad actualizada.':'Actividad guardada.');
+      reportMutationSuccess(editing?'Actividad actualizada.':'Actividad guardada.');
       router.refresh();
     } catch(error) {
       const message=reportMutationError(error,'Ocurrió un error al guardar la actividad. Inténtalo otra vez.');
@@ -156,19 +115,12 @@ export default function ActivityManager({ camporeeId, canEdit, initialActivities
   async function removeActivity(activity:any){
     if(!canEdit || !confirmRemoval('esta competencia o actividad')) return;
     try {
-      const linkedEventId=activity.schedule_event_id || null;
-      const {error}=await supabase.from('camporee_activities').delete().eq('id',activity.id).eq('camporee_id',camporeeId);
-      if(error) throw error;
+      const result=await supabase.rpc('delete_camporee_activity',{target_camporee:camporeeId,activity_id:activity.id});
+      const problem=result.status===202 ? new Error('No se confirmó la eliminación de la actividad.')
+        : mutationProblem({...result,data:result.data?{id:result.data}:null},[activity.id]);
+      if(problem) throw problem;
       setActivities((current)=>current.filter((item)=>item.id!==activity.id));
-      let cleanupWarning=false;
-      if(linkedEventId){
-        const {error:eventError}=await supabase.from('schedule_events').delete().eq('id',linkedEventId).eq('camporee_id',camporeeId);
-        if(eventError){
-          cleanupWarning=true;
-          reportMutationError(eventError,'La actividad se eliminó, pero no se pudo quitar su entrada del Programa.');
-        }
-      }
-      if(!cleanupWarning) reportMutationSuccess('Actividad eliminada.');
+      reportMutationSuccess('Actividad eliminada.');
       router.refresh();
     } catch(error){ reportMutationError(error,'No se pudo eliminar la actividad.'); }
   }

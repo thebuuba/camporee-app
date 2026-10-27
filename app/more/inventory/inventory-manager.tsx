@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,9 +13,22 @@ export default function InventoryManager({ camporeeId, canEdit, initialItems }: 
   const [statusFilter,setStatusFilter]=useState<'all'|'unpacked'|'returned'>('all'); const [items,setItems]=useState(initialItems); const [open,setOpen]=useState(false); const [saving,setSaving]=useState(false); const [formError,setFormError]=useState(''); const [query,setQuery]=useState(''); const supabase=createClient(); const router=useRouter();
   useEffect(()=>setItems(initialItems),[initialItems]);
   const visible=useMemo(()=>items.filter(i=>`${i.name} ${i.notes??''}`.toLowerCase().includes(query.toLowerCase()) && (statusFilter==='all'||statusFilter==='unpacked'&&!i.packed||statusFilter==='returned'&&i.packed&&!i.returned)),[items,query,statusFilter]);
-  async function addItem(formData:FormData){if(!canEdit||saving)return;const name=String(formData.get('name')||'').trim();if(!name){setFormError('Escribe el nombre del elemento.');return;}setSaving(true);setFormError('');try{const payload={camporee_id:camporeeId,name,quantity:Number(formData.get('quantity')||1),unit:String(formData.get('unit')||'').trim()||null,notes:String(formData.get('notes')||'').trim()||null};const{data,error}=await supabase.from('inventory_items').insert(payload).select('*').single();if(error||!data){const message=reportMutationError(error,'No se pudo guardar el elemento del inventario.');setFormError(message);return;}setItems(c=>[data,...c]);setOpen(false);reportMutationSuccess('Elemento guardado.');router.refresh()}catch(error){const message=reportMutationError(error,'No se pudo guardar el elemento del inventario.');setFormError(message)}finally{setSaving(false)}}
-  async function toggle(id:string,field:'packed'|'returned',value:boolean){if(!canEdit)return;const previous=items;setItems(c=>c.map(i=>i.id===id?{...i,[field]:value}:i));const{error}=await supabase.from('inventory_items').update({[field]:value}).eq('id',id);if(error){setItems(previous);reportMutationError(error,'No se pudo actualizar el inventario.');return}router.refresh()}
-  async function remove(id:string){if(!canEdit||!confirmRemoval('este elemento'))return;const previous=items;setItems(c=>c.filter(i=>i.id!==id));const{error}=await supabase.from('inventory_items').delete().eq('id',id);if(error){setItems(previous);reportMutationError(error,'No se pudo eliminar el elemento.')}else{reportMutationSuccess('Elemento eliminado.');router.refresh()}}
+  async function addItem(formData:FormData){if(!canEdit||saving)return;const name=String(formData.get('name')||'').trim();if(!name){setFormError('Escribe el nombre del elemento.');return;}setSaving(true);setFormError('');try{const payload={camporee_id:camporeeId,name,quantity:Number(formData.get('quantity')||1),unit:String(formData.get('unit')||'').trim()||null,notes:String(formData.get('notes')||'').trim()||null};const result = await supabase.from('inventory_items').insert(payload).select('*').single(); const { data, status } = result; const error = mutationProblem(result);if(error||!data){const message=reportMutationError(error,'No se pudo guardar el elemento del inventario.');setFormError(message);return;}setItems(c=>[data,...c]);setOpen(false);reportMutationSuccess(mutationNotice(status, 'Elemento guardado.'));if(status!==202)router.refresh()}catch(error){const message=reportMutationError(error,'No se pudo guardar el elemento del inventario.');setFormError(message)}finally{setSaving(false)}}
+  async function toggle(id:string,field:'packed'|'returned',value:boolean){
+    if(!canEdit)return;
+    const result=await supabase.from('inventory_items').update({[field]:value}).eq('id',id).eq('camporee_id',camporeeId).select('id').single();
+    const error=mutationProblem(result,[id]);
+    if(error){reportMutationError(error,'No se pudo actualizar el inventario.');return;}
+    setItems(c=>c.map(i=>i.id===id?{...i,[field]:value}:i));
+    if(result.status===202)reportMutationSuccess(mutationNotice(result.status,''));else router.refresh();
+  }
+  async function remove(id:string){
+    if(!canEdit||!confirmRemoval('este elemento'))return;
+    const result=await supabase.from('inventory_items').delete().eq('id',id).eq('camporee_id',camporeeId).select('id').single();
+    const error=mutationProblem(result,[id]);
+    if(error){reportMutationError(error,'No se pudo eliminar el elemento.');return;}
+    setItems(c=>c.filter(i=>i.id!==id));reportMutationSuccess(mutationNotice(result.status,'Elemento eliminado.'));if(result.status!==202)router.refresh();
+  }
   const packed=items.filter(i=>i.packed).length, returned=items.filter(i=>i.returned).length;
   return <>
     <section className="pm-inventory-stats"><div><small>Empacado</small><strong>{packed}/{items.length}</strong></div><div><small>Regresó</small><strong>{returned}/{items.length}</strong></div></section>

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { resolveCamporeeContext, tenantPath } from '../lib/tenant-context.ts';
 import { songsFromDocuments } from '../lib/songs.ts';
 import {signedAvatar} from '../lib/avatars.ts';
+import {loadFinanceRows} from '../lib/finance-data.ts';
 import { dateKeyInTimeZone, dateOnlyDistance, isEventOngoing } from '../lib/date.ts';
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 import { formatCamporeeMoney,formatCamporeeDate,camporeeMidnightEpoch } from '../lib/camporee-locale.ts';
@@ -18,8 +19,15 @@ function client() {
  const rows={profiles:[],app_members:[{user_id:user,role:'admin',is_active:true}],organizations:[{id:org,name:'Club'}],organization_members:[{organization_id:org,user_id:user,role:'viewer',is_active:true,permissions:{}}],
   camporees:[{id:old,organization_id:'00000000-0000-4000-8000-000000000001',name:'Otro evento',starts_on:'2026-01-01',ends_on:'2026-01-05',status:'planning'},{id:camp,organization_id:org,name:'Historial',starts_on:'2025-01-01',ends_on:'2025-01-05',time_zone:'America/Santo_Domingo',currency:'DOP',status:'archived'}],
   tasks:[{id:'old-task',camporee_id:old,title:'Otra organización',status:'pending'},{id:'selected-task',camporee_id:camp,title:'Historial elegido',status:'done'}],areas:[]};
- return {auth:{getClaims:async()=>({data:{claims:{sub:user}},error:null}),getUser:async()=>({data:{user:{id:user}},error:null})},rpc:async()=>({data:[],error:null}),from(table){
-  const filters=[];const builder={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},like(){return this},neq(){return this},or(){return this},ilike(){return this},limit(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const data=(rows[table]??[]).filter(row=>filters.every(([k,v])=>row[k]===v));return Promise.resolve({data:this.single?data[0]??null:data,error:null}).then(resolve,reject)}};return builder;
+ return {auth:{getClaims:async()=>({data:{claims:{sub:user}},error:null}),getUser:async()=>({data:{user:{id:user}},error:null})},rpc:async(name,args)=>{
+  if(name==='get_camporee_home_summary'){
+   assert.equal(args.target_camporee,camp);
+   return {data:{totalTasks:1,completedTasks:1,pendingTasks:0,preparation:{total:0,completed:0,percent:0}},error:null};
+  }
+  if(name==='get_camporee_finance_rows')assert.equal(args.target_camporee,camp);
+  return {data:[],error:null};
+ },from(table){
+  const filters=[];const builder={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},range(){return this},like(){return this},neq(){return this},or(){return this},ilike(){return this},limit(){return this},maybeSingle(){this.single=true;return this},then(resolve,reject){const data=(rows[table]??[]).filter(row=>filters.every(([k,v])=>row[k]===v));return Promise.resolve({data:this.single?data[0]??null:data,count:data.length,error:null}).then(resolve,reject)}};return builder;
  }};
 }
 async function page(supabase,path='app/tasks/page.tsx') {
@@ -34,6 +42,7 @@ async function page(supabase,path='app/tasks/page.tsx') {
   '@/lib/task-assignees':{loadTaskAssignees:async()=>({data:[],error:null})},
   '@/lib/songs':{songsFromDocuments},
   '@/lib/avatars':{signedAvatar},
+  '@/lib/finance-data':{loadFinanceRows},
   './avatars':{signedAvatar},
   '@/lib/date':{dateKeyInTimeZone,dateOnlyDistance,isEventOngoing},
   '@/lib/tenant-context':{tenantPath},

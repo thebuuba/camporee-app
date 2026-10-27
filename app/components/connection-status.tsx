@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { CheckCircle2, CloudOff, RefreshCw, Wifi } from 'lucide-react';
 import { flushOfflineWrites, getOfflineQueueCount } from '@/lib/offline-fetch';
 import { createClient } from '@/lib/supabase/client';
+import OfflineRecovery from './offline-recovery';
 
 export default function ConnectionStatus(){
   const pathname=usePathname();
@@ -18,12 +19,14 @@ export default function ConnectionStatus(){
 
   const syncNow=useCallback(async()=>{
     if(!navigator.onLine)return;
+    try {
     const {data}=await createClient().auth.getSession();
     const token=data.session?.access_token;
     if(!token){setSyncError(false);return;}
     const result=await flushOfflineWrites(`Bearer ${token}`);
     setQueued(result.remaining);
     setSyncError(result.failed);
+    } catch { setSyncError(true); }
   },[]);
 
   useEffect(()=>{
@@ -93,7 +96,7 @@ export default function ConnectionStatus(){
   if(online && queued===0 && !recovered && !syncError && !requestError && !mutationMessage && !successMessage)return null;
   const isError=Boolean(mutationMessage||requestError||syncError);
   const text = mutationMessage || successMessage || (!online
-    ? queued > 0 ? `Sin internet · ${queued} ${queued===1?'cambio guardado':'cambios guardados'} para sincronizar` : 'Sin internet · puedes seguir usando las pantallas ya visitadas'
+    ? queued > 0 ? `Sin internet · ${queued} ${queued===1?'cambio guardado':'cambios guardados'} para sincronizar` : 'Sin internet · puedes consultar la pantalla que sigue abierta'
     : requestError ? 'No se pudo completar la solicitud. Inténtalo otra vez.' : syncError ? `${queued} ${queued===1?'cambio pendiente':'cambios pendientes'} · no se descartaron` : queued > 0 ? `Sincronizando ${queued} ${queued===1?'cambio':'cambios'}…` : 'Conexión recuperada');
-  return <div className={'connection-toast '+(online?'syncing':'offline')+(successMessage?' success':'')} role={isError?'alert':'status'}>{successMessage?<CheckCircle2 size={15}/>:!online?<CloudOff size={15}/>:queued>0?<RefreshCw className={syncError?'':'spin'} size={15}/>:isError?<CloudOff size={15}/>:<Wifi size={15}/>}<span>{text}</span>{online&&syncError&&!mutationMessage?<button type='button' onClick={()=>void syncNow()}>Reintentar</button>:null}</div>
+  return <div className={'connection-toast '+(online?'syncing':'offline')+(successMessage?' success':'')} role={isError?'alert':'status'}>{successMessage?<CheckCircle2 size={15}/>:!online?<CloudOff size={15}/>:queued>0?<RefreshCw className={syncError?'':'spin'} size={15}/>:isError?<CloudOff size={15}/>:<Wifi size={15}/>}<span>{text}</span>{online&&syncError&&!mutationMessage?<button type='button' onClick={()=>void syncNow()}>Reintentar</button>:null}{queued>0||syncError?<OfflineRecovery key={pathname}/>:null}</div>
 }

@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as dates from '../lib/date.ts';
 import * as locale from '../lib/camporee-locale.ts';
+import * as mutation from '../lib/mutation-result.ts';
 const {dateKeyInTimeZone,dateOnlyDistance}=dates;
 import { camporeePhase, preparationProgress } from '../lib/camporee-preparation.ts';
 import { resolveCamporeeContext, parseTenantPath } from '../lib/tenant-context.ts';
@@ -17,7 +18,7 @@ async function loadModule(path, modules = {}, globals = {}) {
     filename:path, jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}}, module:{type:'commonjs'},
   });
   const module = {exports:{}};
-  vm.runInNewContext(code, {module,exports:module.exports,require:name => modules[name],console,setTimeout,...globals});
+  vm.runInNewContext(code, {module,exports:module.exports,require:name => name === '@/lib/mutation-result' ? mutation : modules[name],console,setTimeout,...globals});
   return module.exports;
 }
 
@@ -28,7 +29,13 @@ function homeClient(taskError = null) {
     tasks:[{id:'task',title:'Preparar',phase:'before',status:'done',priority:'normal',due_at:null}],
     participants:[], expenses:[], income_entries:[], schedule_events:[],
   };
-  return {auth:{getUser:async()=>({data:{user:{id:'user',user_metadata:{}}},error:null})},from(table){
+  return {auth:{getUser:async()=>({data:{user:{id:'user',user_metadata:{}}},error:null})},
+    async rpc(name,args){
+      assert.equal(name,'get_camporee_home_summary');
+      assert.equal(args.target_camporee,'event');
+      await new Promise(resolve=>setTimeout(resolve,35));
+      return {data:taskError?null:{totalTasks:1,completedTasks:1,pendingTasks:0,preparation:{total:1,completed:1,percent:100}},error:taskError};
+    },from(table){
     const builder = {select(){return this},eq(){return this},order(){return this},maybeSingle(){return this},then(resolve,reject){
       return new Promise(done => setTimeout(()=>done({data:taskError && table==='tasks' ? null : rows[table],error:table==='tasks'?taskError:null}), table==='tasks'?35:0)).then(resolve,reject);
     }};
@@ -79,7 +86,7 @@ const offlineOwner = '10000000-0000-4000-8000-000000000001';
 const offlineOrg = '50000000-0000-4000-8000-000000000001';
 const offlineCamp = '60000000-0000-4000-8000-000000000001';
 const offlineAuth = 'Bearer aa.' + Buffer.from(JSON.stringify({sub:offlineOwner})).toString('base64url') + '.sig';
-async function offlineQueue(initialRows, status = 204) {
+async function offlineQueue(initialRows, status = 200) {
   const rows = initialRows.map(row => row.legacy ? row : {
     ownerId:offlineOwner,organizationId:offlineOrg,camporeeId:offlineCamp,...row,
   });
@@ -92,9 +99,9 @@ async function offlineQueue(initialRows, status = 204) {
   const api = await loadModule('lib/offline-fetch.ts', {'@/lib/tenant-context':{parseTenantPath}}, {
     indexedDB:{open:()=>request(db)}, navigator:{onLine:true},
     window:{location:{pathname:`/o/${offlineOrg}/c/${offlineCamp}/tasks`},addEventListener(){},dispatchEvent:event=>events.push(event.type)},
-    atob,
+    atob, URL,
     CustomEvent:class {constructor(type){this.type=type}}, Headers,
-    fetch:async()=>new Response(null,{status}),
+    fetch:async()=>status===200?Response.json([{id:'task'}]):new Response(null,{status}),
   });
   return {api,events,rows};
 }
@@ -154,7 +161,12 @@ async function saveActivityInTest(editing, fields, program = false) {
   const filters=[];
   let resolveSaved, rejectSaved;
   const saved = new Promise((resolve,reject)=>{resolveSaved=resolve;rejectSaved=reject});
-  const supabase = {from(table){
+  const supabase = {async rpc(name,args){
+    assert.equal(name,'save_camporee_activity');
+    payload=args.activity_data;
+    filters.push(['camporee_id',args.target_camporee]);
+    return {data:{id:args.activity_id??'new',...payload,schedule_event_id:null,camporee_activity_participants:[]},error:null};
+  },from(table){
     if (table === 'camporee_activity_participants') return {delete:()=>({eq:async()=>({error:null})})};
     assert.equal(table,program ? 'schedule_events' : 'camporee_activities');
     const builder = {insert(value){payload=value;return this},update(value){payload=value;return this},eq(key,value){filters.push([key,value]);return this},select(){return this},single:async()=>({data:{id:editing?.id??'new',...payload,schedule_event_id:null},error:null})};

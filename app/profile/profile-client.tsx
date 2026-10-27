@@ -6,6 +6,7 @@ import { Camera, ImagePlus, Trash2, UserRound, Moon, WifiOff, LogOut } from 'luc
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 import { useTheme } from '@/app/components/theme-provider';
 
 type Props = {
@@ -41,9 +42,10 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
 
     setBusy(true); setError('');
     try {
-      const path = `${userId}/avatar`;
+      // A failed profile save must not overwrite the currently referenced image.
+      const path = `${userId}/avatar-${crypto.randomUUID()}`;
       const { error: uploadError } = await supabase.storage.from('profile-avatars').upload(path, file, {
-        upsert: true,
+        upsert: false,
         cacheControl: '3600',
         contentType: file.type,
       });
@@ -52,13 +54,19 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
       const { data: signedData,error:signError } = await supabase.storage.from('profile-avatars').createSignedUrl(path,300);
       if(signError||!signedData?.signedUrl)throw signError??new Error('No se pudo cargar la foto.');
       const nextUrl = signedData.signedUrl;
-      const { error: profileError } = await supabase.from('profiles').update({ avatar_path:path, avatar_url:null, updated_at: new Date().toISOString() }).eq('id', userId);
+      const result = await supabase.from('profiles').update({ avatar_path:path, avatar_url:null, updated_at: new Date().toISOString() }).eq('id', userId).select('id');
+      const profileError = mutationProblem(result,[userId]);
       if (profileError) throw profileError;
 
       setAvatarUrl(nextUrl);
       setAvatarPath(path);
-      reportMutationSuccess('Foto de perfil actualizada.');
-      router.refresh();
+      // Pending saves and uncertain responses keep both files for safe recovery.
+      if (result.status !== 202 && avatarPath?.startsWith(`${userId}/`)) {
+        const { error: cleanupError } = await supabase.storage.from('profile-avatars').remove([avatarPath]);
+        if (cleanupError) { setError(reportMutationError(cleanupError,'La foto se actualizó, pero no se pudo retirar la anterior.')); router.refresh(); return; }
+      }
+      reportMutationSuccess(mutationNotice(result.status,'Foto de perfil actualizada.'));
+      if (result.status !== 202) router.refresh();
     } catch (uploadError) {
       setError(reportMutationError(uploadError, 'No se pudo guardar la foto de perfil.'));
     } finally {
@@ -70,15 +78,17 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
     if (!avatarUrl || busy) return;
     setBusy(true); setError('');
     try {
-      const path = avatarPath?.startsWith(`${userId}/`)?avatarPath:`${userId}/avatar`;
-      const { error: storageError } = await supabase.storage.from('profile-avatars').remove([path]);
-      if (storageError) throw storageError;
-      const { error: profileError } = await supabase.from('profiles').update({ avatar_path:null, avatar_url: null, updated_at: new Date().toISOString() }).eq('id', userId);
+      const result = await supabase.from('profiles').update({ avatar_path:null, avatar_url: null, updated_at: new Date().toISOString() }).eq('id', userId).select('id');
+      const profileError = mutationProblem(result,[userId]);
       if (profileError) throw profileError;
       setAvatarUrl(null);
       setAvatarPath(null);
-      reportMutationSuccess('Foto de perfil eliminada.');
-      router.refresh();
+      if (result.status !== 202 && avatarPath?.startsWith(`${userId}/`)) {
+        const { error: cleanupError } = await supabase.storage.from('profile-avatars').remove([avatarPath]);
+        if (cleanupError) { setError(reportMutationError(cleanupError,'La foto se desvinculó, pero no se pudo retirar su archivo.')); router.refresh(); return; }
+      }
+      reportMutationSuccess(mutationNotice(result.status,'Foto de perfil eliminada.'));
+      if (result.status !== 202) router.refresh();
     } catch (removeError) {
       setError(reportMutationError(removeError, 'No se pudo quitar la foto de perfil.'));
     } finally {
@@ -91,10 +101,13 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
     const nextName = name.trim();
     if (!nextName || savingName) return;
     setSavingName(true); setError('');
-    const { error: updateError } = await supabase.from('profiles').update({ full_name: nextName, updated_at: new Date().toISOString() }).eq('id', userId);
-    if (updateError) setError(reportMutationError(updateError, 'No se pudo guardar el perfil.'));
-    else { reportMutationSuccess('Perfil guardado.'); router.refresh(); }
-    setSavingName(false);
+    try {
+      const result = await supabase.from('profiles').update({ full_name: nextName, updated_at: new Date().toISOString() }).eq('id', userId).select('id');
+      const updateError = mutationProblem(result,[userId]);
+      if (updateError) throw updateError;
+      reportMutationSuccess(mutationNotice(result.status,'Perfil guardado.')); if (result.status !== 202) router.refresh();
+    } catch(error) {setError(reportMutationError(error, 'No se pudo guardar el perfil.'));}
+    finally {setSavingName(false);}
   }
 
   return <section className='polymet-profile'>
@@ -104,7 +117,7 @@ export default function ProfileClient({ userId, fullName, email, initialAvatarPa
     </div>
     <form className='polymet-profile-form' onSubmit={saveProfile}><label>Nombre<input value={name} onChange={(event) => setName(event.target.value)} required/></label><label>Correo<input value={email} readOnly/></label>{error ? <div className='auth-alert error' role='alert'>{error}</div> : null}<button type='submit' className='primary-btn' disabled={savingName}>{savingName ? 'Guardando…' : 'Guardar perfil'}</button></form>
     <div className='profile-actions'>{avatarUrl ? <button type='button' className='profile-remove-btn' onClick={removeAvatar} disabled={busy}><Trash2 size={17}/> Quitar foto</button> : <button type='button' className='profile-remove-btn' onClick={() => inputRef.current?.click()} disabled={busy}><ImagePlus size={17}/> Subir foto</button>}</div>
-    <section className='polymet-profile-preferences' aria-label='Preferencias'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' checked={dark} onChange={(event) => setPreference(event.target.checked ? 'dark' : 'light')} role='switch' aria-label='Modo oscuro'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>Los cambios se sincronizan al instante</small></span><input type='checkbox' disabled aria-label='Modo sin conexión: aún no disponible'/></div></section>
+    <section className='polymet-profile-preferences' aria-label='Preferencias'><div><span><Moon size={19}/></span><strong>Modo oscuro</strong><input type='checkbox' checked={dark} onChange={(event) => setPreference(event.target.checked ? 'dark' : 'light')} role='switch' aria-label='Modo oscuro'/></div><div><span><WifiOff size={19}/></span><span><strong>Modo sin conexión</strong><small>La pantalla abierta sigue disponible. Los cambios pendientes se envían al recuperar internet.</small></span></div></section>
     <SafeSignoutForm className='polymet-profile-signout'><button type='submit'><LogOut size={16}/> Cerrar sesión</button></SafeSignoutForm>
   </section>;
 }

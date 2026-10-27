@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as locale from '../lib/camporee-locale.ts';
+import * as mutation from '../lib/mutation-result.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 
 async function submit(path, props, fields) {
@@ -14,7 +15,8 @@ async function submit(path, props, fields) {
   const finished=new Promise((resolve,reject)=>{saved=resolve;failed=reject});
   const jsx=(type,props)=>({type,props});
   const builder={insert(value){payload=value;return this},delete(){return this},eq(){return this},select(){return this},then(resolve){resolve({error:null})},async single(){return {data:{id:'created',...payload},error:null}}};
-  const modules={react:{useState:value=>[value,()=>{}],useEffect(){},useMemo:fn=>fn()},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'lucide-react':{},'@/app/components/bottom-sheet':'sheet','@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>({from:()=>builder})},'@/lib/client-ui':{reportMutationSuccess:saved,reportMutationError:failed,confirmRemoval:()=>false}};
+  const supabase={from:()=>builder,async rpc(name,args){assert.equal(name,'save_camporee_activity');assert.equal(args.target_camporee,'camp');payload=args.activity_data;return {data:{id:'created',...payload,camporee_activity_participants:[]},error:null}}};
+  const modules={react:{useState:value=>[value,()=>{}],useEffect(){},useMemo:fn=>fn()},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'lucide-react':{},'@/app/components/bottom-sheet':'sheet','@/lib/mutation-result':mutation,'@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>supabase},'@/lib/client-ui':{reportMutationSuccess:saved,reportMutationError:failed,confirmRemoval:()=>false}};
   const module={exports:{}};
   vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date,Map,FormData:class {constructor(){return fields}}});
   const tree=module.exports.default({camporeeId:'camp',userId:'user',canEdit:true,initialTasks:[],initialSessions:[],initialActivities:[],areas:[],assignees:[],participants:[],...props});

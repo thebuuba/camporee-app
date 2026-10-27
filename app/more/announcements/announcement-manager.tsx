@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,7 +10,6 @@ import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
 const labelFor = (priority:string) => priority === 'urgent' ? 'Urgente' : priority === 'important' ? 'Importante' : 'Aviso';
-type FunctionInvokeResult = { error: unknown };
 function urlBase64ToUint8Array(value:string) { const padding = '='.repeat((4 - value.length % 4) % 4); const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/'); const raw = window.atob(base64); return Uint8Array.from([...raw].map((char) => char.charCodeAt(0))); }
 
 export default function AnnouncementManager({ camporeeId, userId, canEdit, initialAnnouncements }: { camporeeId:string; userId:string; canEdit:boolean; initialAnnouncements:any[] }) {
@@ -45,7 +45,7 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       .catch(()=>{if(!cancelled)setPushReady(false);});
     return ()=>{cancelled=true;};
   }, [camporeeId,userId,supabase]);
-  useEffect(() => { const channel = supabase.channel(`camporee-announcements-${camporeeId}`).on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements', filter:`camporee_id=eq.${camporeeId}` }, (payload:any) => { const item = payload.new; setAnnouncements((current) => current.some((row) => row.id === item.id) ? current : [item, ...current]); }).on('postgres_changes', { event:'DELETE', schema:'public', table:'announcements' }, (payload:any) => { const id = payload.old?.id; if (id) setAnnouncements((current) => current.filter((row) => row.id !== id)); }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [camporeeId,supabase]);
+  useEffect(() => { const channel = supabase.channel(`camporee-announcements-${camporeeId}`).on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements', filter:`camporee_id=eq.${camporeeId}` }, (payload:any) => { const item = payload.new; setAnnouncements((current) => current.some((row) => row.id === item.id) ? current.map(row => row.id === item.id ? item : row) : [item, ...current]); }).on('postgres_changes', { event:'DELETE', schema:'public', table:'announcements' }, (payload:any) => { const id = payload.old?.id; if (id) setAnnouncements((current) => current.filter((row) => row.id !== id)); }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [camporeeId,supabase]);
 
   async function requestNotifications() {
     const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
@@ -66,14 +66,26 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     if (!title || !message){setFormError('Completa el título y el mensaje.');return;}
     setSaving(true);setFormError('');
     try{
-      const { data, error } = await supabase.from('announcements').insert({ camporee_id:camporeeId, title, message, priority, created_by:userId }).select('id,camporee_id,title,message,priority,created_at,created_by').single();
+      const { data, error, status } = await supabase.from('announcements').insert({ camporee_id:camporeeId, title, message, priority, created_by:userId }).select('id,camporee_id,title,message,priority,created_at,created_by').single();
       if(error||!data){const msg=reportMutationError(error,'No se pudo publicar el aviso.');setFormError(msg);return;}
-      setAnnouncements((current) => current.some((item)=>item.id===data.id) ? current : [data, ...current]); setOpen(false); reportMutationSuccess('Aviso publicado.'); router.refresh();
-      if (navigator.onLine) void supabase.functions.invoke('camporee-push', { body:{ action:'send', camporeeId, title, message, priority } }).then((result: FunctionInvokeResult) => { if (result.error) console.error('Camporee push delivery failed', result.error); });
+      const pendingPublication = status === 202;
+      setAnnouncements((current) => current.some((item)=>item.id===data.id) ? current : [{...data,pendingPublication}, ...current]); setOpen(false);
+      reportMutationSuccess(pendingPublication ? 'Aviso guardado en este dispositivo; pendiente de sincronizar y publicar.' : 'Aviso publicado; envío solicitado al servidor.');
+      if (!pendingPublication) router.refresh();
     }catch(error){const msg=reportMutationError(error,'No se pudo publicar el aviso.');setFormError(msg)}finally{setSaving(false)}
   }
 
-  async function removeAnnouncement(id:string) { if (!canEdit || !confirmRemoval('este aviso')) return; const previous = announcements; setAnnouncements((current) => current.filter((item) => item.id !== id)); const { error } = await supabase.from('announcements').delete().eq('id', id); if (error){setAnnouncements(previous);reportMutationError(error,'No se pudo eliminar el aviso.');}else{reportMutationSuccess('Aviso eliminado.');router.refresh();} }
+  async function removeAnnouncement(id:string) {
+    if (!canEdit || !confirmRemoval('este aviso')) return;
+    try {
+      const result = await supabase.from('announcements').delete().eq('id', id).eq('camporee_id', camporeeId).select('id');
+      const error = mutationProblem(result, [id]);
+      if (error) throw error;
+      setAnnouncements(current => current.filter(item => item.id !== id));
+      reportMutationSuccess(mutationNotice(result.status, 'Aviso eliminado.'));
+      if (result.status !== 202) router.refresh();
+    } catch (error) { reportMutationError(error, 'No se pudo eliminar el aviso.'); }
+  }
   const notificationLabel = notificationPermission === 'granted' && pushReady ? 'Avisos activados' : notificationPermission === 'denied' ? 'Avisos bloqueados en este dispositivo' : notificationPermission === 'unsupported' ? 'Avisos no disponibles' : notificationPermission === 'granted' ? 'Completar activación de avisos' : 'Activar avisos en este dispositivo';
   const visible = announcements.filter((item) => level === 'all' || item.priority === level);
 
@@ -81,6 +93,6 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     <div className='filter-chips polymet-detail-filters'>{[['all','Todos'],['urgent','Urgentes'],['important','Importantes'],['normal','Normales']].map(([value,label])=><button type='button' key={value} className={level===value?'active':''} onClick={()=>setLevel(value)}>{label} <span>{value==='all'?announcements.length:announcements.filter((item)=>item.priority===value).length}</span></button>)}</div>
     <div className='panel-tools'><button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'&&pushReady?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>{canEdit ? <button type='button' className='panel-add' onClick={() => {setFormError('');setOpen(true)}}><Plus size={18}/> Nuevo aviso</button> : null}</div>
     <BottomSheet open={Boolean(open)} onClose={() => {if(!saving)setOpen(false)}} title={<>Nuevo aviso</>} busy={saving}><form onSubmit={(event)=>{event.preventDefault();void saveAnnouncement(new FormData(event.currentTarget));}} className="panel-form pm-sheet-form"><div className="pm-sheet-fields">{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<label className="pm-field"><span>Título <b className="pm-required">*</b></span><input name='title'  required/></label><label className="pm-field"><span>Mensaje <b className="pm-required">*</b></span><textarea name='message'  required/></label><label className="pm-field"><span>Nivel</span><select name='priority' defaultValue='normal'><option value='normal'>Normal</option><option value='important'>Importante</option><option value='urgent'>Urgente</option></select></label></div><div className="pm-sheet-footer"><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Publicando…' : 'Publicar'}</button></div></form></BottomSheet>
-    <section className='panel-list announcements-list'>{visible.length ? visible.map((item) => <article className={`panel-row ios-card announcement-row priority-${item.priority}`} key={item.id}><span className='stat-icon stat-gold'>{item.priority === 'urgent' ? <AlertTriangle size={20}/> : item.priority === 'important' ? <BellRing size={20}/> : <Info size={20}/>}</span><div className='panel-row-copy'><span className={`status-pill ${item.priority === 'urgent' ? 'cancelled' : item.priority === 'important' ? 'pending' : 'confirmed'}`}>{labelFor(item.priority)}</span><strong>{item.title}</strong><small className='announcement-message'>{item.message}</small><small className='announcement-date'>{new Date(item.created_at).toLocaleString('es-DO',{dateStyle:'medium',timeStyle:'short'})}</small></div>{canEdit ? <button type='button' className='row-icon-btn danger' onClick={() => removeAnnouncement(item.id)} aria-label='Eliminar aviso'><Trash2 size={16}/></button> : null}</article>) : <div className='empty compact polymet-empty'><span className='polymet-empty-icon'><Megaphone size={24}/></span><strong>Sin avisos</strong><small>{level==='all'?'Cuando publiques un aviso, el equipo lo verá aquí.':'No hay avisos en esta categoría.'}</small>{canEdit&&level==='all'?<button type='button' className='primary-btn' onClick={()=>setOpen(true)}>Publicar aviso</button>:null}</div>}</section>
+    <section className='panel-list announcements-list'>{visible.length ? visible.map((item) => <article className={`panel-row ios-card announcement-row priority-${item.priority}`} key={item.id}><span className='stat-icon stat-gold'>{item.priority === 'urgent' ? <AlertTriangle size={20}/> : item.priority === 'important' ? <BellRing size={20}/> : <Info size={20}/>}</span><div className='panel-row-copy'><span className={`status-pill ${item.priority === 'urgent' ? 'cancelled' : item.priority === 'important' ? 'pending' : 'confirmed'}`}>{labelFor(item.priority)}</span><strong>{item.title}</strong>{item.pendingPublication ? <small role='status'>Pendiente de sincronizar y publicar</small> : null}<small className='announcement-message'>{item.message}</small><small className='announcement-date'>{new Date(item.created_at).toLocaleString('es-DO',{dateStyle:'medium',timeStyle:'short'})}</small></div>{canEdit ? <button type='button' className='row-icon-btn danger' onClick={() => removeAnnouncement(item.id)} aria-label='Eliminar aviso'><Trash2 size={16}/></button> : null}</article>) : <div className='empty compact polymet-empty'><span className='polymet-empty-icon'><Megaphone size={24}/></span><strong>Sin avisos</strong><small>{level==='all'?'Cuando publiques un aviso, el equipo lo verá aquí.':'No hay avisos en esta categoría.'}</small>{canEdit&&level==='all'?<button type='button' className='primary-btn' onClick={()=>setOpen(true)}>Publicar aviso</button>:null}</div>}</section>
   </>;
 }

@@ -25,6 +25,18 @@ async function actions({error=null,user={id:'admin'}}={}) {
  return {...api,calls};
 }
 function memberForm(){const form=new FormData();form.set('organizationId',org);form.set('userId',applicant);return form;}
+
+async function organizationStatus(membership) {
+ const jsx=(type,props)=>({type,props});
+ const client={auth:{getUser:async()=>({data:{user:{id:applicant}},error:null})},from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:membership,error:null})})};
+ const {default:Page}=await load('app/organizations/page.tsx',{
+  '@/lib/supabase/server':{createClient:async()=>client},'@/lib/tenant-schema':{isTenantSchemaUnavailable:()=>false},
+  'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{redirect:url=>{throw new Error(url)}},'next/link':{default:'link'},
+  './organization-form':{default:'form'},'@/app/components/safe-signout-form':{default:'signout'},
+ });
+ return Page();
+}
+
 test('rechazar conserva la cuenta y envía una decisión atómica a la organización',async()=>{
  const api=await actions();assert.equal((await api.rejectMemberAccess(memberForm())).ok,true);
  assert.equal(api.calls[0].name,'decide_organization_access');
@@ -59,19 +71,10 @@ test('registrar otra cuenta no sustituye una sesión existente', async () => {
   await assert.rejects(signup(form), error => decodeURIComponent(error.message).includes('otro navegador'));
   assert.equal(registrations, 0);
 });
-test('la cuenta rechazada muestra el aviso y deja de esperar aprobación', async () => {
-  const effects = [];
-  const jsx = (type, props) => ({ type, props });
-  const { default: HomeSetup } = await load('app/home-setup.tsx', {
-    react: { useEffect: callback => effects.push(callback), useRef: value => ({ current: value }) },
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({}) },
-    'lucide-react': { LogOut: 'icon', TentTree: 'icon' }, './setup-form': {},
-    '@/lib/supabase/client': { createClient() { throw new Error('No debe consultar si ya está rechazada'); } },
-  });
-  const tree = HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false, accessRejected: true });
-  assert.match(JSON.stringify(tree), /Tu solicitud de acceso fue rechazada/);
-  assert.doesNotMatch(JSON.stringify(tree), /Tu acceso está pendiente/);
-  effects.forEach(callback => callback());
+test('rejected application uses the current organization screen without a pending heading', async () => {
+ const tree=await organizationStatus({organization_id:org,is_active:false,permissions:{access_rejected:true}});
+ assert.match(JSON.stringify(tree),/rechaz/);
+ assert.doesNotMatch(JSON.stringify(tree),/Tu solicitud est\u00e1 pendiente/);
 });
 
 test('el botón Rechazar no llama a eliminar ni modifica la cuenta del administrador', async () => {
@@ -99,18 +102,8 @@ test('el botón Rechazar no llama a eliminar ni modifica la cuenta del administr
   assert.equal(refreshed.length, 1);
 });
 
-test('la espera detecta el rechazo y actualiza el mensaje sin cerrar sesión', async () => {
-  const effects = [], refreshed = [];
-  const jsx = (type, props) => ({ type, props });
-  const client = { auth: { getUser: async () => ({ data: { user: { id: 'applicant' } } }) }, from: () => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { is_active: false, permissions: { access_rejected: true } } }) }), channel: () => ({ on() { return this; }, subscribe() { return this; } }) };
-  const { default: HomeSetup } = await load('app/home-setup.tsx', {
-    react: { useEffect: callback => effects.push(callback), useRef: value => ({ current: value }) }, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({ refresh: () => refreshed.push(true) }) },
-    'lucide-react': {}, './setup-form': {}, '@/lib/supabase/client': { createClient: () => client },
-  }, { window: { addEventListener() {}, setInterval() {} }, document: { addEventListener() {} } });
-  HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false });
-  effects.forEach(callback => callback());
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(refreshed.length, 1);
+test('approved application opens the organization on the current route', async () => {
+ await assert.rejects(organizationStatus({organization_id:org,is_active:true,permissions:{}}),new RegExp(`/o/${org}`));
 });
 
 test('una persona sin sesión todavía puede registrarse', async () => {
@@ -145,25 +138,12 @@ test('la confirmación lleva al estado de solicitud y muestra el correo de la se
   assert.doesNotMatch(output, /\/auth\/signout|Volver al inicio de sesión/);
 });
 
-test('la pantalla de espera muestra fecha real y etapas sin llamada ni plazo inventado', async () => {
-  const jsx = (type, props) => ({ type, props });
-  let refreshes = 0;
-  const { default: HomeSetup } = await load('app/home-setup.tsx', {
-    react: { useEffect() {}, useRef: value => ({ current: value }) },
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'next/navigation': { useRouter: () => ({ refresh() { refreshes++; } }) }, 'lucide-react': {}, './setup-form': {}, '@/lib/supabase/client': {},
-  });
-  const tree = HomeSetup({ firstName: 'Ana', isActive: false, isAdmin: false, requestedAt: '2026-10-05T12:00:00Z' });
-  const output = JSON.stringify(tree);
-  assert.match(output, /Cuenta en revisión/);
-  assert.match(output, /Solicitud enviada/);
-  assert.match(output, /5 de octubre de 2026/);
-  assert.match(output, /automáticamente/);
-  assert.doesNotMatch(output, /Llamar|tel:|24 horas|Hola,/);
-  assert.doesNotMatch(output, /\/auth\/signout|Volver al inicio de sesión/);
-  const button = tree.props.children[1].props.children.find(child => child?.type === 'button');
-  assert.equal(button.props.children, 'Actualizar estado de mi solicitud');
-  button.props.onClick();
-  assert.equal(refreshes, 1);
+test('current pending screen explains approval without invented dates or deadlines', async () => {
+ const tree=await organizationStatus({organization_id:org,is_active:false,permissions:{access_pending:true}});
+ const output=JSON.stringify(tree);
+ assert.match(output,/Tu solicitud est\u00e1 pendiente/);
+ assert.match(output,/apruebe/);
+ assert.doesNotMatch(output,/24 horas|tel:|2026-10-05/);
 });
 
 test('recargar Usuarios con Auth temporalmente caído no redirige al login', async () => {

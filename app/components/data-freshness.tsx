@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { parseTenantPath } from '@/lib/tenant-context';
+import { getOfflineQueueCount, readScopedOfflineWrites } from '@/lib/offline-fetch';
 
 // No global public-schema feed: only refresh the selected camporee, and always
 // dispose its subscription before switching organizations or camporees.
@@ -23,13 +24,31 @@ export default function DataFreshness() {
     const context = parseTenantPath(pathname);
     const supabase = createClient();
     let refreshTimer: number | undefined;
-    const refresh = () => {
-      if (!navigator.onLine) return;
+    let disposed = false, checking = false;
+    const refreshSafely = async () => {
+      if (!navigator.onLine || checking || disposed) return;
       const now = Date.now();
       if (now - lastRefresh.current < 1500) return;
-      lastRefresh.current = now;
-      router.refresh();
+      checking = true;
+      try {
+        // A server refresh would replace local optimistic rows with older data.
+        // Foreign-account and other-camporee queues do not block this screen.
+        let pending = 0;
+        try { pending = await getOfflineQueueCount(); }
+        catch { /* Storage may be disabled; online reads remain available. */ }
+        if (pending) {
+          try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data.session?.access_token) return;
+            if ((await readScopedOfflineWrites(`Bearer ${data.session.access_token}`)).length) return;
+          } catch { return; }
+        }
+        if (disposed || !navigator.onLine) return;
+        lastRefresh.current = Date.now();
+        router.refresh();
+      } finally { checking = false; }
     };
+    const refresh = () => { void refreshSafely(); };
     const queueRefresh = () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(refresh, 350);
@@ -66,6 +85,7 @@ export default function DataFreshness() {
       if (document.visibilityState === 'visible') refresh();
     }, 60000);
     return () => {
+      disposed = true;
       window.removeEventListener('focus', refresh);
       window.removeEventListener('online', refresh);
       window.removeEventListener('camporee:queue-flushed', refresh);
