@@ -18,11 +18,12 @@ export default async function OrganizationsPage() {
   if(result.error)throw result.error;
   if(result.data?.is_active)redirect(`/o/${result.data.organization_id}`);
   const pending=result.data && !result.data.is_active;
+  const rejected=pending && result.data?.permissions?.access_rejected===true;
 
   return <main className="app panel-page organizations-page">
     <header className="polymet-panel-heading">
-      <h1>{pending?'Tu solicitud está pendiente':'Bienvenido a Camporee App'}</h1>
-      <p>{pending?'Tu director debe aprobar tu acceso antes de entrar.':'Para comenzar, crea el camporee de tu club o únete al que organizó tu director.'}</p>
+      <h1>{rejected?'Tu solicitud fue rechazada':pending?'Tu solicitud está pendiente':'Bienvenido a Camporee App'}</h1>
+      <p>{rejected?'Contacta con tu director para revisar tu solicitud.':pending?'Tu director debe aprobar tu acceso antes de entrar.':'Para comenzar, crea el camporee de tu club o únete al que organizó tu director.'}</p>
     </header>
     {pending?<section className="organization-section ios-card">
       <p>{result.data?.permissions?.access_rejected===true?'El director rechazó tu solicitud. Contacta con él para resolverlo.':'Ya recibimos tu solicitud de acceso. Cuando tu director la apruebe, podrás entrar automáticamente.'}</p>

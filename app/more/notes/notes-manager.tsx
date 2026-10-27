@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from 'next/navigation';
@@ -28,18 +29,22 @@ export default function NotesManager({ camporeeId, userId, canEdit, initialNotes
     setSaving(true);setFormError('');
     try{
       const payload = { camporee_id:camporeeId, created_by:userId, title:String(formData.get('title') || '').trim() || null, body, note_date:String(formData.get('note_date') || dateKeyInTimeZone()), area_id:String(formData.get('area_id') || '') || null };
-      const { data, error } = await supabase.from('notes').insert(payload).select('id,title,body,note_date,area_id,created_at').single();
+      const result = await supabase.from('notes').insert(payload).select('id,title,body,note_date,area_id,created_at').single();
+      const { data } = result; const error = mutationProblem(result);
       if(error||!data){const message=reportMutationError(error,'No se pudo guardar el apunte.');setFormError(message);return;}
-      setNotes((cur) => [data, ...cur]); setOpen(false); reportMutationSuccess('Apunte guardado.'); router.refresh();
+      setNotes((cur) => [data, ...cur]); setOpen(false); reportMutationSuccess(mutationNotice(result.status,'Apunte guardado.')); if (result.status !== 202) router.refresh();
     }catch(error){const message=reportMutationError(error,'No se pudo guardar el apunte.');setFormError(message)}finally{setSaving(false)}
   }
 
   async function removeNote(id:string) {
     if (!canEdit || !confirmRemoval('este apunte')) return;
-    const previous = notes;
-    setNotes((cur) => cur.filter((note) => note.id !== id));
-    const { error } = await supabase.from('notes').delete().eq('id', id);
-    if (error){setNotes(previous);reportMutationError(error,'No se pudo eliminar el apunte.');} else {reportMutationSuccess('Apunte eliminado.');router.refresh();}
+    try {
+      const result = await supabase.from('notes').delete().eq('id', id).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[id]);
+      if (error) throw error;
+      setNotes((cur) => cur.filter((note) => note.id !== id));
+      reportMutationSuccess(mutationNotice(result.status,'Apunte eliminado.'));if (result.status !== 202) router.refresh();
+    } catch(error) {reportMutationError(error,'No se pudo eliminar el apunte.');}
   }
 
   const visible = useMemo(() => notes.filter((note) => (areaFilter === 'all' || note.area_id === areaFilter) && `${note.title || ''} ${note.body}`.toLowerCase().includes(query.toLowerCase())), [notes, areaFilter, query]);

@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,8 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
   const [formError,setFormError]=useState('');
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  // ponytail: one local queue prevents bulk/individual races; use per-session queues if throughput requires it.
+  const [writes] = useState(() => ({ tail: Promise.resolve(), revisions: new Map<string, number>(), accepted: new Map<string, boolean>(), desired: new Map<string, boolean>(), bulk: false }));
   const supabase = createClient();
   const router = useRouter();
 
@@ -41,38 +44,78 @@ export default function AttendanceManager({ camporeeId, userId, canEdit, partici
     try{
       const occurred=String(formData.get('occurred_at') || '');
       const payload = { camporee_id:camporeeId, title, session_type:String(formData.get('session_type') || 'general'), occurred_at:occurred ? camporeeDateTimeIso(occurred,timeZone) : new Date().toISOString(), created_by:userId };
-      const { data, error } = await supabase.from('attendance_sessions').insert(payload).select('id,title,session_type,occurred_at,created_at').single();
+      const result = await supabase.from('attendance_sessions').insert(payload).select('id,title,session_type,occurred_at,created_at').single(); const { data, status } = result; const error = mutationProblem(result);
       if(error||!data){const message=reportMutationError(error,'No se pudo crear el pase de lista.');setFormError(message);return;}
-      const hydrated={...data,attendance_marks:[]}; setSessions((current)=>[hydrated,...current]); setActiveSession(hydrated); setOpen(false); reportMutationSuccess('Pase de lista creado.'); router.refresh();
+      const hydrated={...data,attendance_marks:[]}; setSessions((current)=>[hydrated,...current]); setActiveSession(hydrated); setOpen(false); reportMutationSuccess(mutationNotice(status, 'Pase de lista creado.')); if(status!==202)router.refresh();
     }catch(error){const message=reportMutationError(error,'No se pudo crear el pase de lista.');setFormError(message)}finally{setSaving(false)}
   }
 
   const updatePersonMark = (marks:any[], participantId:string, mark:any) => [...marks.filter((m:any)=>m.participant_id!==participantId),mark];
 
+  function applyMark(sessionId:string, participantId:string, mark:any) {
+    setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:updatePersonMark(current.attendance_marks||[],participantId,mark)}:current);
+    setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:updatePersonMark(session.attendance_marks||[],participantId,mark)}:session));
+  }
+
   async function toggleParticipant(person:any) {
-    if (!canEdit || !activeSession || bulkSaving) return;
-    const sessionId=activeSession.id; const previous=Boolean(activeMarks.get(person.id)); const next=!previous; const optimistic={participant_id:person.id,present:next};
-    setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:updatePersonMark(current.attendance_marks||[],person.id,optimistic)}:current);
-    setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:updatePersonMark(session.attendance_marks||[],person.id,optimistic)}:session));
-    const { data,error }=await supabase.from('attendance_marks').upsert({session_id:sessionId,participant_id:person.id,present:next},{onConflict:'session_id,participant_id'}).select('participant_id,present').single();
-    if(error||!data){const rollback={participant_id:person.id,present:previous};setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:updatePersonMark(current.attendance_marks||[],person.id,rollback)}:current);setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:updatePersonMark(session.attendance_marks||[],person.id,rollback)}:session));reportMutationError(error,'No se pudo guardar la asistencia.');return;}
-    setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:updatePersonMark(current.attendance_marks||[],person.id,data)}:current); setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:updatePersonMark(session.attendance_marks||[],person.id,data)}:session));
+    if (!canEdit || !activeSession || writes.bulk) return;
+    const sessionId=activeSession.id, key=`${sessionId}:${person.id}`;
+    const previous=writes.desired.get(key) ?? Boolean(activeMarks.get(person.id));
+    if(!writes.accepted.has(key))writes.accepted.set(key,Boolean(activeMarks.get(person.id)));
+    const next=!previous, revision=(writes.revisions.get(key)||0)+1;
+    writes.revisions.set(key,revision);writes.desired.set(key,next);
+    applyMark(sessionId,person.id,{participant_id:person.id,present:next});
+    const operation=writes.tail.catch(()=>{}).then(async()=>{
+      try {
+        const result=await supabase.from('attendance_marks').upsert({session_id:sessionId,participant_id:person.id,present:next},{onConflict:'session_id,participant_id'}).select('id,participant_id,present').single();
+        const error=mutationProblem(result,[person.id],'participant_id');
+        if(!error&&result.data?.present!==next)throw new Error('La respuesta no coincide con la asistencia solicitada.');
+        if(error)throw error;
+        writes.accepted.set(key,next);
+        if(writes.revisions.get(key)===revision){applyMark(sessionId,person.id,{...result.data,pending:result.status===202});writes.desired.delete(key);writes.accepted.delete(key);}
+        if(result.status===202)reportMutationSuccess(mutationNotice(result.status,''));
+      } catch(error) {
+        if(writes.revisions.get(key)===revision){const rollback=writes.accepted.get(key)||false;writes.desired.set(key,rollback);applyMark(sessionId,person.id,{participant_id:person.id,present:rollback});writes.desired.delete(key);writes.accepted.delete(key);}
+        reportMutationError(error,'No se pudo guardar la asistencia.');
+      }
+    });
+    writes.tail=operation;await operation;
   }
 
   async function markAllPresent() {
-    if (!canEdit || !activeSession || bulkSaving || !participants.length) return;
-    const sessionId=activeSession.id; const previous=activeSession.attendance_marks || [];
-    const marks=participants.map((person)=>({participant_id:person.id,present:true})); setBulkSaving(true);
-    setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:marks}:current); setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:marks}:session));
-    const payload=participants.map((person)=>({session_id:sessionId,participant_id:person.id,present:true})); const { error }=await supabase.from('attendance_marks').upsert(payload,{onConflict:'session_id,participant_id'}); setBulkSaving(false);
-    if(error){setActiveSession((current:any)=>current&&current.id===sessionId?{...current,attendance_marks:previous}:current);setSessions((current)=>current.map((session)=>session.id===sessionId?{...session,attendance_marks:previous}:session));reportMutationError(error,'No se pudo marcar a todos como presentes.');return;} reportMutationSuccess('Asistencia actualizada.');router.refresh();
+    if (!canEdit || !activeSession || writes.bulk || !participants.length) return;
+    const sessionId=activeSession.id;
+    writes.bulk=true;setBulkSaving(true);
+    const revisions=new Map<string,number>();
+    for(const person of participants){
+      const key=`${sessionId}:${person.id}`,revision=(writes.revisions.get(key)||0)+1;
+      if(!writes.accepted.has(key))writes.accepted.set(key,Boolean(activeMarks.get(person.id)));
+      revisions.set(key,revision);writes.revisions.set(key,revision);writes.desired.set(key,true);
+      applyMark(sessionId,person.id,{participant_id:person.id,present:true});
+    }
+    const operation=writes.tail.catch(()=>{}).then(async()=>{
+      try {
+        const payload=participants.map((person)=>({session_id:sessionId,participant_id:person.id,present:true}));
+        const result=await supabase.from('attendance_marks').upsert(payload,{onConflict:'session_id,participant_id'}).select('id,participant_id,present');
+        const error=mutationProblem(result,participants.map(person=>person.id),'participant_id');
+        if(error)throw error;
+        if(result.data?.length!==participants.length || participants.some(person=>!result.data.some((mark:any)=>mark.participant_id===person.id&&mark.present)))throw new Error('No se confirmó la asistencia de todos los participantes.');
+        for(const person of participants){const key=`${sessionId}:${person.id}`;applyMark(sessionId,person.id,{...result.data.find((mark:any)=>mark.participant_id===person.id),pending:result.status===202});writes.desired.delete(key);writes.accepted.delete(key);}
+        reportMutationSuccess(mutationNotice(result.status,'Asistencia actualizada.'));
+        if(result.status!==202)router.refresh();
+      } catch(error) {
+        for(const person of participants){const key=`${sessionId}:${person.id}`;if(writes.revisions.get(key)===revisions.get(key)){const rollback=writes.accepted.get(key)||false;writes.desired.set(key,rollback);applyMark(sessionId,person.id,{participant_id:person.id,present:rollback});writes.desired.delete(key);writes.accepted.delete(key);}}
+        reportMutationError(error,'No se pudo marcar a todos como presentes.');
+      } finally {writes.bulk=false;setBulkSaving(false);}
+    });
+    writes.tail=operation;await operation;
   }
 
   return <>
     <BottomSheet open={Boolean(activeSession)} onClose={()=>{setActiveSession(null);setQuery('')}} title={activeSession?.title || ''} description={`${presentCount} presentes de ${participants.length}`} busy={bulkSaving}>{activeSession ? <>
     <div className='attendance-live-head ios-card'><div><small>{typeLabel(activeSession.session_type)}</small><h2>{activeSession.title}</h2><span>{presentCount}/{participants.length} presentes</span></div><button type='button' className='secondary-btn' onClick={()=>{setActiveSession(null);setQuery('')}}>Terminar</button></div>
     <div className='panel-tools attendance-live-tools'><label className='panel-search'><Search size={17}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder='Buscar participante o unidad'/>{query?<button type='button' onClick={()=>setQuery('')} aria-label='Limpiar'><X size={16}/></button>:null}</label>{canEdit&&presentCount<participants.length?<button className='secondary-btn attendance-mark-all' type='button' onClick={markAllPresent} disabled={bulkSaving}><CheckCheck size={17}/>{bulkSaving?'Marcando…':'Todos presentes'}</button>:null}</div>
-    <section className='panel-list attendance-live-list'>{visibleParticipants.length?visibleParticipants.map((person)=>{const present=Boolean(activeMarks.get(person.id));return <button type='button' className={`panel-row ios-card attendance-person ${present?'is-present':''}`} onClick={()=>toggleParticipant(person)} key={person.id} disabled={!canEdit||bulkSaving}><span className='attendance-check'>{present?<Check size={18}/>:null}</span><div className='panel-row-copy'><strong>{person.full_name}</strong><small>{person.unit_name||'Sin unidad'}</small></div><span className={`status-pill ${present?'confirmed':'pending'}`}>{present?'Presente':'Falta'}</span></button>}):<div className='empty compact'>No hay participantes que coincidan con la búsqueda.</div>}</section>
+    <section className='panel-list attendance-live-list'>{visibleParticipants.length?visibleParticipants.map((person)=>{const present=Boolean(activeMarks.get(person.id));const pending=(activeSession.attendance_marks||[]).some((mark:any)=>mark.participant_id===person.id&&mark.pending);return <button type='button' className={`panel-row ios-card attendance-person ${present?'is-present':''}`} onClick={()=>toggleParticipant(person)} key={person.id} disabled={!canEdit||bulkSaving}><span className='attendance-check'>{present?<Check size={18}/>:null}</span><div className='panel-row-copy'><strong>{person.full_name}</strong><small>{person.unit_name||'Sin unidad'}</small></div><span className={`status-pill ${present?'confirmed':'pending'}`}>{present?'Presente':'Falta'}{pending?' · pendiente':''}</span></button>}):<div className='empty compact'>No hay participantes que coincidan con la búsqueda.</div>}</section>
   </> : null}</BottomSheet>
     <div className='filter-chips polymet-detail-filters'>{[['all','Todos'],['departure','Salida'],['arrival','Llegada'],['worship','Culto'],['activity','Actividad']].map(([value,label])=><button type='button' key={value} className={typeFilter===value?'active':''} onClick={()=>setTypeFilter(value)}>{label}</button>)}</div>
     <div className='panel-tools'>{canEdit?<button type='button' className='panel-add' onClick={()=>{setFormError('');setOpen(true)}}><Plus size={18}/> Nuevo pase de lista</button>:null}</div>

@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarPlus, MapPin, Pencil, Search, Trash2, UserRound } from 'lucide-react';
@@ -59,20 +60,24 @@ export default function ProgramManager({ camporeeId, canEdit, initialEvents, are
       const endsAt = camporeeDateTimeIso(endsLocal,timeZone);
       if (endsAt && new Date(endsAt) <= new Date(startsAt)){ setFormError('La hora final debe ser posterior al inicio.'); return; }
       const payload = { camporee_id: camporeeId, title, description:String(formData.get('description')||'').trim()||null, location:formData.has('location') ? String(formData.get('location')||'').trim()||null : editing?.location??null, responsible_name:String(formData.get('responsible_name')||'').trim()||null, area_id:String(formData.get('area_id')||'')||null, starts_at:startsAt, ends_at:endsAt };
-      const queryBuilder = editing ? supabase.from('schedule_events').update(payload).eq('id', editing.id) : supabase.from('schedule_events').insert(payload);
-      const { data, error } = await queryBuilder.select('id,title,description,starts_at,ends_at,location,responsible_name,area_id').single();
+      const queryBuilder = editing ? supabase.from('schedule_events').update(payload).eq('id', editing.id).eq('camporee_id',camporeeId) : supabase.from('schedule_events').insert(payload);
+      const result = await queryBuilder.select('id,title,description,starts_at,ends_at,location,responsible_name,area_id').single();
+      const { data } = result; const error = mutationProblem(result,editing?[editing.id]:undefined);
       if(error || !data){ const message=reportMutationError(error,'No se pudo guardar la actividad del programa.'); setFormError(message); return; }
       setEvents((current) => (editing ? current.map((item) => item.id === data.id ? data : item) : [...current, data]).sort((a,b)=>String(a.starts_at).localeCompare(String(b.starts_at))));
-      setEditing(null); setOpen(false); reportMutationSuccess(editing?'Actividad actualizada.':'Actividad agregada al programa.'); router.refresh();
+      setEditing(null); setOpen(false); reportMutationSuccess(mutationNotice(result.status,editing?'Actividad actualizada.':'Actividad agregada al programa.')); if (result.status !== 202) router.refresh();
     } catch(error){ const message=reportMutationError(error,'No se pudo guardar la actividad del programa.'); setFormError(message); }
     finally{ setSaving(false); }
   }
 
   async function removeEvent(id: string) {
     if (!canEdit || !confirmRemoval('esta actividad')) return;
-    const { error } = await supabase.from('schedule_events').delete().eq('id', id);
-    if(error){ reportMutationError(error,'No se pudo eliminar la actividad.'); return; }
-    setEvents((current) => current.filter((item) => item.id !== id)); reportMutationSuccess('Actividad eliminada.'); router.refresh();
+    try {
+      const result = await supabase.from('schedule_events').delete().eq('id', id).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[id]);
+      if(error) throw error;
+      setEvents((current) => current.filter((item) => item.id !== id)); reportMutationSuccess(mutationNotice(result.status,'Actividad eliminada.')); if (result.status !== 202) router.refresh();
+    } catch(error){ reportMutationError(error,'No se pudo eliminar la actividad.'); }
   }
   const formEvent = editing;
 

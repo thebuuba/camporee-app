@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,13 +38,14 @@ export default function DocumentManager({ camporeeId, userId, canEdit, initialDo
       }
 
       const payload = { camporee_id: camporeeId, title, document_type: String(formData.get('document_type') || '').trim() || null, file_path: filePath, external_url: String(formData.get('external_url') || '').trim() || null, notes: String(formData.get('notes') || '').trim() || null, created_by: userId };
-      const { data, error } = await supabase.from('camporee_documents').insert(payload).select('*').single();
+      const result = await supabase.from('camporee_documents').insert(payload).select('*').single();
+      const { data } = result; const error = mutationProblem(result);
       if (error || !data) {
-        if (filePath) await supabase.storage.from('camporee-files').remove([filePath]);
         const message=reportMutationError(error,'No se pudo guardar el documento.');setErrorMessage(message);return;
       }
-      setDocuments((current) => [data, ...current]); setOpen(false); reportMutationSuccess('Documento guardado.'); router.refresh();
-    }catch(error){if(filePath)await supabase.storage.from('camporee-files').remove([filePath]).catch(()=>undefined);const message=reportMutationError(error,'No se pudo guardar el documento.');setErrorMessage(message)}finally{setSaving(false)}
+      setDocuments((current) => [data, ...current]); setOpen(false); reportMutationSuccess(mutationNotice(result.status,'Documento guardado.')); if (result.status !== 202) router.refresh();
+    // Keep uploads after an uncertain database response: the row may have committed.
+    }catch(error){const message=reportMutationError(error,'No se pudo guardar el documento.');setErrorMessage(message)}finally{setSaving(false)}
   }
 
   async function openStoredFile(filePath: string) {
@@ -64,12 +66,17 @@ export default function DocumentManager({ camporeeId, userId, canEdit, initialDo
 
   async function removeDocument(document: any) {
     if (!canEdit || !confirmRemoval('este documento')) return;
-    const previous = documents;
-    setDocuments((current) => current.filter((item) => item.id !== document.id));
-    const { error } = await supabase.from('camporee_documents').delete().eq('id', document.id);
-    if (error) { setDocuments(previous); const message=reportMutationError(error,'No se pudo eliminar el documento.');setErrorMessage(message); return; }
-    if (document.file_path) await supabase.storage.from('camporee-files').remove([document.file_path]);
-    reportMutationSuccess('Documento eliminado.');router.refresh();
+    try {
+      const result = await supabase.from('camporee_documents').delete().eq('id', document.id).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[document.id]);
+      if (error) throw error;
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+      if (result.status !== 202 && document.file_path) {
+        const { error: cleanupError } = await supabase.storage.from('camporee-files').remove([document.file_path]);
+        if (cleanupError) { setErrorMessage(reportMutationError(cleanupError,'El documento se eliminó, pero no se pudo retirar su archivo.')); router.refresh(); return; }
+      }
+      reportMutationSuccess(mutationNotice(result.status,'Documento eliminado.'));if (result.status !== 202) router.refresh();
+    } catch(error) {setErrorMessage(reportMutationError(error,'No se pudo eliminar el documento.'));}
   }
 
   const types = ['Todos', 'Permisos', 'Reglamentos', 'Mapas', 'Recibos', 'Otros'];

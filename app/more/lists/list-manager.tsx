@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 import Link from '@/app/components/tenant-link';
 import { useLinkStatus } from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -49,14 +50,15 @@ export default function ListManager({ camporeeId, canEdit, initialLists }: {
     if (!title) return;
     setCreating(true);
     try {
-      const { data, error } = await supabase.from('lists')
+      const result = await supabase.from('lists')
         .insert({ camporee_id: camporeeId, title, category: String(formData.get('category') || '').trim() || null })
         .select('id,title,category').single();
+      const { data } = result; const error = mutationProblem(result);
       if (error || !data) { reportMutationError(error, 'No se pudo crear la lista.'); return; }
       setLists(current => [...current, { ...data, list_items: [] }]);
       setOpenList(false);
-      reportMutationSuccess('Lista creada.');
-      router.refresh();
+      reportMutationSuccess(mutationNotice(result.status,'Lista creada.'));
+      if (result.status !== 202) router.refresh();
     } catch (error) {
       reportMutationError(error, 'No se pudo crear la lista.');
     } finally {

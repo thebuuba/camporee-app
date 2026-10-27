@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import * as mutation from '../lib/mutation-result.ts';
 
 const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
 const listId = '70000000-0000-4000-8000-000000000001';
@@ -76,6 +77,7 @@ async function createHarness({ canEdit = true, insertError = null } = {}) {
   const jsx = (type, props) => ({ type, props: props ?? {} });
   const module = { exports: {} };
   const modules = {
+    '@/lib/mutation-result': mutation,
     react,
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'lucide-react': {
@@ -162,7 +164,7 @@ test('rapid add defaults to one item, clears the name, and keeps composer open f
   await flush();
   assert.equal(records.insertions.length, 1);
   assert.deepEqual({ ...records.insertions[0] }, {
-    list_id: listId, label: 'Linterna', quantity: 1, unit: null, notes: null,
+    camporee_id: 'camporee', list_id: listId, label: 'Linterna', quantity: 1, unit: null, notes: null,
   });
   assert.equal(records.refreshed, 1);
   assert.deepEqual(records.success, ['Elemento agregado.']);
@@ -179,7 +181,7 @@ test('detailed add retains quantity, unit and notes and preserves draft on error
   submit(render, { label: 'Ajo', quantity: '5', unit: 'libra', notes: 'Para el almuerzo' });
   await flush();
   assert.deepEqual({ ...records.insertions[0] }, {
-    list_id: listId, label: 'Ajo', quantity: 5, unit: 'libra', notes: 'Para el almuerzo',
+    camporee_id: 'camporee', list_id: listId, label: 'Ajo', quantity: 5, unit: 'libra', notes: 'Para el almuerzo',
   });
   assert.equal(records.refreshed, 0);
   assert.equal(records.success.length, 0);

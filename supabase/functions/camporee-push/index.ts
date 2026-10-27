@@ -5,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const VAPID_SUBJECT = "mailto:notifications@example.com";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -46,71 +45,8 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ publicKey: keys.public_key }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  if (body?.action !== "send") return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-  const camporeeId = String(body.camporeeId ?? "");
-  const title = String(body.title ?? "Camporee").slice(0, 120);
-  const message = String(body.message ?? "Tienes un nuevo aviso.").slice(0, 500);
-  const priority = String(body.priority ?? "normal");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(camporeeId)) {
-    return json({ error: "Valid camporeeId required" }, 400);
-  }
-  const { data: camporee, error: camporeeError } = await supabase.from("camporees")
-    .select("id,organization_id,status").eq("id", camporeeId).maybeSingle();
-  if (camporeeError) throw camporeeError;
-  if (!camporee || camporee.status === "archived") return json({ error: "Camporee unavailable" }, 403);
-
-  const { data: membership, error: membershipError } = await supabase
-    .from("organization_members").select("role,is_active,permissions")
-    .eq("organization_id", camporee.organization_id).eq("user_id", userId).maybeSingle();
-  if (membershipError) throw membershipError;
-  if (!membership?.is_active) return json({ error: "Inactive organization member" }, 403);
-  const permissions = membership.permissions ?? {};
-  const canSend = membership.role === "admin" || membership.role === "editor" ||
-    permissions.schedule === true || permissions.edit === true;
-  if (!canSend) return json({ error: "Forbidden" }, 403);
-
-  // Send only to people whose access is STILL active in this organization.
-  // Stored push subscriptions alone are not proof of current membership.
-  const { data: activeMembers, error: activeError } = await supabase
-    .from("organization_members").select("user_id")
-    .eq("organization_id", camporee.organization_id).eq("is_active", true);
-  if (activeError) throw activeError;
-  const eligibleUsers = new Set((activeMembers ?? []).map(member => member.user_id));
-
-  const keys = await getKeys();
-  webpush.setVapidDetails(VAPID_SUBJECT, keys.public_key, keys.private_key);
-
-  const { data: subscriptions, error: subscriptionsError } = await supabase
-    .from("push_subscriptions")
-    .select("id,endpoint,p256dh,auth,user_id")
-    .contains("camporee_ids", [camporeeId]);
-  if (subscriptionsError) throw subscriptionsError;
-
-  const payload = JSON.stringify({
-    title: priority === "urgent" ? `⚠️ ${title}` : title,
-    body: message,
-    url: `/o/${camporee.organization_id}/c/${camporeeId}/more/announcements`,
-    tag: `camporee-${priority}`,
-  });
-
-  let sent = 0;
-  const staleIds: string[] = [];
-  await Promise.all((subscriptions ?? []).map(async (subscription) => {
-    if (subscription.user_id === userId || !eligibleUsers.has(subscription.user_id)) return;
-    try {
-      await webpush.sendNotification({
-        endpoint: subscription.endpoint,
-        keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-      }, payload, { TTL: priority === "urgent" ? 3600 : 21600 });
-      sent += 1;
-    } catch (error: any) {
-      if (error?.statusCode === 404 || error?.statusCode === 410) staleIds.push(subscription.id);
-      else console.error("Push send failed", error?.statusCode ?? error?.body ?? error?.message ?? error);
-    }
-  }));
-
-  if (staleIds.length) await supabase.from("push_subscriptions").delete().in("id", staleIds);
-
-  return new Response(JSON.stringify({ sent, stale: staleIds.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  // Older clients may still call send after inserting an announcement. The
+  // INSERT trigger now owns that delivery; a second path would duplicate it.
+  if (body?.action === "send") return json({ error: "Announcement delivery is queued automatically on publication" }, 410);
+  return json({ error: "Unknown action" }, 400);
 });

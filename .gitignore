@@ -13,3 +13,5 @@ out
 npm-debug.log*
 *.tsbuildinfo
 supabase/.temp/
+test-results/
+playwright-report/

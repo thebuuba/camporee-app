@@ -3,6 +3,7 @@ import { WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import BudgetManager from "./budget-manager";
 import { formatCamporeeMoney } from '@/lib/camporee-locale';
+import { loadFinanceRows } from '@/lib/finance-data';
 
 export default async function BudgetPage({ params }: { params?: TenantPageParams } = {}) {
   const context = await requireCamporeeContext(params, '/more/budget');
@@ -10,8 +11,8 @@ export default async function BudgetPage({ params }: { params?: TenantPageParams
   const canEdit = context.canEdit('finances');
 
   const [{ data: expenses, error: expensesError }, { data: income, error: incomeError }, { data: areas, error: areasError }] = camporee ? await Promise.all([
-    supabase.from("expenses").select("id,description,amount,spent_on,category,paid_by,notes,area_id,created_at").eq("camporee_id", camporee.id).order("spent_on", { ascending: false }),
-    supabase.from("income_entries").select("id,description,amount,received_on,category,received_from,notes,created_at").eq("camporee_id", camporee.id).order("received_on", { ascending: false }),
+    loadFinanceRows(supabase, camporee.id, 'expenses'),
+    loadFinanceRows(supabase, camporee.id, 'income_entries'),
     supabase.from("areas").select("id,name").eq("camporee_id", camporee.id).order("sort_order"),
   ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   const totalExpenses = (expenses ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);

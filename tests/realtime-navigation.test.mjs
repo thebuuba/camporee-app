@@ -84,6 +84,7 @@ test('la sincronizacion escucha cambios publicados y refresca la ruta activa', a
     },
     '@/lib/supabase/client': { createClient: () => supabase },
     '@/lib/tenant-context': { parseTenantPath },
+    '@/lib/offline-fetch': { getOfflineQueueCount: async()=>0 },
   }, {
     window,
     navigator: { onLine: true },
@@ -104,8 +105,25 @@ test('la sincronizacion escucha cambios publicados y refresca la ruta activa', a
   registrations[0].callback({ table: 'tasks' });
   assert.equal(timers.length, 1);
   timers[0]();
+  await new Promise(setImmediate);
   assert.deepEqual(refreshes, ['refresh']);
   cleanups.forEach((cleanup) => cleanup());
+});
+
+test('automatic refresh preserves current-account pending changes until synchronized', async () => {
+  for (const scopedPending of [true, false]) {
+    let effect,refreshes=0;const events=new Map();
+    const channel={on(){return this},subscribe(){return this}};
+    const Component=await loadTsx('app/components/data-freshness.tsx',{
+      react:{useEffect(fn){effect=fn},useRef:value=>({current:value})},
+      'next/navigation':{usePathname:()=>'/o/50000000-0000-4000-8000-000000000001/c/60000000-0000-4000-8000-000000000001/tasks',useRouter:()=>({refresh(){refreshes++}})},
+      '@/lib/tenant-context':{parseTenantPath},
+      '@/lib/offline-fetch':{getOfflineQueueCount:async()=>1,readScopedOfflineWrites:async()=>scopedPending?[{id:'pending'}]:[]},
+      '@/lib/supabase/client':{createClient:()=>({channel:()=>channel,removeChannel(){},auth:{getSession:async()=>({data:{session:{access_token:'own'}}})}})},
+    },{navigator:{onLine:true},window:{addEventListener:(name,fn)=>events.set(name,fn),removeEventListener(){},setInterval(){return 1},clearInterval(){},clearTimeout(){}},document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
+    Component();const cleanup=effect();events.get('focus')();await new Promise(setImmediate);
+    assert.equal(refreshes,scopedPending?0:1,'foreign queues must not block this account');cleanup();
+  }
 });
 
 test('las tarjetas de Mas delegan la precarga al enlace sin lanzar una precarga manual masiva', async () => {

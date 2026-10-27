@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
+import * as mutation from '../lib/mutation-result.ts';
 
 const {loadBindings, transform}=createRequire(import.meta.url)('next/dist/build/swc');
 
@@ -33,6 +34,7 @@ async function manager(pending=false) {
  const module={exports:{}};
  const jsx=(type,props)=>({type,props:props??{}});
  const modules={
+  '@/lib/mutation-result':mutation,
   react:{
    useState:initial=>[initial,()=>{}],
    useEffect(){},

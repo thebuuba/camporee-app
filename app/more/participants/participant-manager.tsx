@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, Plus, Search, Trash2, UsersRound, X } from "lucide-react";
@@ -64,27 +65,30 @@ export default function ParticipantManager({ camporeeId, canEdit, initialPartici
         notes: String(formData.get("notes") || "").trim() || null,
       };
       const fields = "id,full_name,participant_type,unit_name,phone,emergency_contact,emergency_phone,attendance_status,notes";
-      const request = editing ? supabase.from("participants").update(payload).eq("id", editing.id) : supabase.from("participants").insert(payload);
-      const { data, error } = await request.select(fields).single();
+      const request = editing ? supabase.from("participants").update(payload).eq("id", editing.id).eq("camporee_id", camporeeId) : supabase.from("participants").insert(payload);
+      const result = await request.select(fields).single(); const { data, status } = result; const error = mutationProblem(result, editing ? [editing.id] : undefined);
       if(error||!data){const message=reportMutationError(error,'No se pudo guardar el participante.');setFormError(message);return;}
       setParticipants((current) => (editing ? current.map((item) => item.id === data.id ? data : item) : [...current, data]).sort((a,b) => a.full_name.localeCompare(b.full_name)));
-      reportMutationSuccess(editing?'Participante actualizado.':'Participante agregado.');setOpen(false);setEditing(null);
+      reportMutationSuccess(mutationNotice(status, editing?'Participante actualizado.':'Participante agregado.'));setOpen(false);setEditing(null);
     }catch(error){const message=reportMutationError(error,'No se pudo guardar el participante.');setFormError(message)}finally{setSaving(false)}
   }
 
   async function setPresence(person:any) {
     if (!canEdit) return;
     const next = person.attendance_status === 'checked_in' ? 'confirmed' : 'checked_in';
+    const result = await supabase.from('participants').update({ attendance_status: next }).eq('id', person.id).eq('camporee_id', camporeeId).select('id').single();
+    const error = mutationProblem(result, [person.id]);
+    if (error){reportMutationError(error,'No se pudo actualizar la asistencia.');return;}
     setParticipants((current) => current.map((item) => item.id === person.id ? {...item, attendance_status:next} : item));
-    const { error } = await supabase.from('participants').update({ attendance_status: next }).eq('id', person.id);
-    if (error){setParticipants((current) => current.map((item) => item.id === person.id ? {...item, attendance_status:person.attendance_status} : item));reportMutationError(error,'No se pudo actualizar la asistencia.');}
+    if(result.status===202)reportMutationSuccess(mutationNotice(result.status,''));
   }
 
   async function removeParticipant(id: string) {
     if (!canEdit || !confirmRemoval('este participante')) return;
-    const { error } = await supabase.from("participants").delete().eq("id", id);
+    const result = await supabase.from("participants").delete().eq("id", id).eq('camporee_id',camporeeId).select('id').single();
+    const error = mutationProblem(result, [id]);
     if(error){reportMutationError(error,'No se pudo eliminar el participante.');return;}
-    setParticipants((current) => current.filter((item) => item.id !== id));reportMutationSuccess('Participante eliminado.');
+    setParticipants((current) => current.filter((item) => item.id !== id));reportMutationSuccess(mutationNotice(result.status,'Participante eliminado.'));
   }
 
   const personCard = (person:any) => <article className="pm-person-row" key={person.id}>

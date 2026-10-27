@@ -1,3 +1,4 @@
+import {deliveryRpc} from './helpers/delivery-rpc.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -70,6 +71,7 @@ async function reminder({failed=false,secret='trusted',now=MORNING,stale=[],rows
       then(a,b){return Promise.resolve(result()).then(a,b);},
     };
   }};
+  client.rpc=deliveryRpc(rows,()=>clock);
   const webpush={setVapidDetails(){},async sendNotification(subscription,payload){
     if(stale.includes(subscription.endpoint)||pushFailed)throw {statusCode:stale.includes(subscription.endpoint)?410:503};
     sent.push({endpoint:subscription.endpoint,payload:JSON.parse(payload)});
@@ -77,13 +79,13 @@ async function reminder({failed=false,secret='trusted',now=MORNING,stale=[],rows
   const FixedDate=class extends Date{constructor(value){super(value??clock);}static now(){return Date.parse(clock);}};
   let handler;const dependencies={};
   const context={Request,Response,Date:FixedDate,console:{error(){}},Deno:{serve(fn){handler=fn;},env:{get:()=> 'test'}},require:name=>name.startsWith('npm:@supabase/')?{createClient:()=>client}:name.startsWith('npm:web-push')?{__esModule:true,default:webpush}:dependencies[name]};
-  for(const name of ['messages.ts','schedule.ts','tasks.ts']){
+  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts']){
     let code;try{code=await compile(`supabase/functions/camporee-reminders/${name}`);}catch(e){if(e.code==='ENOENT')continue;throw e;}
     const module={exports:{}};vm.runInNewContext(code,{...context,module,exports:module.exports});dependencies[`./${name}`]=module.exports;
   }
   const module={exports:{}};vm.runInNewContext(await compile('supabase/functions/camporee-reminders/index.ts'),{...context,module,exports:module.exports});
   const invoke=()=>handler(new Request('https://edge.test',{method:'POST',headers:{'x-cron-secret':secret},body:JSON.stringify({action:'schedule'})}));
-  return {invoke,sent,logs,rows,deleted,recover(){pushFailed=false;},setNow(value){clock=value;}};
+  return {invoke,sent,logs,rows,deleted,recover(){pushFailed=false;clock=new Date(new Date(clock).getTime()+31000).toISOString();},setNow(value){clock=value;}};
 }
 
 test('agrupa las tareas atrasadas por responsable en un resumen diario con enlace /tasks',async()=>{
@@ -156,9 +158,9 @@ test('al cambiar el dia local vuelve a enviar un resumen nuevo',async()=>{
   assert.equal(api.logs[1].milestone,'task-overdue:2026-10-16');
 });
 
-test('si todos los envios fallan libera el reclamo para reintentar',async()=>{
+test('si todos los envios fallan conserva el trabajo pendiente para reintentar',async()=>{
   const api=await reminder({failed:true});await api.invoke();
-  assert.equal(api.sent.length,0);assert.equal(api.logs.length,0);
+  assert.equal(api.sent.length,0);assert.equal(api.logs.length,1);assert.equal(api.logs[0].state,'pending');
   api.recover();await api.invoke();
   assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
 });
@@ -166,7 +168,7 @@ test('si todos los envios fallan libera el reclamo para reintentar',async()=>{
 test('elimina dispositivos con endpoints vencidos 404/410',async()=>{
   const api=await reminder({stale:['https://push.test/ana']});await api.invoke();
   assert.equal(api.rows.push_subscriptions.some(sub=>sub.id==='sub-ana'),false);
-  assert.equal(api.logs.length,0);
+  assert.equal(api.logs.length,1);assert.equal(api.logs[0].state,'pending');
 });
 
 test('trunca titulos largos y mantiene el payload por debajo de 4KB aunque sea Unicode',async()=>{

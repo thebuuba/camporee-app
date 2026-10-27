@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, ChevronDown, ListChecks, Plus, Trash2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
+import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 type ListItem = {
   id: string; label: string; quantity: number | null; unit: string | null;
@@ -37,14 +38,15 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
     if (!canEdit || busy(item.id) || deletingList) return;
     const next = !item.is_done;
     markBusy(item.id);
-    setItems(current => current.map(row => row.id === item.id ? { ...row, is_done: next } : row));
     try {
-      const { error } = await supabase.from('list_items').update({ is_done: next })
-        .eq('id', item.id).eq('list_id', listId);
+      const result = await supabase.from('list_items').update({ is_done: next })
+        .eq('id', item.id).eq('list_id', listId).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[item.id]);
       if (error) throw error;
-      router.refresh();
+      setItems(current => current.map(row => row.id === item.id ? { ...row, is_done: next } : row));
+      reportMutationSuccess(mutationNotice(result.status,'Elemento actualizado.'));
+      if (result.status !== 202) router.refresh();
     } catch (error) {
-      setItems(current => current.map(row => row.id === item.id ? { ...row, is_done: item.is_done } : row));
       reportMutationError(error, 'No se pudo actualizar el elemento.');
     } finally {
       clearBusy(item.id);
@@ -59,18 +61,19 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
     if (!label || !Number.isFinite(quantity) || quantity < 0) return;
     setAdding(true);
     try {
-      const { data, error } = await supabase.from('list_items').insert({
-        list_id: listId, label, quantity,
+      const result = await supabase.from('list_items').insert({
+        camporee_id:camporeeId, list_id: listId, label, quantity,
         unit: String(formData.get('unit') || '').trim() || null,
         notes: String(formData.get('notes') || '').trim() || null,
       }).select('id,label,quantity,unit,is_done,notes,sort_order').single();
+      const { data } = result; const error = mutationProblem(result);
       if (error || !data) { reportMutationError(error, 'No se pudo agregar el elemento.'); return; }
       setItems(current => [...current, data]);
       form.reset();
       setDraftLabel('');
       labelInput.current?.focus();
-      reportMutationSuccess('Elemento agregado.');
-      router.refresh();
+      reportMutationSuccess(mutationNotice(result.status,'Elemento agregado.'));
+      if (result.status !== 202) router.refresh();
     } catch (error) {
       reportMutationError(error, 'No se pudo agregar el elemento.');
     } finally {
@@ -82,12 +85,13 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
     if (!canEdit || busy(item.id) || deletingList || !confirmRemoval('este elemento')) return;
     markBusy(item.id);
     try {
-      const { error } = await supabase.from('list_items').delete()
-        .eq('id', item.id).eq('list_id', listId);
+      const result = await supabase.from('list_items').delete()
+        .eq('id', item.id).eq('list_id', listId).eq('camporee_id',camporeeId).select('id');
+      const error = mutationProblem(result,[item.id]);
       if (error) throw error;
       setItems(current => current.filter(row => row.id !== item.id));
-      reportMutationSuccess('Elemento eliminado.');
-      router.refresh();
+      reportMutationSuccess(mutationNotice(result.status,'Elemento eliminado.'));
+      if (result.status !== 202) router.refresh();
     } catch (error) {
       reportMutationError(error, 'No se pudo eliminar el elemento.');
     } finally {
@@ -99,10 +103,12 @@ export default function ListDetailManager({ camporeeId, listId, canEdit, initial
     if (!canEdit || deletingList || !confirmRemoval('esta lista y todos sus elementos')) return;
     setDeletingList(true);
     try {
-      const { error } = await supabase.from('lists').delete()
-        .eq('id', listId).eq('camporee_id', camporeeId);
+      const result = await supabase.from('lists').delete()
+        .eq('id', listId).eq('camporee_id', camporeeId).select('id');
+      const error = mutationProblem(result,[listId]);
       if (error) throw error;
-      reportMutationSuccess('Lista eliminada.');
+      reportMutationSuccess(mutationNotice(result.status,'Lista eliminada.'));
+      if (result.status === 202) { setDeletingList(false); return; }
       router.replace(backHref);
       router.refresh();
     } catch (error) {

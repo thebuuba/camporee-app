@@ -1,7 +1,7 @@
 import type { CamporeeContext } from "@/lib/tenant-context";
 import { signedAvatar } from './avatars';
-import { dateKeyInTimeZone, dateOnlyDistance, isEventOngoing } from "@/lib/date";
-import { camporeePhase, preparationProgress } from "@/lib/camporee-preparation";
+import { dateKeyInTimeZone, dateOnlyDistance } from "@/lib/date";
+import { camporeePhase } from "@/lib/camporee-preparation";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -28,39 +28,20 @@ export async function loadHomeData(context: CamporeeContext) {
   const dayNumber = phase === "during" ? Math.min(totalDays, Math.max(1, dateOnlyDistance(camporee.starts_on, todayKey) + 1)) : null;
   const days = phase === "before" ? Math.max(0, dateOnlyDistance(todayKey, camporee.starts_on)) : Math.max(0, dateOnlyDistance(todayKey, camporee.ends_on));
 
-  const [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult] = await Promise.all([
-    retryQuery(() => supabase.from("tasks").select("id,title,status,priority,due_at,phase").eq("camporee_id", camporee.id)),
-    retryQuery(() => supabase.from("participants").select("id,attendance_status").eq("camporee_id", camporee.id)),
-    retryQuery(() => supabase.from("expenses").select("amount").eq("camporee_id", camporee.id)),
-    retryQuery(() => supabase.from("income_entries").select("amount").eq("camporee_id", camporee.id)),
-    retryQuery(() => supabase.from("schedule_events").select("id,title,starts_at,ends_at,location").eq("camporee_id", camporee.id).order("starts_at", { ascending: true })),
+  const [summaryResult, urgentResult] = await Promise.all([
+    retryQuery(() => supabase.rpc("get_camporee_home_summary", { target_camporee: camporee.id, as_of: now.toISOString() })),
     phase === "during"
       ? retryQuery(() => supabase.from("announcements").select("id,title,message,created_at").eq("camporee_id", camporee.id).eq("priority", "urgent").order("created_at", { ascending: false }).limit(1))
       : Promise.resolve({ data: [], error: null } as SupabaseResult<any[]>),
   ]);
-
-  const contentError = [taskResult, participantResult, expenseResult, incomeResult, eventResult, urgentResult].find(result => result.error)?.error;
+  const contentError = summaryResult.error ?? urgentResult.error;
   if (contentError) throw new Error(contentError.message || "No se pudieron cargar los datos del camporee.");
-
-  const tasks = taskResult.data ?? [];
-  const events = eventResult.data ?? [];
-  const progressTasks = tasks.filter((task) => task.status !== "cancelled");
-  const pendingTasks = progressTasks.filter((task) => task.status !== "done").length;
-  const completed = progressTasks.filter((task) => task.status === "done").length;
-  const progress = progressTasks.length ? Math.round(completed / progressTasks.length * 100) : 0;
-  const totalExpenses = (expenseResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const totalIncome = (incomeResult.data ?? []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const pendingToday = progressTasks.filter((task) => task.status !== "done" && task.due_at && dateKeyInTimeZone(task.due_at, camporee.time_zone) === todayKey).sort((a, b) => (a.priority === "urgent" ? -1 : 0) - (b.priority === "urgent" ? -1 : 0));
-  const todayTasks = pendingToday.slice(0, 3);
-  const todayProgramCount = events.filter((event) => dateKeyInTimeZone(event.starts_at, camporee.time_zone) === todayKey).length;
-  const nowMs = now.getTime();
-  const currentEvent = events.find((event) => isEventOngoing(event,nowMs)) ?? null;
-  const nextEvent = events.find((event) => new Date(event.starts_at).getTime() > nowMs) ?? null;
+  const summary = summaryResult.data;
+  if (!summary || typeof summary.totalTasks !== "number") throw new Error("No se pudo cargar el resumen del camporee.");
 
   return {
-    preparation: preparationProgress(tasks), initialNow: now.getTime(),
-    userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee, pendingTasks, completedTasks: completed, totalTasks: progressTasks.length, todayPendingTasks: pendingToday.length, progress, totalExpenses, totalIncome,
-    participants: (participantResult.data ?? []).length, presentParticipants: (participantResult.data ?? []).filter((person) => person.attendance_status === "checked_in").length, days, phase, dayNumber, totalDays, programCount: events.length,
-    todayProgramCount, currentEvent, nextEvent, todayTasks, urgentAnnouncement: urgentResult.data?.[0] ?? null,
+    ...summary, initialNow: now.getTime(),
+    userId, firstName, avatarUrl, member, memberLoadError, camporeeLoadError: false, camporee,
+    days, phase, dayNumber, totalDays, urgentAnnouncement: urgentResult.data?.[0] ?? null,
   };
 }

@@ -25,11 +25,14 @@ const STORE = 'requests';
 const REST_TABLES_WITH_UUID_ID = new Set([
   'camporees','areas','tasks','task_checklist_items','schedule_events','lists','list_items','meals','meal_ingredients','participants','expenses','income_entries','notes','inventory_items','emergency_contacts','camporee_documents','announcements','attendance_sessions','camporee_activities'
 ]);
-let flushJob: Promise<{ remaining:number; failed:boolean }> | null = null;
+let queueJob: Promise<unknown> | null = null;
 
-export function queuedResponseIsComplete(method: string, status: number) {
-  // A 409 can be a real database conflict, not an idempotent duplicate.
-  return (status >= 200 && status < 300) || (method === 'DELETE' && status === 404);
+async function withQueueLock<T>(run: () => Promise<T>): Promise<T> {
+  while (queueJob) { try { await queueJob; } catch { /* A failed predecessor releases the lock. */ } }
+  const job = run();
+  queueJob = job;
+  try { return await job; }
+  finally { if (queueJob === job) queueJob = null; }
 }
 
 function subjectFromAccessToken(header: string): string | null {
@@ -101,12 +104,83 @@ async function deleteQueued(id: string) {
   db.close();
 }
 
+function belongsToCurrentScope(item: QueuedRequest, auth: string) {
+  const ownerId = subjectFromAccessToken(auth);
+  const scope = typeof window === 'undefined' ? null : parseTenantPath(window.location.pathname);
+  return Boolean(ownerId && scope && item.ownerId === ownerId &&
+    item.organizationId === scope.organizationId && item.camporeeId === scope.camporeeId);
+}
+
+export type RecoverableWrite = Pick<QueuedRequest, 'id' | 'url' | 'method' | 'body' | 'createdAt'>;
+
+export async function readScopedOfflineWrites(auth: string): Promise<RecoverableWrite[]> {
+  return (await getQueued()).filter(item => belongsToCurrentScope(item, auth))
+    .map(({ id, url, method, body, createdAt }) => ({ id, url, method, body, createdAt }));
+}
+
+export async function discardScopedOfflineWrite(id: string, auth: string, current = () => true) {
+  return withQueueLock(async () => {
+    const item = (await getQueued()).find(row => row.id === id);
+    if (!current()) return;
+    if (!item || !belongsToCurrentScope(item, auth)) throw new Error('El cambio no pertenece a esta cuenta y camporee.');
+    await deleteQueued(id);
+    window.dispatchEvent(new CustomEvent('camporee:queue-state', { detail: { count: await getOfflineQueueCount() } }));
+  });
+}
+
+async function insertAlreadyStored(item: QueuedRequest, headers: Headers): Promise<boolean> {
+  if (item.method !== 'POST' || !item.body || !item.camporeeId) return false;
+  try {
+    const payload = JSON.parse(item.body);
+    const url = new URL(item.url);
+    const table = tableFromUrl(url);
+    if (!REST_TABLES_WITH_UUID_ID.has(table) || table === 'camporees' || !payload || Array.isArray(payload) ||
+        typeof payload.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(payload.id) ||
+        !Object.keys(payload).every(key => /^[a-z_][a-z0-9_]*$/.test(key))) return false;
+    url.search = '';
+    url.searchParams.set('id', `eq.${payload.id}`);
+    url.searchParams.set('camporee_id', `eq.${item.camporeeId}`);
+    url.searchParams.set('select', [...new Set([...Object.keys(payload), 'camporee_id'])].join(','));
+    headers = new Headers(headers);
+    headers.set('accept', 'application/json');
+    const response = await fetch(url.href, { method: 'GET', headers });
+    if (!response.ok) return false;
+    const rows = await response.json();
+    return Array.isArray(rows) && rows.length === 1 && rows[0].camporee_id === item.camporeeId &&
+      Object.entries(payload).every(([key, value]) => {
+        const stored = rows[0][key];
+        if (JSON.stringify(stored) === JSON.stringify(value)) return true;
+        const timestamps = ['due_at', 'starts_at', 'ends_at', 'occurred_at', 'updated_at', 'created_at', 'published_at'];
+        const zoned = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i;
+        return timestamps.includes(key) && typeof stored === 'string' && typeof value === 'string' &&
+          zoned.test(stored) && zoned.test(value) && Number.isFinite(Date.parse(value)) && Date.parse(stored) === Date.parse(value);
+      });
+  } catch { return false; }
+}
+
 export async function flushOfflineWrites(authOverride?: string): Promise<{ remaining:number; failed:boolean }> {
-  while (flushJob) await flushJob;
-  const job = flushScopedWrites(authOverride);
-  flushJob = job;
-  try { return await job; }
-  finally { if (flushJob === job) flushJob = null; }
+  return withQueueLock(() => flushScopedWrites(authOverride));
+}
+
+async function replayConfirmed(response: Response, item: QueuedRequest) {
+  if (!response.ok) return false;
+  try {
+    const data = await response.json();
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    if (!rows.length || rows.some(row => !row || typeof row !== 'object')) return false;
+    const id = extractEqId(new URL(item.url));
+    if (id) return rows.length === 1 && rows[0].id === id;
+    const payload = item.body ? JSON.parse(item.body) : null;
+    const expected = Array.isArray(payload) ? payload : payload ? [payload] : [];
+    if (expected.length && expected.length !== rows.length) return false;
+    return expected.every(entry => {
+      if (entry.id) return rows.some(row => row.id === entry.id);
+      // Attendance uses a composite key rather than a client generated id.
+      if (entry.session_id && entry.participant_id) return rows.some(row =>
+        row.session_id === entry.session_id && row.participant_id === entry.participant_id);
+      return true;
+    });
+  } catch { return false; }
 }
 
 async function flushScopedWrites(authOverride?: string): Promise<{ remaining:number; failed:boolean }> {
@@ -129,9 +203,16 @@ async function flushScopedWrites(authOverride?: string): Promise<{ remaining:num
         item.camporeeId !== context.camporeeId) continue;
     const headers = new Headers(item.headers);
     headers.set('authorization', auth);
+    const preferences = (headers.get('prefer') ?? '').split(',').filter(value => value && !value.trim().startsWith('return='));
+    headers.set('prefer', [...preferences, 'return=representation'].join(','));
     try {
-      const response = await fetch(item.url, { method:item.method, headers, body:item.body });
-      if (queuedResponseIsComplete(item.method, response.status)) await deleteQueued(item.id);
+      const replayUrl = new URL(item.url);
+      // Replay validates identities independently of the original UI projection.
+      // In particular attendance needs both parts of its composite key.
+      replayUrl.searchParams.set('select', '*');
+      const response = await fetch(replayUrl.href, { method:item.method, headers, body:item.body });
+      if (await replayConfirmed(response, item) ||
+          (response.status === 409 && await insertAlreadyStored(item, headers))) await deleteQueued(item.id);
       else { failed = true; break; }
     } catch { failed = true; break; }
   }
@@ -154,10 +235,13 @@ function extractEqId(url: URL) {
 }
 
 function syntheticResponse(request: Request, payload: any, method: string, id?: string) {
-  if (method === 'DELETE') return new Response(null, { status: 204, headers: { 'x-camporee-offline':'queued' } });
+  if (method === 'DELETE' && !request.headers.get('prefer')?.includes('return=representation')) {
+    return new Response(null, { status: 202, headers: { 'x-camporee-offline':'queued' } });
+  }
+  if (method === 'DELETE') payload = id ? { id } : null;
   const result = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload, ...(id ? { id } : {}) } : payload;
   const wantsObject = request.headers.get('accept')?.includes('application/vnd.pgrst.object+json');
-  return new Response(JSON.stringify(wantsObject ? result : Array.isArray(result) ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
+  return new Response(JSON.stringify(wantsObject ? result : Array.isArray(result) ? result : [result]), { status: 202, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
 }
 
 export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
