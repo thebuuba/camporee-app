@@ -5,6 +5,7 @@ import webpush from "npm:web-push@3.6.7";
 import { messageFor, editorResponsibilities } from "./messages.ts";
 import { sendScheduleReminders } from "./schedule.ts";
 import { sendTaskOverdueReminders } from "./tasks.ts";
+import { sendSunsetReminders } from "./sunset.ts";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 const DAY = 24 * 60 * 60 * 1000;
@@ -43,6 +44,7 @@ Deno.serve(async (req: Request) => {
     if (minuteRun) {
       await sendScheduleReminders(supabase, webpush);
       await sendTaskOverdueReminders(supabase, webpush);
+      await sendSunsetReminders(supabase);
     }
 
     const now = new Date();

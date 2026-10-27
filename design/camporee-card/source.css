@@ -1,0 +1,33 @@
+/* Source: the user's camporee-adventista branch in Polymet. */
+@tailwind base;
+@tailwind utilities;
+
+#camporee-card {
+  --foreground:20 28% 14%;--card:0 0% 100%;--card-foreground:20 28% 14%;
+  --primary:22 92% 57%;--secondary:92 38% 92%;--secondary-foreground:100 30% 20%;
+  --muted:30 45% 95%;--muted-foreground:20 9% 44%;--accent:28 95% 93%;--accent-foreground:20 62% 28%;
+  --border:28 32% 89%;--ring:22 92% 57%;--chart-2:100 32% 45%;
+  width:100%;max-width:420px;margin:0 auto;isolation:isolate;font-family:Poppins,ui-sans-serif,system-ui,sans-serif;line-height:1.5;font-weight:400;color:hsl(var(--foreground));
+}
+[data-theme="dark"] #camporee-card {
+  --foreground:30 30% 94%;--card:20 16% 10%;--card-foreground:30 30% 94%;--primary:24 95% 60%;
+  --secondary:100 16% 16%;--secondary-foreground:92 35% 84%;--muted:20 12% 15%;--muted-foreground:30 10% 64%;
+  --accent:22 38% 17%;--accent-foreground:30 85% 84%;--border:20 12% 19%;--ring:24 95% 60%;--chart-2:100 30% 55%;
+}
+#camporee-card *,#camporee-card *::before,#camporee-card *::after {box-sizing:border-box;border-width:0;border-style:solid;margin:0;padding:0;min-width:0}
+#camporee-card :is(h2,h3,p,ul,ol) {margin:0;font-size:inherit;font-weight:inherit;color:inherit}
+#camporee-card :is(ul,ol) {list-style:none}
+#camporee-card a {text-decoration:none;color:inherit}
+#camporee-card button {font-family:inherit;background:transparent;color:inherit;cursor:pointer}
+#camporee-card button:disabled {cursor:wait}
+#camporee-card svg {display:block;vertical-align:middle;flex-shrink:0}
+#camporee-card :is(a,button):focus-visible {outline:2px solid hsl(var(--ring));outline-offset:3px}
+#camporee-card .animate-in {animation:camp-digit .3s ease-out}
+@keyframes camp-digit {from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes camp-flag {0%,100%{transform:skewY(0deg) scaleX(1)}50%{transform:skewY(-6deg) scaleX(.92)}}
+@keyframes camp-float {0%,100%{transform:translateX(0)}50%{transform:translateX(10px)}}
+@keyframes camp-smoke {0%{opacity:0;transform:translateY(0) scale(.6)}30%{opacity:.6}100%{opacity:0;transform:translateY(-26px) scale(1.4)}}
+@keyframes camp-twinkle {0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes camp-glow {0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.8;transform:scale(1.06)}}
+@media(prefers-reduced-motion:reduce){#camporee-card *,#camporee-card *::before,#camporee-card *::after {animation:none;transition:none}}
+@media(max-width:360px){#camporee-card .text-\[13px\]{font-size:12px}#camporee-card .text-\[11px\]{font-size:10px}}

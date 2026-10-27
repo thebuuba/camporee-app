@@ -42,6 +42,7 @@ import "./music-player.css";
 import "./page-motion.css";
 import "./dark-theme.css";
 import "./color-theme.css";
+import "./camporee-card.generated.css";
 import "./lists.css";
 import "./home-shortcuts.css";
 import ThemeProvider from "./components/theme-provider";

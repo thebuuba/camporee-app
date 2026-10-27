@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 
-async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.000Z'}={}){
+async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.000Z',sunsets=[]}={}){
   let pushFailed=failed;
   await loadBindings();
   const compile=async path=>(await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript'},target:'es2022'},module:{type:'commonjs'}})).code;
@@ -14,7 +14,7 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
   const sent=[],logs=[];
   const rows={
     system_cron_secrets:[{key:'camporee_reminders',secret:'trusted'}],
-    camporees:[{id:'camp',organization_id:'club',name:'Club',status:'planning',starts_on:'2026-11-06',time_zone:'America/Santo_Domingo'}],
+    camporees:[{id:'camp',organization_id:'club',name:'Club',location:'Santiago',status:'planning',starts_on:'2026-11-06',time_zone:'America/Santo_Domingo'}],
     schedule_events:[
       {id:'meeting',camporee_id:'camp',title:'Reunión directiva',starts_at:'2026-10-11T22:00:00.000Z',ends_at:null},
       {id:'future',camporee_id:'camp',title:'Después',starts_at:'2026-10-11T22:01:00.000Z'},
@@ -49,9 +49,9 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
   client.rpc=deliveryRpc(rows,()=>clock);
   const webpush={setVapidDetails(){},async sendNotification(subscription,payload){if(pushFailed)throw {statusCode:503};sent.push({endpoint:subscription.endpoint,payload:JSON.parse(payload)});}};
   const FixedDate=class extends Date{constructor(value){super(value??clock);}static now(){return Date.parse(clock);}};
-  let handler;const dependencies={};
+  let handler;const dependencies={'../_shared/sunset.ts':{...await import('../supabase/functions/_shared/sunset.ts'),dailySunsetTimes:async()=>sunsets}};
   const context={Request,Response,Date:FixedDate,console:{error(){}},Deno:{serve(fn){handler=fn;},env:{get:()=> 'test'}},require:name=>name.startsWith('npm:@supabase/')?{createClient:()=>client}:name.startsWith('npm:web-push')?{__esModule:true,default:webpush}:dependencies[name]};
-  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts']){
+  for(const name of ['delivery.ts','messages.ts','schedule.ts','tasks.ts','sunset.ts']){
     let code;try{code=await compile(`supabase/functions/camporee-reminders/${name}`);}catch(e){if(e.code==='ENOENT')continue;throw e;}
     const module={exports:{}};vm.runInNewContext(code,{...context,module,exports:module.exports});dependencies[`./${name}`]=module.exports;
   }
@@ -121,4 +121,25 @@ test('el aviso del primer día puede reintentarse si ningún dispositivo acepta 
   const api=await reminder({now:'2026-11-06T12:00:00.000Z',failed:true});
   await api.invoke();assert.equal(api.logs.length,1);assert.equal(api.logs[0].state,'pending');
   api.recover();await api.invoke();assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
+});
+
+test('Friday sunset queues one durable alert per active subscribed member, ninety minutes before the shown time',async()=>{
+ const sunsets=['santiago','moca'].map(id=>({id,label:id,timeZone:'America/Santo_Domingo',date:'2026-10-30',sunrise:'2026-10-30T06:43:00-04:00',sunset:'2026-10-30T18:10:42-04:00'}));
+ const api=await reminder({now:'2026-10-30T20:40:00Z',sunsets,failed:true});
+ assert.equal((await api.invoke()).status,200);
+ assert.equal(api.logs.length,1);assert.equal(api.logs[0].milestone,'sunset:2026-10-30');
+ assert.equal(api.logs[0].user_id,'admin');assert.equal(api.logs[0].state,'pending');
+ api.recover();await api.invoke();await api.invoke();
+ assert.equal(api.sent.length,1);assert.equal(api.sent[0].endpoint,'https://push.test/admin');
+ assert.equal(api.sent[0].payload.url,'/o/club/c/camp');
+ assert.equal(api.logs.length,1);
+});
+
+test('sunset alerts skip unavailable daily data, unrelated regions and finished camporees',async()=>{
+ const sunsets=['santiago','moca'].map(id=>({id,label:id,timeZone:'America/Santo_Domingo',date:'2026-10-30',sunrise:'2026-10-30T06:43:00-04:00',sunset:'2026-10-30T18:10:42-04:00'}));
+ for(const change of [{},{location:'Madrid'},{status:'finished'}]){
+  const api=await reminder({now:'2026-10-30T20:40:00Z',sunsets:Object.keys(change).length?sunsets:[]});
+  Object.assign(api.rows.camporees[0],change);await api.invoke();
+  assert.equal(api.logs.length,0);assert.equal(api.sent.length,0);
+ }
 });
