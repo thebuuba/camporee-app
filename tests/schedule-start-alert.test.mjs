@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 
-async function reminder({failed=false,secret='trusted'}={}){
+async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.000Z'}={}){
   let pushFailed=failed;
   await loadBindings();
   const compile=async path=>(await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript'},target:'es2022'},module:{type:'commonjs'}})).code;
@@ -45,15 +45,15 @@ async function reminder({failed=false,secret='trusted'}={}){
     };
   }};
   const webpush={setVapidDetails(){},async sendNotification(subscription,payload){if(pushFailed)throw {statusCode:503};sent.push({endpoint:subscription.endpoint,payload:JSON.parse(payload)});}};
-  const FixedDate=class extends Date{constructor(value){super(value??'2026-10-11T22:00:30.000Z');}static now(){return Date.parse('2026-10-11T22:00:30.000Z');}};
+  const FixedDate=class extends Date{constructor(value){super(value??now);}static now(){return Date.parse(now);}};
   let handler;const dependencies={};
   const context={Request,Response,Date:FixedDate,console:{error(){}},Deno:{serve(fn){handler=fn;},env:{get:()=> 'test'}},require:name=>name.startsWith('npm:@supabase/')?{createClient:()=>client}:name.startsWith('npm:web-push')?{__esModule:true,default:webpush}:dependencies[name]};
-  for(const name of ['messages.ts','schedule.ts']){
+  for(const name of ['messages.ts','schedule.ts','tasks.ts']){
     let code;try{code=await compile(`supabase/functions/camporee-reminders/${name}`);}catch(e){if(e.code==='ENOENT')continue;throw e;}
     const module={exports:{}};vm.runInNewContext(code,{...context,module,exports:module.exports});dependencies[`./${name}`]=module.exports;
   }
   const module={exports:{}};vm.runInNewContext(await compile('supabase/functions/camporee-reminders/index.ts'),{...context,module,exports:module.exports});
-  const invoke=()=>handler(new Request('https://edge.test',{method:'POST',headers:{'x-cron-secret':secret},body:JSON.stringify({action:'schedule'})}));
+  const invoke=(action='schedule')=>handler(new Request('https://edge.test',{method:'POST',headers:{'x-cron-secret':secret},body:JSON.stringify({action})}));
   return {invoke,sent,logs,rows,recover(){pushFailed=false;}};
 }
 test('a planning meeting starting now alerts only active members of its camporee',async()=>{
@@ -73,4 +73,43 @@ test('unauthorized calls, ended activities and archived camporees send nothing',
   const unauthorized=await reminder({secret:'wrong'});assert.equal((await unauthorized.invoke()).status,401);assert.equal(unauthorized.sent.length,0);
   const ended=await reminder();ended.rows.schedule_events[0].ends_at='2026-10-11T22:00:10.000Z';await ended.invoke();assert.equal(ended.sent.length,0);
   const archived=await reminder();archived.rows.camporees[0].status='archived';await archived.invoke();assert.equal(archived.sent.length,0);
+});
+
+test('el aviso del primer día se envía a las 08:00 de la zona del camporee una sola vez',async()=>{
+  for(const [time_zone,now] of [
+    ['America/La_Paz','2026-11-06T12:00:00.000Z'],
+    ['America/Lima','2026-11-06T13:00:00.000Z'],
+    ['America/New_York','2026-11-06T13:00:00.000Z'],
+    ['Pacific/Kiritimati','2026-11-05T18:00:00.000Z'],
+  ]){
+    const api=await reminder({now});api.rows.camporees[0].time_zone=time_zone;
+    await Promise.all([api.invoke(),api.invoke()]);
+    assert.equal(api.sent.length,1,`${time_zone}: cron por minuto`);
+    await api.invoke('daily');
+    assert.equal(api.sent.length,1,time_zone);
+    assert.match(api.sent[0].payload.body,/comienza hoy|Hoy comienza/);
+    assert.equal(api.logs[0].milestone,'d0');
+  }
+});
+
+test('el aviso de inicio no sale antes de las 8, otro día ni fuera de su ventana',async()=>{
+  for(const now of ['2026-11-06T11:59:59.000Z','2026-11-05T12:00:00.000Z','2026-11-06T13:00:00.000Z']){
+    const api=await reminder({now});
+    await api.invoke();assert.equal(api.sent.length,0,now);
+    if(now.startsWith('2026-11-06')){
+      await api.invoke('daily');assert.equal(api.sent.length,0,`${now}: cron diario`);
+    }
+  }
+});
+
+test('los avisos previos conservan el cron diario y no se repiten cada minuto',async()=>{
+  const api=await reminder({now:'2026-11-05T12:00:00.000Z'});
+  await api.invoke();assert.equal(api.sent.length,0);
+  await api.invoke('daily');assert.equal(api.sent.length,1);assert.equal(api.logs[0].milestone,'d1');
+});
+
+test('el aviso del primer día puede reintentarse si ningún dispositivo acepta el envío',async()=>{
+  const api=await reminder({now:'2026-11-06T12:00:00.000Z',failed:true});
+  await api.invoke();assert.equal(api.logs.length,0);
+  api.recover();await api.invoke();assert.equal(api.sent.length,1);assert.equal(api.logs.length,1);
 });

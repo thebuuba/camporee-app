@@ -1,5 +1,7 @@
 node_modules
 .next
+.open-next/
+.worktrees/
 out
 .env
 .env.local

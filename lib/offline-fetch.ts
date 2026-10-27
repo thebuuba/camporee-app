@@ -152,7 +152,7 @@ function syntheticResponse(request: Request, payload: any, method: string, id?: 
   if (method === 'DELETE') return new Response(null, { status: 204, headers: { 'x-camporee-offline':'queued' } });
   const result = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload, ...(id ? { id } : {}) } : payload;
   const wantsObject = request.headers.get('accept')?.includes('application/vnd.pgrst.object+json');
-  return new Response(JSON.stringify(wantsObject ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
+  return new Response(JSON.stringify(wantsObject || Array.isArray(result) ? result : [result]), { status: 200, headers: { 'content-type':'application/json', 'x-camporee-offline':'queued' } });
 }
 
 export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -160,12 +160,15 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
   let request = new Request(input, init);
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
-  const isRestMutation = url.origin.includes('.supabase.co') && url.pathname.includes('/rest/v1/') && ['POST','PATCH','DELETE'].includes(method);
+  const isSupabaseHost = url.hostname.endsWith('.supabase.co');
+  // RPCs have function-specific return values and side effects; only table
+  // mutations can use the optimistic row response and offline replay queue.
+  const isRestMutation = isSupabaseHost && /^\/rest\/v1\/[^/]+$/.test(url.pathname) && ['POST','PATCH','DELETE'].includes(method);
   const auth = request.headers.get('authorization') || '';
   if (!isRestMutation) {
     if (navigator.onLine && subjectFromAccessToken(auth)) void flushOfflineWrites(auth);
     const response = await fetch(request);
-    const isDataRequest = url.origin.includes('.supabase.co') && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
+    const isDataRequest = isSupabaseHost && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
     if (isDataRequest && !response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
     return response;
   }
