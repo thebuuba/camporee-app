@@ -4,6 +4,7 @@ import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-serv
 import NotificationControls from '@/app/components/notification-controls';
 import SettingsForm from './settings-form';
 import ThemeSettings from '@/app/components/theme-settings';
+import NavigationSettings from './navigation-settings';
 
 export default async function SettingsPage({ params }: { params?: TenantPageParams } = {}) {
   const context = await requireCamporeeContext(params, '/more/settings');
@@ -16,6 +17,7 @@ export default async function SettingsPage({ params }: { params?: TenantPagePara
     <ThemeSettings/>
     {camporee ? <>
       <SettingsForm key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporee={camporee} canEdit={canEdit}/>
+      <NavigationSettings key={`navigation:${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} organizationId={context.organizationId} initialPanels={camporee.navigation_panels} canEdit={canEdit}/>
       <section className='polymet-settings-card polymet-notification-card'><h2>Notificaciones</h2><NotificationControls key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} userId={userId} mode='settings'/></section>
     </> : <div className='empty compact'>Todavía no hay un camporee activo.</div>}
   </main>;

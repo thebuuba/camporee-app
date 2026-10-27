@@ -4,12 +4,13 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tenantPath,parseTenantPath} from '../lib/tenant-context.ts';
+import * as navigationPanels from '../lib/navigation-panels.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const prefix='/o/50000000-0000-4000-8000-000000000001/c/60000000-0000-4000-8000-000000000001';
 async function load(path,pathname,search='') {
  await loadBindings();const {code}=await transform(await readFile(new URL(`../${path}`,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
  const module={exports:{}};const jsx=(type,props)=>({type,props});
- const modules={'react/jsx-runtime':{jsx,jsxs:jsx},react:{useState:initial=>[initial,()=>{}],useEffect(){}},'next/link':'link','next/navigation':{usePathname:()=>pathname,useSearchParams:()=>new URLSearchParams(search)},'@/lib/tenant-context':{tenantPath,parseTenantPath},'lucide-react':{}};
+ const modules={'react/jsx-runtime':{jsx,jsxs:jsx},react:{useState:initial=>[initial,()=>{}],useEffect(){}},'next/link':'link','next/navigation':{usePathname:()=>pathname,useSearchParams:()=>new URLSearchParams(search)},'@/lib/tenant-context':{tenantPath,parseTenantPath},'@/lib/navigation-panels':navigationPanels,'./navigation-panels-provider':{useNavigationPanels:()=>undefined},'lucide-react':{}};
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],navigator:{onLine:true},URL});
  return module.exports.default;
 }
@@ -24,9 +25,33 @@ test('shared link retains selected tenant while personal and absolute routes rem
 test('bottom navigation uses scoped destinations and marks selected panel active',async()=>{
  const Nav=await load('app/components/bottom-nav.tsx',`${prefix}/tasks`);
  const tree=Nav();const links=tree.props.children;
- assert.deepEqual(Array.from(links,node=>node.props.href),[prefix,`${prefix}/program`,`${prefix}/tasks`,`${prefix}/more`]);
+ assert.deepEqual(Array.from(links,node=>node.props.href),[prefix,`${prefix}/more/inventory`,`${prefix}/tasks`,`${prefix}/more`]);
  assert.equal(links.find(node=>node.props.href===`${prefix}/tasks`).props['aria-current'],'page');
  assert.equal(links.find(node=>node.props.href===prefix).props['aria-current'],undefined);
+});
+
+test('inventory and More never share the selected navigation state',async()=>{
+ for(const [pathname,expected] of [[`${prefix}/more/inventory`,`${prefix}/more/inventory`],[`${prefix}/more/announcements`,`${prefix}/more`],['/profile','/more']]){
+  const Nav=await load('app/components/bottom-nav.tsx',pathname);
+  const selected=Nav().props.children.filter(node=>node.props['aria-current']==='page');
+  assert.equal(selected.length,1);
+  assert.equal(selected[0].props.href,expected);
+ }
+});
+
+test('configured navigation replaces and adds scoped panels without selecting More twice',async()=>{
+ const Nav=await load('app/components/bottom-nav.tsx',`${prefix}/more/budget`);
+ const links=Nav({panels:['program','budget','participants']}).props.children;
+ assert.deepEqual(Array.from(links,node=>node.props.href),[prefix,`${prefix}/program`,`${prefix}/more/budget`,`${prefix}/more/participants`,`${prefix}/more`]);
+ assert.deepEqual(Array.from(links.filter(node=>node.props['aria-current']==='page'),node=>node.props.href),[`${prefix}/more/budget`]);
+});
+
+test('configured navigation rejects duplicates, unknown destinations and excess buttons',async()=>{
+ const Nav=await load('app/components/bottom-nav.tsx',`${prefix}/more/inventory`);
+ for(const panels of [['inventory','inventory'],['https://attacker.test'],['tasks','program','budget','inventory'],[null]]){
+  assert.deepEqual(Array.from(Nav({panels}).props.children,node=>node.props.href),[prefix,`${prefix}/more/inventory`,`${prefix}/tasks`,`${prefix}/more`]);
+ }
+ assert.deepEqual(Array.from(Nav({panels:[]}).props.children,node=>node.props.href),[prefix,`${prefix}/more`]);
 });
 
 test('return to Inicio when a subpage was opened there and keep that context in list details',async()=>{

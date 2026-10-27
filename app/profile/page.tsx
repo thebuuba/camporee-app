@@ -17,11 +17,15 @@ export default async function ProfilePage() {
     supabase.from('profiles').select('full_name,email,avatar_path').eq('id', user.id).maybeSingle(),
     supabase.from('organization_members').select('organization_id,role,is_active').eq('user_id', user.id).maybeSingle(),
   ]);
-  const {data:organization,error:organizationError}=membership?.organization_id
-    ?await supabase.from('organizations').select('name').eq('id',membership.organization_id).maybeSingle()
-    :{data:null,error:null};
+  const [{data:organization,error:organizationError},{data:camporee,error:camporeeError}]=membership?.is_active
+    ?await Promise.all([
+      supabase.from('organizations').select('name').eq('id',membership.organization_id).maybeSingle(),
+      supabase.from('camporees').select('navigation_panels').eq('organization_id',membership.organization_id).neq('status','archived').maybeSingle(),
+    ])
+    :[{data:null,error:null},{data:null,error:null}];
   if (error || memberError) throw error ?? memberError;
   if(organizationError)throw organizationError;
+  if(camporeeError)throw camporeeError;
   const avatarUrl=await signedAvatar(supabase,{...profile,id:user.id});
 
   const fullName = profile?.full_name || user.user_metadata?.full_name || 'Usuario';
@@ -35,6 +39,6 @@ export default async function ProfilePage() {
     </header>
     <ProfileClient key={user.id} userId={user.id} fullName={fullName} email={email} initialAvatarUrl={avatarUrl} initialAvatarPath={profile?.avatar_path??null}/>
     {membership?<section className="organization-section ios-card"><h2>Mi club</h2><p><strong>{organization?.name??'Club'}</strong> · {!membership.is_active?'Sin acceso activo':membership.role==='admin'?'Director / Administrador':membership.role==='editor'?'Editor':'Miembro'}</p></section>:null}
-    <BottomNav/>
+    <BottomNav panels={camporee?.navigation_panels}/>
   </main>;
 }

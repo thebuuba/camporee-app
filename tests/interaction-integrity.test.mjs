@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as locale from '../lib/camporee-locale.ts';
+import * as navigationPanels from '../lib/navigation-panels.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 export function all(node,predicate){if(Array.isArray(node))return node.flatMap(child=>all(child,predicate));if(!node||typeof node!=='object')return [];return [...(predicate(node)?[node]:[]),...all(node.props?.children,predicate)];}
@@ -12,11 +13,28 @@ async function ui(path,props,client,overrides={}){
   await loadBindings();const {code}=await transform(await readFile(path,'utf8'),{filename:path,jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const states=[],errors=[],successes=[];let cursor=0;const jsx=(type,props)=>({type,props});
   const modules={react:{useEffect(){},useMemo:fn=>fn(),useState(initial){const index=cursor++;if(!(index in states))states[index]=index in overrides?overrides[index]:typeof initial==='function'?initial():initial;return [states[index],value=>states[index]=typeof value==='function'?value(states[index]):value]}},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>client},'@/lib/client-ui':{confirmRemoval:()=>true,reportMutationError:(error,message)=>{errors.push({error,message});return message},reportMutationSuccess:message=>successes.push(message)},'@/lib/mutation-result':await optional('../lib/mutation-result.ts'),'@/lib/meal-stock':await optional('../lib/meal-stock.ts'),'@/app/components/bottom-sheet':{__esModule:true,default:'sheet'},'lucide-react':{}};
+  modules['@/lib/navigation-panels']=navigationPanels;
   const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date,Map,Set,Promise,console});
   return {render(){cursor=0;return module.exports.default(props)},states,errors,successes};
 }
 function attendance(client,people=[{id:'person',full_name:'Ana'}]){return ui('app/more/attendance/attendance-manager.tsx',{camporeeId:'camp',userId:'user',canEdit:true,participants:people,initialSessions:[{id:'session',title:'Salida',occurred_at:'2026-10-27T12:00:00Z',attendance_marks:[]}]},client)}
 function openAttendance(app){all(app.render(),n=>n.props.className?.includes('attendance-session-row'))[0].props.onClick();return ()=>all(app.render(),n=>n.type==='button'&&n.props.className?.includes('attendance-person'))[0]}
+
+test('navigation editor is unavailable to non-administrators',async()=>{
+ const app=await ui('app/more/settings/navigation-settings.tsx',{camporeeId:'camp',organizationId:'org',canEdit:false,initialPanels:['tasks']},{});
+ assert.equal(app.render(),null);
+});
+
+for(const [status,data,success] of [[200,[],false],[200,[{id:'camp'}],true],[202,[{id:'camp'}],true]])test(`navigation save confirms camporee and organization before success: ${status} ${JSON.stringify(data)}`,async()=>{
+ const scopes=[];let payload;
+ const builder={eq(key,value){scopes.push([key,value]);return this},select:async()=>({data,error:null,status})};
+ const app=await ui('app/more/settings/navigation-settings.tsx',{camporeeId:'camp',organizationId:'org',canEdit:true,initialPanels:['program','budget','participants']},{from(table){assert.equal(table,'camporees');return {update(value){payload=value;return builder}}}});
+ all(app.render(),n=>n.type==='form')[0].props.onSubmit({preventDefault(){}});await tick();
+ assert.deepEqual(Array.from(payload.navigation_panels),['program','budget','participants']);
+ assert.deepEqual(scopes,[['organization_id','org'],['id','camp']]);
+ assert.equal(app.successes.length,success?1:0);assert.equal(app.errors.length,success?0:1);
+ if(status===202)assert.match(app.successes[0],/pendiente/i);
+});
 
 test('attendance serializes writes and preserves the final accepted choice',async()=>{
   const pending=[];let stored=false;
