@@ -4,7 +4,7 @@ alter table public.tasks add constraint tasks_assigned_participant_camporee_fk
   foreign key (camporee_id, assigned_participant_id)
   references public.participants(camporee_id, id)
   on delete set null (assigned_participant_id);
-create index tasks_assigned_participant_idx on public.tasks(camporee_id, assigned_participant_id)
+create index tasks_assigned_participant_camporee_idx on public.tasks(camporee_id, assigned_participant_id)
   where assigned_participant_id is not null;
 
 -- One invocation is one transaction. Invoker rights retain every table's RLS.

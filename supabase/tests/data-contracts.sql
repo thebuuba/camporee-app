@@ -257,3 +257,4 @@ select is((select count(*) from camporee_activities where id=current_setting('te
 select is((select count(*) from schedule_events where id=current_setting('test.delete_event_id')::uuid),0::bigint,'confirmed deletion removes linked program event');
 select is((select count(*) from camporee_activity_participants where activity_id=current_setting('test.delete_activity_id')::uuid),0::bigint,'confirmed deletion removes participant membership');
 reset role;
+select ok(exists(select 1 from pg_indexes where schemaname='public' and tablename='tasks' and indexname='tasks_assigned_participant_camporee_idx' and indexdef like '%(camporee_id, assigned_participant_id)%'),'scoped assignment index coexists with earlier participant-only index');

@@ -26,6 +26,9 @@ const sql = [
   drop function if exists public.active_task_assignees();
   update legacy_members set directive_role=null;
   update legacy_rows set data=data-'directive_role' where table_name='app_members';
+  -- Actual production also has the earlier participant assignment migration.
+  alter table public.tasks add column assigned_participant_id uuid references public.participants(id) on delete set null;
+  create index tasks_assigned_participant_idx on public.tasks(assigned_participant_id);
   `] : []),
   ...(process.argv.includes('--legacy') ? [] : tenant.map(name => read(`supabase/migrations/${name}`))),
   read('supabase/tests/multi-tenant.sql').replace(/select finish\(\);\s*$/, ''),
