@@ -1,11 +1,12 @@
 node_modules
 .next
+.open-next/
+.worktrees/
 out
 .env
 .env.local
 .env.*.local
 .wrangler
-.open-next/
 .dev.vars
 .dev.vars.*
 .DS_Store

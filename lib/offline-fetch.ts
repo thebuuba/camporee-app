@@ -165,14 +165,16 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
   let request = new Request(input, init);
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
-  const isRestMutation = url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/rest/v1/') && tableFromUrl(url) !== 'rpc' && ['POST','PATCH','DELETE'].includes(method);
+  const isSupabaseHost = url.hostname.endsWith('.supabase.co');
+  // RPC return values cannot use the optimistic table-row response.
+  const isRestMutation = isSupabaseHost && /^\/rest\/v1\/[^/]+$/.test(url.pathname) && ['POST','PATCH','DELETE'].includes(method);
   const auth = request.headers.get('authorization') || '';
   const ownerId = subjectFromAccessToken(auth);
   const context = parseTenantPath(window.location.pathname);
   if (!isRestMutation) {
     if (navigator.onLine && subjectFromAccessToken(auth)) void flushOfflineWrites(auth).catch(() => window.dispatchEvent(new CustomEvent('camporee:sync-error')));
     const response = await fetch(request);
-    const isDataRequest = url.origin.includes('.supabase.co') && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
+    const isDataRequest = isSupabaseHost && (url.pathname.includes('/rest/v1/') || url.pathname.includes('/storage/v1/'));
     if (isDataRequest && !response.ok) window.dispatchEvent(new CustomEvent('camporee:request-error', { detail: { status:response.status } }));
     return response;
   }

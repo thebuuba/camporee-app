@@ -24,9 +24,9 @@ async function submit(path, props, fields) {
   return payload;
 }
 
-test('la fecha límite de una tarea usa la zona del camporee, no la del dispositivo',{timeout:3000},async()=>{
-  const fields=new FormData();fields.set('title','Preparar');fields.set('due_at','2027-01-02');
-  for(const [timeZone,expected] of [['UTC','2027-01-02T00:00:00.000Z'],['Asia/Tokyo','2027-01-01T15:00:00.000Z']]){
+test('la fecha y hora de una tarea usa la zona del camporee, no la del dispositivo',{timeout:3000},async()=>{
+  const fields=new FormData();fields.set('title','Preparar');fields.set('due_at','2027-01-02T09:30');
+  for(const [timeZone,expected] of [['UTC','2027-01-02T09:30:00.000Z'],['Asia/Tokyo','2027-01-02T00:30:00.000Z']]){
     const payload=await submit('app/tasks/task-manager.tsx',{timeZone},fields);
     assert.equal(payload.due_at,expected);
   }
