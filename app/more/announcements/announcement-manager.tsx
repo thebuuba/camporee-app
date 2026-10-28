@@ -1,6 +1,7 @@
 'use client';
 
 import BottomSheet from '@/app/components/bottom-sheet';
+import {announcementPublishAt} from '@/lib/announcement-schedule';
 import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 
 import { useEffect, useState } from 'react';
@@ -10,10 +11,13 @@ import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
 const labelFor = (priority:string) => priority === 'urgent' ? 'Urgente' : priority === 'important' ? 'Importante' : 'Aviso';
+const EMPTY_SCHEDULE:any[]=[];
 function urlBase64ToUint8Array(value:string) { const padding = '='.repeat((4 - value.length % 4) % 4); const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/'); const raw = window.atob(base64); return Uint8Array.from([...raw].map((char) => char.charCodeAt(0))); }
 
-export default function AnnouncementManager({ camporeeId, userId, canEdit, initialAnnouncements }: { camporeeId:string; userId:string; canEdit:boolean; initialAnnouncements:any[] }) {
+export default function AnnouncementManager({ camporeeId, userId, canEdit, initialAnnouncements, initialScheduled=EMPTY_SCHEDULE }: { camporeeId:string; userId:string; canEdit:boolean; initialAnnouncements:any[]; initialScheduled?:any[] }) {
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
+  const [scheduled,setScheduled]=useState(initialScheduled);
+  const [publication,setPublication]=useState('now');
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState('all');
   const [saving, setSaving] = useState(false);
@@ -24,6 +28,9 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
   const router = useRouter();
 
   useEffect(() => { setAnnouncements(initialAnnouncements); }, [initialAnnouncements]);
+  useEffect(()=>{setScheduled(initialScheduled)},[initialScheduled]);
+  // Refresh managers' private schedule and newly published notices while open.
+  useEffect(()=>{const timer=window.setInterval(()=>router.refresh(),60000);return()=>window.clearInterval(timer)},[router]);
   useEffect(() => {
     const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
     setNotificationPermission(supported ? Notification.permission : 'unsupported');
@@ -66,6 +73,13 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
     if (!title || !message){setFormError('Completa el título y el mensaje.');return;}
     setSaving(true);setFormError('');
     try{
+      if(publication==='scheduled'){
+        const publish_at=announcementPublishAt(String(formData.get('publish_at')||''));
+        const {data,error}=await supabase.from('scheduled_announcements').insert({camporee_id:camporeeId,title,message,priority,created_by:userId,publish_at}).select('id,title,message,priority,publish_at').single();
+        if(error||!data)throw error??new Error('No se pudo programar el aviso.');
+        setScheduled(current=>[...current,data].sort((a,b)=>Date.parse(a.publish_at)-Date.parse(b.publish_at)));
+        setOpen(false);reportMutationSuccess('Aviso programado. Se publicará y notificará a la hora elegida.');router.refresh();return;
+      }
       const { data, error, status } = await supabase.from('announcements').insert({ camporee_id:camporeeId, title, message, priority, created_by:userId }).select('id,camporee_id,title,message,priority,created_at,created_by').single();
       if(error||!data){const msg=reportMutationError(error,'No se pudo publicar el aviso.');setFormError(msg);return;}
       const pendingPublication = status === 202;
@@ -86,13 +100,22 @@ export default function AnnouncementManager({ camporeeId, userId, canEdit, initi
       if (result.status !== 202) router.refresh();
     } catch (error) { reportMutationError(error, 'No se pudo eliminar el aviso.'); }
   }
+  async function cancelScheduled(id:string){
+    if(!canEdit||!confirmRemoval('este aviso programado'))return;
+    try{
+      const result=await supabase.from('scheduled_announcements').delete().eq('id',id).eq('camporee_id',camporeeId).select('id');
+      const error=mutationProblem(result,[id]);if(error)throw error;
+      setScheduled(current=>current.filter(item=>item.id!==id));reportMutationSuccess('Aviso programado cancelado.');router.refresh();
+    }catch(error){reportMutationError(error,'No se pudo cancelar el aviso.');}
+  }
   const notificationLabel = notificationPermission === 'granted' && pushReady ? 'Avisos activados' : notificationPermission === 'denied' ? 'Avisos bloqueados en este dispositivo' : notificationPermission === 'unsupported' ? 'Avisos no disponibles' : notificationPermission === 'granted' ? 'Completar activación de avisos' : 'Activar avisos en este dispositivo';
   const visible = announcements.filter((item) => level === 'all' || item.priority === level);
 
   return <>
     <div className='filter-chips polymet-detail-filters'>{[['all','Todos'],['urgent','Urgentes'],['important','Importantes'],['normal','Normales']].map(([value,label])=><button type='button' key={value} className={level===value?'active':''} onClick={()=>setLevel(value)}>{label} <span>{value==='all'?announcements.length:announcements.filter((item)=>item.priority===value).length}</span></button>)}</div>
-    <div className='panel-tools'><button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'&&pushReady?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>{canEdit ? <button type='button' className='panel-add' onClick={() => {setFormError('');setOpen(true)}}><Plus size={18}/> Nuevo aviso</button> : null}</div>
-    <BottomSheet open={Boolean(open)} onClose={() => {if(!saving)setOpen(false)}} title={<>Nuevo aviso</>} busy={saving}><form onSubmit={(event)=>{event.preventDefault();void saveAnnouncement(new FormData(event.currentTarget));}} className="panel-form pm-sheet-form"><div className="pm-sheet-fields">{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<label className="pm-field"><span>Título <b className="pm-required">*</b></span><input name='title'  required/></label><label className="pm-field"><span>Mensaje <b className="pm-required">*</b></span><textarea name='message'  required/></label><label className="pm-field"><span>Nivel</span><select name='priority' defaultValue='normal'><option value='normal'>Normal</option><option value='important'>Importante</option><option value='urgent'>Urgente</option></select></label></div><div className="pm-sheet-footer"><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Publicando…' : 'Publicar'}</button></div></form></BottomSheet>
+    <div className='panel-tools'><button className={`secondary-btn notification-permission-btn ${notificationPermission==='granted'&&pushReady?'is-active':''}`} type='button' onClick={requestNotifications} disabled={notificationPermission==='unsupported'}><BellRing size={17}/> {notificationLabel}</button>{canEdit ? <button type='button' className='panel-add' onClick={() => {setFormError('');setPublication('now');setOpen(true)}}><Plus size={18}/> Nuevo aviso</button> : null}</div>
+    <BottomSheet open={Boolean(open)} onClose={() => {if(!saving)setOpen(false)}} title={<>Nuevo aviso</>} busy={saving}><form onSubmit={(event)=>{event.preventDefault();void saveAnnouncement(new FormData(event.currentTarget));}} className="panel-form pm-sheet-form"><div className="pm-sheet-fields">{formError?<div className='auth-alert error' role='alert'>{formError}</div>:null}<label className="pm-field"><span>Título <b className="pm-required">*</b></span><input name='title'  required/></label><label className="pm-field"><span>Mensaje <b className="pm-required">*</b></span><textarea name='message'  required/></label><label className="pm-field"><span>Publicación</span><select value={publication} onChange={event=>setPublication(event.target.value)}><option value="now">Publicar ahora</option><option value="scheduled">Programar</option></select></label>{publication==='scheduled'?<label className="pm-field"><span>Fecha y hora</span><input type="datetime-local" name="publish_at" required style={{fontSize:16}}/><small>Hora de República Dominicana (UTC−4).</small></label>:null}<label className="pm-field"><span>Nivel</span><select name='priority' defaultValue='normal'><option value='normal'>Normal</option><option value='important'>Importante</option><option value='urgent'>Urgente</option></select></label></div><div className="pm-sheet-footer"><button type='submit' className='primary-btn' disabled={saving}>{saving ? 'Guardando…' : publication==='scheduled'?'Programar aviso':'Publicar'}</button></div></form></BottomSheet>
+    {canEdit&&scheduled.length>0?<section className='panel-list announcements-list' aria-label='Avisos programados'><h2>Programados</h2><small>Solo los gestores de avisos pueden verlos antes de su publicación.</small>{scheduled.map(item=><article className='panel-row ios-card announcement-row' key={item.id}><div className='panel-row-copy'><span className='status-pill pending'>Programado · {labelFor(item.priority)}</span><strong>{item.title}</strong><small className='announcement-message'>{item.message}</small><small className='announcement-date'>{new Date(item.publish_at).toLocaleString('es-DO',{timeZone:'America/Santo_Domingo',dateStyle:'medium',timeStyle:'short'})} · República Dominicana</small></div><button type='button' className='row-icon-btn danger' aria-label={`Cancelar aviso programado: ${item.title}`} onClick={()=>void cancelScheduled(item.id)}><Trash2 size={16}/></button></article>)}</section>:null}
     <section className='panel-list announcements-list'>{visible.length ? visible.map((item) => <article className={`panel-row ios-card announcement-row priority-${item.priority}`} key={item.id}><span className='stat-icon stat-gold'>{item.priority === 'urgent' ? <AlertTriangle size={20}/> : item.priority === 'important' ? <BellRing size={20}/> : <Info size={20}/>}</span><div className='panel-row-copy'><span className={`status-pill ${item.priority === 'urgent' ? 'cancelled' : item.priority === 'important' ? 'pending' : 'confirmed'}`}>{labelFor(item.priority)}</span><strong>{item.title}</strong>{item.pendingPublication ? <small role='status'>Pendiente de sincronizar y publicar</small> : null}<small className='announcement-message'>{item.message}</small><small className='announcement-date'>{new Date(item.created_at).toLocaleString('es-DO',{dateStyle:'medium',timeStyle:'short'})}</small></div>{canEdit ? <button type='button' className='row-icon-btn danger' onClick={() => removeAnnouncement(item.id)} aria-label='Eliminar aviso'><Trash2 size={16}/></button> : null}</article>) : <div className='empty compact polymet-empty'><span className='polymet-empty-icon'><Megaphone size={24}/></span><strong>Sin avisos</strong><small>{level==='all'?'Cuando publiques un aviso, el equipo lo verá aquí.':'No hay avisos en esta categoría.'}</small>{canEdit&&level==='all'?<button type='button' className='primary-btn' onClick={()=>setOpen(true)}>Publicar aviso</button>:null}</div>}</section>
   </>;
 }

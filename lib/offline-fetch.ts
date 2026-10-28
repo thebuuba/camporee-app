@@ -295,6 +295,9 @@ export async function camporeeFetch(input: RequestInfo | URL, init?: RequestInit
     if (subjectFromAccessToken(auth)) void flushOfflineWrites(auth).catch(() => window.dispatchEvent(new CustomEvent('camporee:sync-error')));
     return response;
   } catch (networkError) {
+    // Scheduling and cancellation need server confirmation; never replay them
+    // later after the selected publication time may already have passed.
+    if(url.pathname==='/rest/v1/scheduled_announcements')throw networkError;
     // Fail closed: never pretend an unscoped mutation succeeded offline.
     if (!ownerId || !context) throw networkError;
     const explicitScope = url.searchParams.get('camporee_id');

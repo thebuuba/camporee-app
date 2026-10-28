@@ -42,6 +42,8 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const minuteRun = body?.action === 'schedule';
     if (minuteRun) {
+      const { error: publicationError } = await supabase.rpc('publish_due_announcements');
+      if (publicationError) throw publicationError;
       await sendScheduleReminders(supabase, webpush);
       await sendTaskOverdueReminders(supabase, webpush);
       await sendSunsetReminders(supabase);
