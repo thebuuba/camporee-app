@@ -23,6 +23,7 @@ import ParticipantsPage from '@/app/more/participants/page';
 import SettingsPage from '@/app/more/settings/page';
 import SongsPage from '@/app/more/songs/page';
 import NavigationPanelsProvider from '@/app/components/navigation-panels-provider';
+import EventIntros from '@/app/components/event-intro/event-intro';
 
 const screens={
   '':HomeRoute,tasks:TasksPage,program:ProgramPage,search:SearchPage,more:MorePage,
@@ -51,6 +52,7 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
     ? <Suspense key={listId} fallback={<ListDetailLoading/>}><ListDetailPage params={Promise.resolve({organizationId:ids.organizationId,camporeeId:ids.camporeeId,listId})} searchParams={Promise.resolve(query)}/></Suspense>
     : Screen ? <Screen params={params} searchParams={Promise.resolve(query)}/> : notFound();
   return <NavigationPanelsProvider panels={context.camporee.navigation_panels}><div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
+    <EventIntros userId={context.userId} organizationId={context.organizationId} organizer={context.organization.name} memberName={context.user.user_metadata?.full_name?.split(' ')[0]||'Conquistador'} camporee={context.camporee}/>
     {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
   </div></NavigationPanelsProvider>;
 }

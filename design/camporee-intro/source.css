@@ -1,0 +1,105 @@
+/* Adapted from the user's camporee-adventista design in Polymet. */
+@tailwind base;
+@tailwind utilities;
+.camp-intro-root {font-family:Poppins,ui-sans-serif,system-ui,sans-serif;line-height:1.5;font-weight:400}
+.camp-intro-root *,.camp-intro-root *::before,.camp-intro-root *::after {box-sizing:border-box;border:0 solid;margin:0;padding:0;min-width:0}
+.camp-intro-root :is(h1,p) {margin:0;font-size:inherit;font-weight:inherit;color:inherit}
+.camp-intro-root .camp-intro h1 {color:inherit!important}
+.camp-intro-root button {font:inherit;cursor:pointer}
+.camp-intro-root svg {display:block;vertical-align:middle;flex-shrink:0}
+.camp-intro-root .camp-intro {position:fixed;inset:0;z-index:100000;width:100%;max-width:none;height:100dvh;max-height:none;margin:0;padding:0;overflow-y:auto;overscroll-behavior:contain;isolation:isolate}
+.camp-intro-root .camp-intro::backdrop {background:#1e1b4b}
+.camp-intro-root .intro-headline {flex:1 0 auto;padding-top:max(4.5rem,calc(env(safe-area-inset-top) + 2.75rem));padding-bottom:0.5rem}
+.camp-intro-root .intro-landscape {height:clamp(160px,29dvh,300px);min-height:160px;max-height:300px}
+.camp-intro-root .intro-landscape svg {overflow:visible}
+@media(min-width:700px){.camp-intro-root .intro-landscape {height:clamp(200px,40dvh,400px);min-height:200px;max-height:400px}}
+.camp-intro-root .intro-footer {flex-shrink:0}
+.camp-intro-root .camp-intro>button {min-height:44px;top:max(1rem,env(safe-area-inset-top));z-index:40}
+.camp-intro-root .intro-closing {animation:camp-intro-dismiss .52s ease both}
+.camp-intro-root button:focus-visible {outline:3px solid white;outline-offset:4px}
+@keyframes camp-intro-dismiss {to{opacity:0;transform:scale(1.02)}}
+@keyframes camp-twinkle {0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes camp-glow {0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.8;transform:scale(1.06)}}
+@keyframes camp-flag {0%,100%{transform:skewY(0deg) scaleX(1)}50%{transform:skewY(-6deg) scaleX(.92)}}
+/* ---------- Modo Camporee intro ---------- */
+@keyframes camp-spin { to { transform: rotate(360deg); } }
+
+@keyframes camp-intro-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes camp-intro-sun {
+  from { transform: translateY(90px) scale(0.85); }
+  to { transform: translateY(0) scale(1); }
+}
+
+@keyframes camp-intro-up {
+  from { transform: translateY(110%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes camp-intro-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes camp-intro-raise {
+  from { transform: translateY(58px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes camp-intro-draw {
+  from { stroke-dashoffset: var(--len, 700); }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes camp-intro-text {
+  from { opacity: 0; transform: translateY(18px); filter: blur(8px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes camp-intro-letter {
+  0% { opacity: 0; transform: translateY(0.6em) rotate(8deg) scale(0.6); }
+  70% { opacity: 1; transform: translateY(-0.06em) rotate(-2deg) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes camp-intro-confetti {
+  0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--dx), 112vh, 0) rotate(var(--rot)); opacity: 0.9; }
+}
+
+@keyframes camp-intro-shine {
+  0% { transform: translateX(-130%) skewX(-20deg); }
+  55%, 100% { transform: translateX(260%) skewX(-20deg); }
+}
+
+@keyframes camp-intro-ring {
+  0% { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes camp-intro-flame {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  50% { transform: scaleY(1.12) scaleX(0.92); }
+}
+
+@keyframes camp-intro-sunset {
+  from { transform: translateY(-46px); }
+  to { transform: translateY(42px); }
+}
+
+@keyframes camp-intro-light {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-55vh) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camp-intro *,
+  .camp-intro *::before,
+  .camp-intro *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

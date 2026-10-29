@@ -31,6 +31,7 @@ import "./polymet-panels-b.css";
 import "./polymet-panels-c.css";
 import "./polymet-sheets.css";
 import "./polymet-launch.css";
+import "./camporee-intro.generated.css";
 import "./account-status.css";
 import "./login.css";
 import PwaRegister from "./components/pwa-register";
