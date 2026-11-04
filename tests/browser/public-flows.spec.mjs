@@ -59,3 +59,16 @@ test('installed PWA relies on system startup without an extra application cover'
   expect(await page.evaluate(() => window.__launchCount)).toBe(0);
   await expect(page.getByLabel('Correo electrónico', { exact: true })).toBeVisible();
 });
+
+test('the installed app opens its styled offline fallback after losing connection', async ({ page, context }) => {
+  await page.goto('/login');
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await context.setOffline(true);
+  try {
+    await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Seguimos en campamento' })).toBeVisible();
+    expect(await page.locator('.auth-card').evaluate(node => parseFloat(getComputedStyle(node).borderRadius))).toBeGreaterThanOrEqual(20);
+  } finally {
+    await context.setOffline(false);
+  }
+});

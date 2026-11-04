@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v20';
+const CACHE='camporee-shell-v21';
 const PAGES='camporee-pages-v1';
 const ASSETS='camporee-assets-v1';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
@@ -24,12 +24,23 @@ async function clearPrivatePages(){
 self.addEventListener('message',event=>{if(event.data?.type==='CLEAR_PRIVATE_PAGES')event.waitUntil(clearPrivatePages());});
 
 self.addEventListener('install',event=>{
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache=>cache.addAll(STATIC))
-      .catch(()=>undefined)
-      .then(()=>self.skipWaiting())
-  );
+  event.waitUntil((async()=>{
+    try{
+      const cache=await caches.open(CACHE);
+      // Save the fallback first. A missing icon must not prevent an offline launch.
+      try{
+        await cache.add('/offline');
+        const page=await cache.match('/offline');
+        if(page){
+          const html=await page.text();
+          const resources=[...new Set([...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"?]+(?:\?[^\"]*)?)"/g)].map(match=>match[1].replaceAll('&amp;','&')))];
+          await Promise.allSettled(resources.map(resource=>cache.add(resource)));
+        }
+      }catch{/* A full cache must not block the update. */}
+      await Promise.allSettled(STATIC.slice(1).map(resource=>cache.add(resource)));
+    }catch{/* Storage may be unavailable on this device. */}
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate',event=>{
@@ -46,7 +57,7 @@ self.addEventListener('activate',event=>{
         const previous=await caches.open(key);
         for(const request of await previous.keys()){
           const url=new URL(request.url);
-          const target=isPrivatePage(url.pathname)?null:url.pathname.startsWith('/_next/static/')||/\.(css|js|svg)$/.test(url.pathname)?ASSETS:null;
+          const target=isPrivatePage(url.pathname)?null:url.pathname==='/offline'?CACHE:url.pathname.startsWith('/_next/static/')||/\.(css|js|svg)$/.test(url.pathname)?ASSETS:null;
           if(!target)continue;
           if(target===PAGES&&(migrationEpoch!==privateEpoch||privateClears))continue;
           if(await caches.match(request,{cacheName:target}))continue;
@@ -118,8 +129,10 @@ self.addEventListener('fetch',event=>{
       const cached=await caches.match(req);
       const network=fetch(req,{cache:'reload'}).then(async res=>{
         if(res.ok){
-          const cache=await caches.open(CACHE);
-          await cache.put(req,res.clone());
+          try{
+            const cache=await caches.open(CACHE);
+            await cache.put(req,res.clone());
+          }catch{/* Return the image even when storage is full. */}
         }
         return res;
       }).catch(()=>undefined);

@@ -6,22 +6,23 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-async function loadServiceWorker({ cachedResponse, networkResponse, networkError, cacheError, installError, oldEntries = new Map(), networkFetch, cacheMatch, cacheDelete }) {
+async function loadServiceWorker({ cachedResponse, networkResponse, networkError, cacheError, installError, installFailures = [], offlineHtml, oldEntries = new Map(), networkFetch, cacheMatch, cacheDelete }) {
   const source = await readFile(resolve(root, 'public/sw.js'), 'utf8');
   const listeners = new Map();
   const cacheNames = new Set(['camporee-shell-v11', 'unrelated-cache']);
   let networkRequests = 0;
   let skippedWaiting = false;
   const writes = [];
+  const precached = [];
 
   const cache = {
-    addAll: async () => { if (installError) throw installError; },
+    add: async request => { if (installError || installFailures.includes(request)) throw installError ?? new Error('unavailable'); precached.push(request); },
     keys: async () => [],
     delete: async () => true,
     put: async (request, response) => { if (cacheError) throw cacheError; writes.push({ request, response }); },
   };
   const caches = {
-    open: async (name) => ({ ...cache, keys: async () => name === 'camporee-shell-v11' ? [...oldEntries.keys()].map(url => new Request(url)) : [], match: async request => oldEntries.get(request.url)?.clone(), delete: async request => oldEntries.delete(request.url), put: async (request,response) => { if(cacheError) throw cacheError; writes.push({request,response,cacheName:name}); } }),
+    open: async (name) => ({ ...cache, keys: async () => name === 'camporee-shell-v11' ? [...oldEntries.keys()].map(url => new Request(url)) : [], match: async request => request === '/offline' && offlineHtml ? new Response(offlineHtml) : oldEntries.get(request.url)?.clone(), delete: async request => oldEntries.delete(request.url), put: async (request,response) => { if(cacheError) throw cacheError; writes.push({request,response,cacheName:name}); } }),
     match: async (request,options) => cacheMatch ? cacheMatch(request,options) : cachedResponse,
     keys: async () => [...cacheNames],
     delete: async (name) => cacheDelete ? cacheDelete(name) : cacheNames.delete(name),
@@ -53,6 +54,7 @@ async function loadServiceWorker({ cachedResponse, networkResponse, networkError
     listeners,
     cacheNames,
     writes,
+    precached,
     get skippedWaiting() { return skippedWaiting; },
     get networkRequests() {
       return networkRequests;
@@ -195,6 +197,42 @@ test('la actualización se instala aunque iOS no permita guardar los recursos in
   worker.listeners.get('install')({ waitUntil(value) { installation = value; } });
   await installation;
   assert.equal(worker.skippedWaiting, true);
+});
+
+test('un icono fallido no impide preparar la pantalla offline y sus archivos', async () => {
+  const worker = await loadServiceWorker({
+    installFailures: ['/apple-touch-icon.png?v=11'],
+    offlineHtml: '<link rel="stylesheet" href="/_next/static/css/offline.css"><script src="/_next/static/chunks/offline.js"></script>',
+  });
+  let installation;
+  worker.listeners.get('install')({ waitUntil(value) { installation = value; } });
+  await installation;
+  assert.equal(worker.skippedWaiting, true);
+  assert.deepEqual(worker.precached, ['/offline', '/_next/static/css/offline.css', '/_next/static/chunks/offline.js', '/manifest.webmanifest?v=14', '/camporee-logo-v8.png?v=11']);
+});
+
+test('un icono servido por red se muestra incluso con la caché llena', async () => {
+  const fresh = new Response('image', { headers: { 'Content-Type': 'image/png' } });
+  const worker = await loadServiceWorker({ networkResponse: fresh, cacheError: new Error('quota') });
+  let response;
+  worker.listeners.get('fetch')({
+    request: new Request('https://camporee.test/camporee-logo-v8.png'),
+    respondWith(value) { response = value; },
+    waitUntil() {},
+  });
+  assert.equal(await (await response).text(), 'image');
+});
+
+test('una actualización recupera la pantalla offline de la versión anterior si falta la nueva', async () => {
+  const worker = await loadServiceWorker({
+    oldEntries: new Map([['https://camporee.test/offline', new Response('Pantalla offline anterior')]]),
+  });
+  let activation;
+  worker.listeners.get('activate')({ waitUntil(value) { activation = value; } });
+  await activation;
+  assert.equal(worker.writes.length, 1);
+  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v21');
+  assert.equal(await worker.writes[0].response.text(), 'Pantalla offline anterior');
 });
 
 test('una precarga rechazada vuelve a solicitar la página por red', async () => {
