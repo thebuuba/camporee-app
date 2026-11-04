@@ -3,6 +3,8 @@
 import BottomSheet from '@/app/components/bottom-sheet';
 import { mutationProblem, mutationNotice } from '@/lib/mutation-result';
 import { allocateMealStock } from '@/lib/meal-stock';
+import { MEAL_TYPES as mealTypes, mealLabel, sortMealsForMenu } from '@/lib/meal-menu';
+import MealMenuPrint from './meal-menu-print';
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -10,13 +12,7 @@ import { Coffee, PackageCheck, Pencil, Plus, ShoppingCart, Soup, Trash2, Utensil
 import { createClient } from "@/lib/supabase/client";
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from "@/lib/client-ui";
 
-const mealTypes = [
-  ["breakfast","Desayuno"],["snack_am","Merienda AM"],["lunch","Almuerzo"],["snack_pm","Merienda PM"],["dinner","Cena"],["other","Otro"],
-] as const;
-const mealLabel = (value:string) => mealTypes.find(([key]) => key === value)?.[1] ?? value;
-
-
-export default function MealManager({ camporeeId, canEdit, canEditLists, initialMeals, inventory, initialLists }: { camporeeId: string; canEdit: boolean; canEditLists:boolean; initialMeals: any[]; inventory:any[]; initialLists:any[] }) {
+export default function MealManager({ camporeeId, camporeeName = 'Camporee', canEdit, canEditLists, initialMeals, inventory, initialLists }: { camporeeId: string; camporeeName?: string; canEdit: boolean; canEditLists:boolean; initialMeals: any[]; inventory:any[]; initialLists:any[] }) {
   const [meals, setMeals] = useState(initialMeals);
   const [lists, setLists] = useState(initialLists);
   const [open, setOpen] = useState(false);
@@ -36,7 +32,7 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
   const generatedIngredientIds = useMemo(() => new Set(lists.flatMap((list:any) => (list.list_items || []).map((item:any) => item.source_meal_ingredient_id).filter(Boolean))), [lists]);
   const dates = useMemo(() => [...new Set(meals.map(meal=>meal.meal_date))].sort(), [meals]);
   const activeDate = dates.includes(selectedDate) ? selectedDate : dates[0];
-  const visible = useMemo(() => meals.filter(meal=>meal.meal_date===activeDate), [meals,activeDate]);
+  const visible = useMemo(() => sortMealsForMenu(meals.filter(meal=>meal.meal_date===activeDate)), [meals,activeDate]);
 
   function openNew() { setEditing(null); setFormError(''); setOpen(true); }
   function openEdit(meal: any) { setEditing(meal); setFormError(''); setOpen(true); }
@@ -55,7 +51,7 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
       const result = await request.select("id,meal_date,meal_type,menu,responsible_name,notes").single(); const { data, status } = result; const error = mutationProblem(result, editing ? [editing.id] : undefined);
       if(error||!data){const message=reportMutationError(error,'No se pudo guardar la comida.');setFormError(message);return;}
       const hydrated={...data,meal_ingredients:editing?.meal_ingredients||[]};
-      setMeals((current) => (editing ? current.map((item) => item.id === data.id ? hydrated : item) : [...current, hydrated]).sort((a,b) => `${a.meal_date}${a.meal_type}`.localeCompare(`${b.meal_date}${b.meal_type}`)));
+      setMeals((current) => sortMealsForMenu(editing ? current.map((item) => item.id === data.id ? hydrated : item) : [...current, hydrated]));
       reportMutationSuccess(mutationNotice(status, editing?'Comida actualizada.':'Comida guardada.'));setOpen(false);setEditing(null);if(status!==202)router.refresh();
     }catch(error){const message=reportMutationError(error,'No se pudo guardar la comida.');setFormError(message)}finally{setSaving(false)}
   }
@@ -70,6 +66,7 @@ export default function MealManager({ camporeeId, canEdit, canEditLists, initial
   const formatDate = (date:string) => new Date(`${date}T00:00:00`).toLocaleDateString('es-DO',{weekday:'long',day:'numeric',month:'long'});
 
   return <>
+    <MealMenuPrint meals={meals} camporeeName={camporeeName}/>
     <div className="pm-date-chips">{dates.map((date,index)=><button type="button" key={date} className={activeDate===date?'active':''} onClick={()=>{setSelectedDate(date);setSelectedMeal(null)}}>Día {index+1} · {new Date(`${date}T00:00:00`).toLocaleDateString('es-DO',{day:'numeric',month:'short'})}</button>)}</div>
     {activeDate?<p className="pm-date-label">{formatDate(activeDate)}</p>:null}
     <BottomSheet open={Boolean(open)} onClose={closeMeal} title={<>{editing ? "Editar comida" : "Nueva comida"}</>} busy={saving}><form onSubmit={(event)=>{event.preventDefault();void saveMeal(new FormData(event.currentTarget));}} className="panel-form pm-sheet-form"><div className="pm-sheet-fields">{formError?<div className="auth-alert error" role="alert">{formError}</div>:null}<div className="form-two"><label className="pm-field"><span>Fecha <b className="pm-required">*</b></span><input name="meal_date" type="date" defaultValue={editing?.meal_date || ""} required/></label><label className="pm-field"><span>Comida</span><select name="meal_type" defaultValue={editing?.meal_type || "breakfast"}>{mealTypes.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><label className="pm-field"><span>Menú <b className="pm-required">*</b></span><textarea name="menu"  defaultValue={editing?.menu || ""} required/></label><label className="pm-field"><span>Responsable</span><input name="responsible_name"  defaultValue={editing?.responsible_name || ""}/></label><label className="pm-field"><span>Notas</span><textarea name="notes"  defaultValue={editing?.notes || ""}/></label></div><div className="pm-sheet-footer"><button type="submit" className="primary-btn" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div></form></BottomSheet>
