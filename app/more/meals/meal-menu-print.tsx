@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, Printer } from 'lucide-react';
 import BottomSheet from '@/app/components/bottom-sheet';
 import { buildMealMenuDocument, type MenuMeal } from '@/lib/meal-menu';
+import { prepareMealMenuFonts } from '@/lib/meal-menu-fonts';
 import styles from './meal-menu-print.module.css';
 
 export default function MealMenuPrint({ meals, camporeeName }: {
@@ -17,6 +18,20 @@ export default function MealMenuPrint({ meals, camporeeName }: {
   const documentHtml = useMemo(() => buildMealMenuDocument(meals, camporeeName), [meals, camporeeName]);
   const ready = loadedDocument === documentHtml;
   useEffect(() => { setMounted(true); }, []);
+
+  async function preparePrintFrame(element: HTMLIFrameElement) {
+    const target = element.contentDocument;
+    const html = element.srcdoc;
+    if (!target) {
+      setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.');
+      return;
+    }
+    await prepareMealMenuFonts(document, target);
+    // A meal edit can replace this frame while the fonts are being prepared.
+    if (frame.current === element && element.isConnected && element.srcdoc === html) {
+      setLoadedDocument(html);
+    }
+  }
 
   function printMenu() {
     const target = frame.current?.contentWindow;
@@ -37,11 +52,11 @@ export default function MealMenuPrint({ meals, camporeeName }: {
     </div>
     {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
     {/* Mount after hydration so onLoad cannot fire before React attaches it.
-        Preload the full menu for a synchronous user-initiated print call.
+        Prepare typography before enabling synchronous, user-initiated printing.
         It is not display:none: Safari must lay out the printable document. */}
     {mounted ? <iframe key={documentHtml} ref={frame} className={styles.printFrame} title="Documento de impresión del menú" aria-hidden="true" tabIndex={-1}
       srcDoc={documentHtml} sandbox="allow-same-origin allow-modals"
-      onLoad={() => setLoadedDocument(documentHtml)}
+      onLoad={event => { void preparePrintFrame(event.currentTarget); }}
       onError={() => { setLoadedDocument(null); setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.'); }}/> : null}
     <BottomSheet open={open} onClose={() => setOpen(false)} title="Vista previa del menú"
       description="Todos los días, en vertical y sin tachaduras."
@@ -52,7 +67,11 @@ export default function MealMenuPrint({ meals, camporeeName }: {
         </button>
         {error ? <p role="alert">{error}</p> : null}
       </div>}>
-      <iframe className={styles.preview} title="Vista previa del menú del camporee" srcDoc={documentHtml} sandbox="allow-same-origin"/>
+      <iframe className={styles.preview} title="Vista previa del menú del camporee" srcDoc={documentHtml} sandbox="allow-same-origin"
+        onLoad={event => {
+          const target = event.currentTarget.contentDocument;
+          if (target) void prepareMealMenuFonts(document, target);
+        }}/>
     </BottomSheet>
   </>;
 }
