@@ -1,7 +1,7 @@
 import SafeSignoutForm from '@/app/components/safe-signout-form';
 import SyncStatus from '@/app/components/sync-status';
 import Link from '@/app/components/tenant-link';
-import { BookOpenText, CalendarClock, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
+import { BookOpenText, CalendarClock, ChevronRight, ClipboardCheck, FileText, HeartPulse, History, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import ReliableLink from "@/app/components/reliable-link";
 import {signedAvatar} from '@/lib/avatars';
@@ -46,6 +46,7 @@ export default async function MorePage({params}:{params?:TenantPageParams}={}) {
     <section className="more-grid polymet-more-grid">{modules.map(([Icon, title, copy, href, tone]) => <ReliableLink className="more-card ios-card" href={href} key={title}><span className={`more-icon tone-${tone}`}><Icon size={22}/></span><div><strong>{title}</strong><small>{copy}</small></div></ReliableLink>)}</section>
     <div className="polymet-section-label">ADMINISTRACIÓN</div>
     <section className="polymet-more-admin">
+      <ReliableLink href="/more/history" className="more-card ios-card"><span className="more-icon"><History size={20}/></span><div><strong>Historial de actividad</strong><small>Quién hizo cada cambio</small></div><ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink>
       <ReliableLink href="/more/settings" className="more-card ios-card"><span className="more-icon"><Settings size={20}/></span><div><strong>Ajustes</strong><small>Camporee y notificaciones</small></div><ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink>
       {isAdmin ? <ReliableLink href={`/o/${context.organizationId}/members`} className="more-card ios-card"><span className="more-icon"><ShieldCheck size={20}/></span><div><strong>Usuarios y permisos</strong><small>Miembros de esta organización</small></div>{pendingUsers ? <span className="polymet-admin-badge">{pendingUsers}</span> : null}<ChevronRight size={20} className="polymet-admin-arrow"/></ReliableLink> : null}
     </section>

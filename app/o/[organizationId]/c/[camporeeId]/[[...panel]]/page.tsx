@@ -14,6 +14,7 @@ import BudgetPage from '@/app/more/budget/page';
 import DocumentsPage from '@/app/more/documents/page';
 import EmergencyPage from '@/app/more/emergency/page';
 import InventoryPage from '@/app/more/inventory/page';
+import HistoryPage from '@/app/more/history/page';
 import ListsPage from '@/app/more/lists/page';
 import ListDetailPage from '@/app/more/lists/[listId]/page';
 import ListDetailLoading from '@/app/more/lists/[listId]/list-detail-loading';
@@ -28,7 +29,7 @@ import EventIntros from '@/app/components/event-intro/event-intro';
 const screens={
   '':HomeRoute,tasks:TasksPage,program:ProgramPage,search:SearchPage,more:MorePage,
   'more/activities':ActivitiesPage,'more/announcements':AnnouncementsPage,'more/attendance':AttendancePage,
-  'more/budget':BudgetPage,'more/documents':DocumentsPage,'more/emergency':EmergencyPage,'more/inventory':InventoryPage,
+  'more/budget':BudgetPage,'more/documents':DocumentsPage,'more/emergency':EmergencyPage,'more/inventory':InventoryPage,'more/history':HistoryPage,
   'more/lists':ListsPage,'more/meals':MealsPage,'more/notes':NotesPage,'more/participants':ParticipantsPage,
   'more/settings':SettingsPage,'more/songs':SongsPage,
 };
