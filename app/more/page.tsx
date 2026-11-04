@@ -1,12 +1,13 @@
 import SafeSignoutForm from '@/app/components/safe-signout-form';
 import SyncStatus from '@/app/components/sync-status';
 import Link from '@/app/components/tenant-link';
-import { BookOpenText, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
+import { BookOpenText, CalendarClock, ChevronRight, ClipboardCheck, FileText, HeartPulse, ListChecks, LogOut, Megaphone, Music2, PackageCheck, Settings, ShieldCheck, Soup, Trophy, Users, WalletCards } from "lucide-react";
 import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-server";
 import ReliableLink from "@/app/components/reliable-link";
 import {signedAvatar} from '@/lib/avatars';
 
 const modules = [
+  [CalendarClock, "Programa", "Horarios y actividades", "/program", "sky"],
   [Music2, "Canciones del club", "Himnos y camporee", "/more/songs", "yellow"],
   [Megaphone, "Avisos", "Mensajes al equipo", "/more/announcements", "peach"],
   [ClipboardCheck, "Pases de lista", "Asistencia y conteos", "/more/attendance", "sage"],

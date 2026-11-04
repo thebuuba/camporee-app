@@ -50,11 +50,12 @@ test('times display in Spanish, including noon and midnight', () => {
 test('print keeps all days, correct order and no strike-through state', () => {
   const entries = [meal('dinner', '2026-11-06'), ...['dinner','snack_pm','lunch','breakfast'].map(t => meal(t)), meal('lunch','2026-11-09')];
   const html = buildMealMenuDocument(entries, 'Legado');
-  assert.ok(html.indexOf('<h2>viernes</h2>') < html.indexOf('<h2>sábado</h2>'));
-  const saturday = html.slice(html.indexOf('<h2>sábado</h2>'));
-  assert.ok(saturday.indexOf('<dt>Desayuno</dt>') < saturday.indexOf('<dt>Almuerzo</dt>'));
-  assert.ok(saturday.indexOf('<dt>Almuerzo</dt>') < saturday.indexOf('<dt>Merienda</dt>'));
-  assert.ok(saturday.indexOf('<dt>Merienda</dt>') < saturday.indexOf('<dt>Cena</dt>'));
+  const days = [...html.matchAll(/<section\b[^>]*>([\s\S]*?)<\/section>/g)].map(([, section]) => ({
+    day: section.match(/<h2>([\s\S]*?)<\/h2>/)?.[1],
+    labels: [...section.matchAll(/<dt\b[^>]*>([\s\S]*?)<\/dt>/g)].map(([, content]) => content.replace(/<[^>]+>/g, '').trim()),
+  }));
+  assert.deepEqual(days.map(({ day }) => day), ['viernes', 'sábado', 'lunes']);
+  assert.deepEqual(days[1].labels, ['Desayuno', 'Almuerzo', 'Merienda', 'Cena']);
   assert.ok(!html.includes('line-through'));
   assert.equal((html.match(/<dd>/g) || []).length, 6);
 });

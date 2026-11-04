@@ -2,6 +2,8 @@ import { requireCamporeeContext, type TenantPageParams } from "@/lib/tenant-serv
 import BottomNav from "../components/bottom-nav";
 import ProgramManager from "./program-manager";
 import {dateKeyInTimeZone} from '@/lib/date';
+import NotificationControls from '@/app/components/notification-controls';
+import { BellRing, ChevronDown } from 'lucide-react';
 
 export default async function ProgramPage({ params }: { params?: TenantPageParams } = {}) {
   const context = await requireCamporeeContext(params, '/program');
@@ -22,6 +24,10 @@ export default async function ProgramPage({ params }: { params?: TenantPageParam
 
   return <main className="app panel-page program-page">
     <header className="polymet-panel-heading"><h1>Programa</h1><p>{new Date().toLocaleDateString("es-DO",{weekday:"long",day:"numeric",month:"long",timeZone:camporee.time_zone})}</p></header>
+    <details className="program-notifications">
+      <summary><BellRing size={18}/><span>Avisos del programa<small>Un aviso al inicio de cada bloque.</small></span><ChevronDown size={17}/></summary>
+      <NotificationControls camporeeId={camporee.id} userId={userId} mode="settings"/>
+    </details>
     {camporee ? <ProgramManager key={`${context.userId}:${context.organizationId}:${context.camporeeId}`} camporeeId={camporee.id} canEdit={canEdit} initialEvents={events ?? []} areas={areas ?? []} eventMode={eventMode} timeZone={camporee.time_zone}/> : <div className="empty compact">Todavía no hay un camporee activo.</div>}
     <BottomNav />
   </main>;

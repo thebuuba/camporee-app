@@ -6,6 +6,8 @@ import { createRequire } from 'node:module';
 import * as locale from '../lib/camporee-locale.ts';
 import * as navigationPanels from '../lib/navigation-panels.ts';
 import * as camporeeCard from '../lib/camporee-card.ts';
+import * as mealMenu from '../lib/meal-menu.ts';
+import * as mealSchedule from '../lib/meal-schedule.ts';
 const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 export function all(node,predicate){if(Array.isArray(node))return node.flatMap(child=>all(child,predicate));if(!node||typeof node!=='object')return [];return [...(predicate(node)?[node]:[]),...all(node.props?.children,predicate)];}
@@ -16,6 +18,10 @@ async function ui(path,props,client,overrides={},extraModules={}){
   const modules={react:{useEffect(){},useMemo:fn=>fn(),useState(initial){const index=cursor++;if(!(index in states))states[index]=index in overrides?overrides[index]:typeof initial==='function'?initial():initial;return [states[index],value=>states[index]=typeof value==='function'?value(states[index]):value]}},'react/jsx-runtime':{jsx,jsxs:jsx},'next/navigation':{useRouter:()=>({refresh(){}})},'@/lib/camporee-locale':locale,'@/lib/supabase/client':{createClient:()=>client},'@/lib/client-ui':{confirmRemoval:()=>true,reportMutationError:(error,message)=>{errors.push({error,message});return message},reportMutationSuccess:message=>successes.push(message)},'@/lib/mutation-result':await optional('../lib/mutation-result.ts'),'@/lib/meal-stock':await optional('../lib/meal-stock.ts'),'@/app/components/bottom-sheet':{__esModule:true,default:'sheet'},'lucide-react':{}};
   modules['@/lib/navigation-panels']=navigationPanels;
   modules['@/lib/camporee-card']=camporeeCard;
+  modules['@/lib/meal-menu']=mealMenu;
+  modules['@/lib/meal-schedule']=mealSchedule;
+  modules['./meal-menu-print']={__esModule:true,default:'meal-menu-print'};
+  modules['./meal-timeline']={__esModule:true,default:'meal-timeline'};
   modules['@/app/components/tenant-link']={default:'tenant-link'};
   modules['@/supabase/functions/_shared/sunset']=await import('../supabase/functions/_shared/sunset.ts');
   for(const [path,name] of [['camporee-scene','CamporeeScene'],['countdown-unit','CountdownUnit'],['progress-ring','ProgressRing'],['camporee-club-strip','CamporeeClubStrip'],['sabbath-banner','SabbathBanner'],['daily-sunset','DailySunset']])modules[`./${path}`]={[name]:name};
@@ -103,10 +109,26 @@ for(const [status,data,success] of [[200,[],false],[202,{id:'person'},true],[200
 
 test('meal stock is allocated once across dates and stable meal ids',async()=>{
   const props={camporeeId:'camp',canEdit:false,canEditLists:false,initialLists:[],inventory:[{id:'rice',quantity:5,unit:'kg'}],initialMeals:['b','a'].map(id=>({id,meal_date:'2026-10-27',meal_type:'lunch',menu:id,meal_ingredients:[{id:`ingredient-${id}`,name:'Arroz',required_quantity:4,inventory_item_id:'rice',unit:'kg'}]}))};
-  const app=await ui('app/more/meals/meal-manager.tsx',props,{});const tree=app.render();assert.equal(all(tree,n=>n.type==='em'&&n.props.className==='pm-missing').length,1);
-  const missing=all(tree,n=>n.type==='span'&&n.props.className==='pm-missing');assert.equal(missing.length,1);assert.match(JSON.stringify(missing[0].props.children),/3/);
+  const app=await ui('app/more/meals/meal-manager.tsx',props,{});
+  const timeline=all(app.render(),n=>n.type==='meal-timeline')[0];assert.ok(timeline);
+  assert.equal(timeline.props.missingCount(props.initialMeals.find(meal=>meal.id==='a')),0);
+  assert.equal(timeline.props.missingCount(props.initialMeals.find(meal=>meal.id==='b')),1);
+  assert.equal(all(app.render(),n=>n.props.className==='pm-ingredient').length,0,'ingredients stay inside the selected meal detail');
+  timeline.props.onSelect('b');
+  const detail=all(app.render(),n=>n.type==='sheet'&&n.props.open&&n.props.title==='b')[0];assert.ok(detail);
+  const missing=all(detail,n=>n.type==='span'&&n.props.className==='pm-missing');assert.equal(missing.length,1);
+  assert.equal(missing[0].props.children.join(''),'Faltan 3 kg');
+  timeline.props.onSelect('a');
+  const complete=all(app.render(),n=>n.type==='sheet'&&n.props.open&&n.props.title==='a')[0];assert.ok(complete);
+  assert.equal(all(complete,n=>n.props.className==='pm-complete').length,1);
+  assert.equal(all(complete,n=>n.props.className==='pm-missing').length,0);
 });
 test('incompatible food units are shown as unverified rather than complete',async()=>{
   const app=await ui('app/more/meals/meal-manager.tsx',{camporeeId:'camp',canEdit:false,canEditLists:false,initialLists:[],inventory:[{id:'rice',quantity:100,unit:'cajas'}],initialMeals:[{id:'meal',meal_date:'2026-10-27',meal_type:'lunch',menu:'Arroz',meal_ingredients:[{id:'ingredient',name:'Arroz',required_quantity:4,inventory_item_id:'rice',unit:'kg'}]}]},{});
-  assert.match(JSON.stringify(app.render()),/Unidades incompatibles/);assert.equal(all(app.render(),n=>n.props.className==='pm-complete').length,0);
+  const timeline=all(app.render(),n=>n.type==='meal-timeline')[0];assert.ok(timeline);
+  timeline.props.onSelect('meal');
+  const detail=all(app.render(),n=>n.type==='sheet'&&n.props.open&&n.props.title==='Arroz')[0];assert.ok(detail);
+  const missing=all(detail,n=>n.props.className==='pm-missing');assert.equal(missing.length,1);
+  assert.equal(missing[0].props.children,'Unidades incompatibles · verificar cantidad');
+  assert.equal(all(detail,n=>n.props.className==='pm-complete').length,0);
 });
