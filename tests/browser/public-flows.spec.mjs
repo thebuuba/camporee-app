@@ -106,8 +106,9 @@ test('offline panels show only the prepared account and queue a task change', as
     await page.getByRole('button',{name:'Comidas'}).click();
     await expect(page.getByText('Arroz de prueba')).toBeVisible();
     await page.getByRole('button',{name:'Tareas'}).click();
-    await page.getByRole('checkbox').first().check();
+    await page.getByRole('checkbox').first().click();
     await expect(page.getByRole('checkbox').first()).toBeChecked();
+    await expect(page.getByRole('checkbox').first()).toBeEnabled();
     const queued=await page.evaluate(async()=>{
       const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('camporee-offline',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
       const rows=await new Promise((resolve,reject)=>{const request=db.transaction('requests').objectStore('requests').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});

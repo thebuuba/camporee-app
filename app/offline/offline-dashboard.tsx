@@ -75,15 +75,18 @@ export default function OfflineDashboard() {
 
   async function toggle(table:'tasks'|'list_items',id:string,value:boolean) {
     if(!snapshot||busy||online||currentOfflineIdentity()!==snapshot.ownerId)return;
+    const updated:OfflineSnapshot=table==='tasks'
+      ? {...snapshot,tasks:snapshot.tasks.map(task=>task.id===id?{...task,status:value?'done':'pending'}:task)}
+      : {...snapshot,lists:snapshot.lists.map(list=>({...list,list_items:list.list_items.map(item=>item.id===id?{...item,is_done:value}:item)}))};
     setBusy(id);setError('');
+    setCopies(rows=>rows.map(row=>row.key===updated.key?updated:row));
     try {
       await queueOfflineCheck(snapshot,table,id,value);
-      const updated:OfflineSnapshot=table==='tasks'
-        ? {...snapshot,tasks:snapshot.tasks.map(task=>task.id===id?{...task,status:value?'done':'pending'}:task)}
-        : {...snapshot,lists:snapshot.lists.map(list=>({...list,list_items:list.list_items.map(item=>item.id===id?{...item,is_done:value}:item)}))};
       await updateOfflineSnapshot(updated);
-      setCopies(rows=>rows.map(row=>row.key===updated.key?updated:row));
-    }catch{setError('No se pudo guardar el cambio en este dispositivo. Inténtalo de nuevo.');}
+    }catch{
+      setCopies(rows=>rows.map(row=>row.key===snapshot.key?snapshot:row));
+      setError('No se pudo guardar el cambio en este dispositivo. Inténtalo de nuevo.');
+    }
     finally{setBusy('');}
   }
 
