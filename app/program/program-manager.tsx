@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 import { APP_TIME_ZONE, dateKeyInTimeZone, isEventOngoing } from '@/lib/date';
-import { camporeeDateTimeInput, camporeeDateTimeIso, formatCamporeeDate } from '@/lib/camporee-locale';
+import { camporeeDateTimeInput, camporeeDateTimeIso, formatCamporeeDate, formatCamporeeTime } from '@/lib/camporee-locale';
 
 const formatProgramDay = (day:string) => {
   const label = formatCamporeeDate(day,{weekday:'long',day:'numeric',month:'long'});
@@ -32,8 +32,7 @@ const searchText = (value:string) => value.normalize('NFD').replace(/[\u0300-\u0
 
 export default function ProgramManager({ camporeeId, canEdit, initialEvents, areas, eventMode=false, timeZone=APP_TIME_ZONE }: { camporeeId: string; canEdit: boolean; initialEvents: ProgramEvent[]; areas: ProgramArea[]; eventMode?: boolean; timeZone?: string }) {
   const localDayKey = (value:string|Date) => dateKeyInTimeZone(value,timeZone);
-  const timeFormatter = useMemo(() => new Intl.DateTimeFormat('es-DO',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone}),[timeZone]);
-  const formatTime = (value:string) => timeFormatter.format(new Date(value));
+  const formatTime = (value:string) => formatCamporeeTime(value,timeZone);
   const toLocalInput = (value?:string|null) => camporeeDateTimeInput(value,timeZone);
   const [events, setEvents] = useState(initialEvents);
   const [open, setOpen] = useState(false);
