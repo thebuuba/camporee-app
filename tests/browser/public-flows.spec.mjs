@@ -67,7 +67,8 @@ test('the installed app opens its styled offline fallback after losing connectio
   try {
     await page.goto('/tasks', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Seguimos en campamento' })).toBeVisible();
-    expect(await page.locator('.auth-card').evaluate(node => parseFloat(getComputedStyle(node).borderRadius))).toBeGreaterThanOrEqual(20);
+    await expect(page).toHaveURL(/\/offline\?from=%2Ftasks$/);
+    expect(await page.locator('.polymet-panel-heading h1').evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(20);
   } finally {
     await context.setOffline(false);
   }
