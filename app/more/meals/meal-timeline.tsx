@@ -59,7 +59,7 @@ export default function MealTimeline({ meals, timeZone, onSelect, missingCount }
             <span className={styles.icon}>{past ? <Check size={20} aria-hidden="true"/> : <Icon size={20} aria-hidden="true"/>}</span>
             <span className={styles.copy}>
               <span className={styles.mealHeading}><span>{mealLabel(meal.meal_type)}</span><time dateTime={time ? `${date}T${time}` : date}>{formatMealTime(time)}</time></span>
-              <strong className={styles.menu}>{meal.menu}</strong>
+              <span className={styles.menu}>{meal.menu}</span>
               <span className={styles.meta}>
                 {past ? <span>Horario pasado</span> : meal.id === nextId ? <span className={styles.upNext}>Próxima</span> : null}
                 {meal.responsible_name ? <span>{meal.responsible_name}</span> : null}
