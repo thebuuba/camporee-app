@@ -23,7 +23,7 @@ test('grouping preserves every meal and creates only dates actually planned', ()
   const groups = groupMealsForMenu([meal('2026-11-09', 'lunch'), meal('2026-11-06', 'dinner'), meal('2026-11-09', 'breakfast')]);
   assert.deepEqual(groups.map(x => [x.date, x.meals.length]), [['2026-11-06', 1], ['2026-11-09', 2]]);
   assert.equal(groups[1].meals[0].meal_type, 'breakfast');
-  assert.equal(mealLabel('lunch'), 'Comida');
+  assert.equal(mealLabel('lunch'), 'Almuerzo');
 });
 
 test('calendar dates do not shift with the viewer time zone', () => {

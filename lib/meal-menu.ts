@@ -1,10 +1,10 @@
-/** Shared chronological order for the meals screen and its printable menu. */
+/** Primary choices match the menu; legacy morning snacks remain supported. */
 export const MEAL_TYPES = [
   ['breakfast', 'Desayuno'],
-  ['snack_am', 'Merienda AM'],
-  ['lunch', 'Comida'],
-  ['snack_pm', 'Merienda PM'],
+  ['lunch', 'Almuerzo'],
+  ['snack_pm', 'Merienda'],
   ['dinner', 'Cena'],
+  ['snack_am', 'Merienda AM'],
   ['other', 'Otro'],
 ] as const;
 
@@ -19,8 +19,9 @@ export function mealLabel(type: string): string {
 }
 
 function mealOrder(type: string): number {
-  const index = MEAL_TYPES.findIndex(([key]) => key === type);
-  return index < 0 ? MEAL_TYPES.length : index;
+  const order = ['breakfast', 'snack_am', 'lunch', 'snack_pm', 'dinner', 'other'];
+  const index = order.indexOf(type);
+  return index < 0 ? order.length : index;
 }
 
 export function sortMealsForMenu<T extends MenuMeal>(meals: readonly T[]): T[] {
