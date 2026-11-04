@@ -109,7 +109,8 @@ test('al desconectarse, el cancionero presenta la pantalla offline pública', as
     networkError:new TypeError('offline'),
     cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):new Response('Texto anterior'),
   });
-  assert.equal(await (await navigate(worker,undefined,'/more/songs')).text(),'Sin conexión');
+  assert.equal((await navigate(worker,undefined,'/more/songs')).headers.get('location'),'https://camporee.test/offline?from=%2Fmore%2Fsongs');
+  assert.equal(await (await navigate(worker,undefined,'/offline')).text(),'Sin conexión');
 });
 
 async function audioRequest(worker, range) {
@@ -158,7 +159,7 @@ test('Tareas funciona online sin guardar HTML compartido entre sesiones', async 
     networkError:new Error('offline'),
     cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):page,
   });
-  assert.equal(await (await navigate(offline, undefined, '/tasks')).text(),'Sin conexión');
+  assert.equal((await navigate(offline, undefined, '/tasks')).headers.get('location'),'https://camporee.test/offline?from=%2Ftasks');
 });
 
 test('las ilustraciones guardadas siguen disponibles cuando falla la red', async () => {
@@ -175,7 +176,7 @@ test('la apertura utiliza la pantalla sin conexión, no un HTML anterior', async
     networkError:new Error('offline'),
     cacheMatch:request=>request==='/offline'?new Response('Sin conexión'):stale,
   });
-  assert.equal(await (await navigate(worker)).text(),'Sin conexión');
+  assert.equal((await navigate(worker)).headers.get('location'),'https://camporee.test/offline?from=%2F');
 });
 
 test('un navegador sin precarga y sin espacio de caché puede abrir la versión actual', async () => {
@@ -231,7 +232,7 @@ test('una actualización recupera la pantalla offline de la versión anterior si
   worker.listeners.get('activate')({ waitUntil(value) { activation = value; } });
   await activation;
   assert.equal(worker.writes.length, 1);
-  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v21');
+  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v22');
   assert.equal(await worker.writes[0].response.text(), 'Pantalla offline anterior');
 });
 
@@ -351,12 +352,12 @@ test('una lectura de cache pendiente no devuelve datos privados si se cambia la 
   const worker=await loadServiceWorker({networkError:new Error('offline'),cacheMatch:request=>String(request.url??request).endsWith('/offline')?new Response('Offline fallback'):pending});
   const oldPage=navigate(worker,undefined,'/tasks');await new Promise(resolve=>setImmediate(resolve));let clearing;
   worker.listeners.get('message')({data:{type:'CLEAR_PRIVATE_PAGES'},waitUntil:value=>{clearing=value}});await clearing;
-  finish(new Response('PRIVATE OLD SESSION'));assert.equal(await (await oldPage).text(),'Offline fallback');
+  finish(new Response('PRIVATE OLD SESSION'));assert.equal((await oldPage).headers.get('location'),'https://camporee.test/offline?from=%2Ftasks');
 });
 test('no recupera paginas privadas mientras se limpian las caches de otra sesion',async()=>{
   let finish;const pending=new Promise(resolve=>{finish=resolve});let privateReads=0;
   const worker=await loadServiceWorker({networkError:new Error('offline'),cacheDelete:()=>pending,cacheMatch:request=>{if(String(request.url??request).endsWith('/offline'))return new Response('Offline fallback');privateReads++;return new Response('PRIVATE OLD SESSION')}});let clearing;
   worker.listeners.get('message')({data:{type:'CLEAR_PRIVATE_PAGES'},waitUntil:value=>{clearing=value}});
-  assert.equal(await (await navigate(worker,undefined,'/tasks')).text(),'Offline fallback');assert.equal(privateReads,0);
+  assert.equal((await navigate(worker,undefined,'/tasks')).headers.get('location'),'https://camporee.test/offline?from=%2Ftasks');assert.equal(privateReads,0);
   finish(true);await clearing;
 });

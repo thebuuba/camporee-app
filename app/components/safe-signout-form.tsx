@@ -21,6 +21,7 @@ export default function SafeSignoutForm({
         'Cerrar sesión eliminará estos cambios locales por seguridad. '+
         'Pulsa Cancelar y sincronízalos antes de salir.\n\n¿Salir y descartar los cambios pendientes?',
       ))return;
+      try {localStorage.removeItem('camporee-offline-identity-v1');} catch {/* The server still signs out. */}
       form.submit();
     } catch {
       window.alert('No se pudo verificar la cola de sincronización. Recarga la aplicación antes de cerrar sesión.');

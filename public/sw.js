@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v21';
+const CACHE='camporee-shell-v22';
 const PAGES='camporee-pages-v1';
 const ASSETS='camporee-assets-v1';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];
@@ -118,7 +118,13 @@ self.addEventListener('fetch',event=>{
         const preloaded=await Promise.resolve(event.preloadResponse).catch(()=>undefined);
         return preloaded||await fetch(req);
       }catch{
-        return (await caches.match('/offline'))||Response.error();
+        const fallback=await caches.match('/offline');
+        if(!fallback)return Response.error();
+        // The fallback must have its own URL: hydrating it under /tasks makes
+        // Next.js reconcile the private route and replace the offline view.
+        if(req.mode==='navigate'&&isPrivatePage(url.pathname))
+          return Response.redirect(`${location.origin}/offline?from=${encodeURIComponent(url.pathname)}`,302);
+        return fallback;
       }
     })());
     return;

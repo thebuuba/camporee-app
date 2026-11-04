@@ -93,6 +93,42 @@ export async function getOfflineQueueCount(): Promise<number> {
   return count;
 }
 
+export type LocalMutation={table:string;method:string;id:string|null;payload:Record<string,unknown>|null};
+export async function readLocalMutations(scope:{ownerId:string;organizationId:string;camporeeId:string}):Promise<LocalMutation[]> {
+  const changes:LocalMutation[]=[];
+  for(const row of await getQueued()){
+    if(row.ownerId!==scope.ownerId||row.organizationId!==scope.organizationId||row.camporeeId!==scope.camporeeId)continue;
+    try {
+      const url=new URL(row.url);
+      const table=tableFromUrl(url);
+      if(!['tasks','schedule_events','meals','lists','list_items'].includes(table))continue;
+      const payload=row.body?JSON.parse(row.body):null;
+      if(payload!==null&&(typeof payload!=='object'||Array.isArray(payload)))continue;
+      changes.push({table,method:row.method,id:extractEqId(url)??payload?.id??null,payload});
+    }catch{/* An older malformed item remains in recovery; it cannot alter the offline view. */}
+  }
+  return changes;
+}
+
+// The offline dashboard has no server route, so it cannot use the route-scoped
+// Supabase fetch interceptor. Queue only these two small, reversible field edits.
+export async function queueOfflineCheck(scope:{ownerId:string;organizationId:string;camporeeId:string},
+  table:'tasks'|'list_items', id:string, value:boolean):Promise<void> {
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(navigator.onLine||![scope.ownerId,scope.organizationId,scope.camporeeId,id].every(value=>uuid.test(value)))
+    throw new Error('Este cambio solo puede guardarse sin conexión en la cuenta y el camporee preparados.');
+  const base=process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apiKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if(!base||!apiKey)throw new Error('Falta la configuración de sincronización.');
+  const url=new URL(`/rest/v1/${table}`,base);
+  url.searchParams.set('id',`eq.${id}`);
+  if(table==='tasks')url.searchParams.set('camporee_id',`eq.${scope.camporeeId}`);
+  await putQueued({id:crypto.randomUUID(),ownerId:scope.ownerId,organizationId:scope.organizationId,
+    camporeeId:scope.camporeeId,url:url.href,method:'PATCH',
+    headers:[['apikey',apiKey],['content-type','application/json'],['prefer','return=representation']],
+    body:JSON.stringify(table==='tasks'?{status:value?'done':'pending'}:{is_done:value}),createdAt:Date.now()});
+}
+
 async function deleteQueued(id: string) {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
