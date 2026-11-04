@@ -46,6 +46,7 @@ import "./color-theme.css";
 import "./camporee-card.generated.css";
 import "./lists.css";
 import "./home-shortcuts.css";
+import "./panel-contrast.css";
 import ThemeProvider from "./components/theme-provider";
 import { themeInitScript } from "@/lib/theme";
 
