@@ -94,7 +94,7 @@ test('day filters keep the local calendar date, including midnight, and restore 
   button(app.render(),'Domingo, 8 de noviembre').props.onClick();
   assert.deepEqual(rowIds(app.render()),['event-midnight','event-games']);
   const midnight=rows(app.render())[0];
-  assert.match(JSON.stringify(midnight),/00:00/);
+  assert.match(JSON.stringify(midnight),/12:00 am/);
   button(app.render(),'Todo el evento').props.onClick();
   assert.deepEqual(rowIds(app.render()),['event-arrival','event-night','event-midnight','event-games']);
 });
