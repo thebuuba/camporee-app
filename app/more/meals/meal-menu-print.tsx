@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { Eye, Printer } from 'lucide-react';
 import BottomSheet from '@/app/components/bottom-sheet';
+import Link from '@/app/components/tenant-link';
 import { buildMealMenuDocument, type MenuMeal } from '@/lib/meal-menu';
 import { prepareMealMenuFonts } from '@/lib/meal-menu-fonts';
 import styles from './meal-menu-print.module.css';
@@ -11,66 +12,44 @@ export default function MealMenuPrint({ meals, camporeeName }: {
   meals: readonly MenuMeal[]; camporeeName: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [loadedDocument, setLoadedDocument] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const frame = useRef<HTMLIFrameElement>(null);
   const documentHtml = useMemo(() => buildMealMenuDocument(meals, camporeeName), [meals, camporeeName]);
-  const ready = loadedDocument === documentHtml;
-  useEffect(() => { setMounted(true); }, []);
 
-  async function preparePrintFrame(element: HTMLIFrameElement) {
-    const target = element.contentDocument;
-    const html = element.srcdoc;
-    if (!target) {
-      setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.');
-      return;
-    }
-    await prepareMealMenuFonts(document, target);
-    // A meal edit can replace this frame while the fonts are being prepared.
-    if (frame.current === element && element.isConnected && element.srcdoc === html) {
-      setLoadedDocument(html);
-    }
+  function checkConnection(event: MouseEvent<HTMLAnchorElement>) {
+    if (!navigator.onLine) {
+      event.preventDefault();
+      setError('Conéctate a internet para abrir la página de impresión del menú guardado. La vista previa sigue disponible.');
+    } else setError('');
   }
 
-  function printMenu() {
-    const target = frame.current?.contentWindow;
-    if (!ready || !target || !meals.length) return;
-    setError('');
-    try { target.focus(); target.print(); }
-    catch { setError('No se pudo abrir la impresión. Abre esta misma app en Safari o Chrome y vuelve a pulsar Imprimir menú.'); }
-  }
+  // Real user-activated navigation: no hidden frame, window.open(), font gate
+  // or missed onLoad can leave this control permanently disabled.
+  const printLink = <Link href="/print/meals" prefetch={false} target="_blank" rel="noopener noreferrer"
+    className={`primary-btn ${styles.trigger}`} onClick={checkConnection}>
+    <Printer size={18} aria-hidden="true"/> Imprimir menú
+  </Link>;
 
   return <>
     <div className={styles.toolbar}>
-      <button type="button" className={`primary-btn ${styles.trigger}`} disabled={!meals.length || !ready} onClick={printMenu}>
-        <Printer size={18} aria-hidden="true"/> {meals.length && !ready ? 'Preparando menú…' : 'Imprimir menú'}
-      </button>
+      {meals.length ? printLink : <button type="button" className={`primary-btn ${styles.trigger}`} disabled>
+        <Printer size={18} aria-hidden="true"/> Imprimir menú
+      </button>}
       <button type="button" className={`secondary-btn ${styles.trigger}`} disabled={!meals.length} onClick={() => { setError(''); setOpen(true); }}>
         <Eye size={18} aria-hidden="true"/> Vista previa
       </button>
     </div>
     {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
-    {/* Mount after hydration so onLoad cannot fire before React attaches it.
-        Prepare typography before enabling synchronous, user-initiated printing.
-        It is not display:none: Safari must lay out the printable document. */}
-    {mounted ? <iframe key={documentHtml} ref={frame} className={styles.printFrame} title="Documento de impresión del menú" aria-hidden="true" tabIndex={-1}
-      srcDoc={documentHtml} sandbox="allow-same-origin allow-modals"
-      onLoad={event => { void preparePrintFrame(event.currentTarget); }}
-      onError={() => { setLoadedDocument(null); setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.'); }}/> : null}
     <BottomSheet open={open} onClose={() => setOpen(false)} title="Vista previa del menú"
       description="Todos los días, en vertical y sin tachaduras."
       footer={<div className={styles.actions}>
-        <p>Imprime directamente desde la app o elige Guardar como PDF en el diálogo de impresión.</p>
-        <button type="button" className="primary-btn" onClick={printMenu} disabled={!ready || !meals.length}>
-          <Printer size={18} aria-hidden="true"/> Imprimir menú
-        </button>
+        <p>Abre el menú guardado en una página de impresión y pulsa Imprimir / Guardar PDF.</p>
+        {meals.length ? printLink : null}
         {error ? <p role="alert">{error}</p> : null}
       </div>}>
       <iframe className={styles.preview} title="Vista previa del menú del camporee" srcDoc={documentHtml} sandbox="allow-same-origin"
         onLoad={event => {
           const target = event.currentTarget.contentDocument;
-          if (target) void prepareMealMenuFonts(document, target);
+          if (target) void prepareMealMenuFonts(document, target).catch(() => undefined);
         }}/>
     </BottomSheet>
   </>;
