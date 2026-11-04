@@ -1,15 +1,25 @@
 import { enqueueDelivery } from './delivery.ts';
+
+function reminderBody(event: {title: string; starts_at: string; location?: string | null; description?: string | null}, timeZone: string) {
+  const compact = (value?: string | null) => (value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  const time = new Intl.DateTimeFormat('es-DO', {hour: 'numeric', minute: '2-digit', hour12: true, timeZone}).format(new Date(event.starts_at));
+  const body = [compact(event.title), [time, compact(event.location)].filter(Boolean).join(' · '), compact(event.description)].filter(Boolean).join('\n');
+  // Leave room for the push envelope even when the description contains emoji.
+  const characters = Array.from(body);
+  return characters.length <= 800 ? body : `${characters.slice(0, 799).join('').trimEnd()}…`;
+}
+
 // Queue each user/event start once; the common worker owns delivery leases.
 export async function sendScheduleReminders(supabase: any, webpush: any, now = new Date()) {
   const {data: events, error: eventsError} = await supabase.from('schedule_events')
-    .select('id,camporee_id,title,starts_at,ends_at')
+    .select('id,camporee_id,title,description,location,starts_at,ends_at')
     .gte('starts_at', new Date(now.getTime() - 5 * 60_000).toISOString())
     .lte('starts_at', now.toISOString()).order('starts_at');
   if (eventsError) throw eventsError;
   if (!events?.length) return {sent: 0, stale: 0};
   for (const event of events) {
     if (event.ends_at && new Date(event.ends_at) <= now) continue;
-    const {data: camporee, error: camporeeError} = await supabase.from('camporees').select('id,organization_id,status').eq('id', event.camporee_id).maybeSingle();
+    const {data: camporee, error: camporeeError} = await supabase.from('camporees').select('id,organization_id,status,time_zone').eq('id', event.camporee_id).maybeSingle();
     if (camporeeError) throw camporeeError;
     if (!camporee || ['finished','archived'].includes(camporee.status)) continue;
     const {data: members, error: membersError} = await supabase.from('organization_members').select('user_id').eq('organization_id', camporee.organization_id).eq('is_active', true);
@@ -18,7 +28,7 @@ export async function sendScheduleReminders(supabase: any, webpush: any, now = n
     const {data: subscriptions, error: subscriptionsError} = await supabase.from('push_subscriptions').select('id,user_id,endpoint,p256dh,auth').contains('camporee_ids', [camporee.id]).in('user_id', members.map((member: any) => member.user_id));
     if (subscriptionsError) throw subscriptionsError;
     const milestone = `schedule:${event.id}:${event.starts_at}`;
-    const payload = JSON.stringify({title: 'La actividad está comenzando', body: event.title, url: `/o/${camporee.organization_id}/c/${camporee.id}/program`, tag: milestone});
+    const payload = JSON.stringify({title: 'La actividad está comenzando', body: reminderBody(event, camporee.time_zone || 'America/Santo_Domingo'), url: `/o/${camporee.organization_id}/c/${camporee.id}/program#event-${event.id}`, tag: milestone});
     for (const member of members) {
       const devices = (subscriptions ?? []).filter((subscription: any) => subscription.user_id === member.user_id);
       if (!devices.length) continue;

@@ -26,7 +26,7 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
     system_push_reminder_log:logs,
   };
   const client={from(table){
-    const filters=[];let insert=null,deleting=false;
+    const filters=[];let insert=null,deleting=false,columns=null;
     const result=()=>{
       if(insert){
         const value=insert;insert=null;
@@ -35,9 +35,9 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
       }
       const data=(rows[table]??[]).filter(r=>filters.every(f=>f(r)));
       if(deleting)for(const row of data)rows[table].splice(rows[table].indexOf(row),1);
-      return {data,error:null};
+      return {data:columns ? data.map(row=>Object.fromEntries(columns.map(column=>[column,row[column]]))) : data,error:null};
     };
-    return {select(){return this;},order(){return this;},
+    return {select(value){columns=value&&value!=='*'?value.split(',').map(column=>column.trim()):null;return this;},order(){return this;},
       eq(k,v){filters.push(r=>r[k]===v);return this;},neq(k,v){filters.push(r=>r[k]!==v);return this;},
       gte(k,v){filters.push(r=>r[k]>=v);return this;},lte(k,v){filters.push(r=>r[k]<=v);return this;},
       in(k,v){filters.push(r=>v.includes(r[k]));return this;},contains(k,v){filters.push(r=>v.every(x=>(r[k]??[]).includes(x)));return this;},
@@ -62,7 +62,46 @@ async function reminder({failed=false,secret='trusted',now='2026-10-11T22:00:30.
 test('a planning meeting starting now alerts only active members of its camporee',async()=>{
   const api=await reminder();assert.equal((await api.invoke()).status,200);
   assert.equal(api.sent.length,1);assert.equal(api.sent[0].endpoint,'https://push.test/admin');
-  assert.match(api.sent[0].payload.body,/Reunión directiva/);assert.equal(api.sent[0].payload.url,'/o/club/c/camp/program');
+  assert.match(api.sent[0].payload.body,/Reunión directiva/);assert.equal(api.sent[0].payload.url,'/o/club/c/camp/program#event-meeting');
+});
+test('a program block includes its local time, place and all listed activities in one reminder',async()=>{
+  const api=await reminder();
+  Object.assign(api.rows.schedule_events[0],{
+    title:'Eventos recreativos',location:'Área de eventos',
+    description:'• Construye el Legado\n• Master Chef\n• Balón de la Historia',
+  });
+  assert.equal((await api.invoke()).status,200);
+  assert.equal(api.sent.length,1);
+  const {body,url,tag}=api.sent[0].payload;
+  assert.match(body,/Eventos recreativos/);
+  assert.match(body,/6:00 p\.\s*m\./);
+  for(const item of ['Área de eventos','Construye el Legado','Master Chef','Balón de la Historia'])assert.ok(body.includes(item),item);
+  assert.equal(url,'/o/club/c/camp/program#event-meeting');
+  assert.equal(tag,'schedule:meeting:2026-10-11T22:00:00.000Z');
+});
+test('program reminders format the camporee timezone and fall back to Dominican time',async()=>{
+  for(const [timeZone,expectedTime] of [[undefined,/6:00 p\.\s*m\./],['America/Lima',/5:00 p\.\s*m\./],['Asia/Tokyo',/7:00 a\.\s*m\./]]){
+    const api=await reminder();api.rows.camporees[0].time_zone=timeZone;
+    await api.invoke();assert.equal(api.sent.length,1);
+    assert.match(api.sent[0].payload.body,expectedTime);
+    assert.doesNotMatch(api.sent[0].payload.body,/undefined|null/);
+  }
+});
+test('simultaneous program blocks retain distinct reminders and activity links',async()=>{
+  const api=await reminder();
+  api.rows.schedule_events=[api.rows.schedule_events[0],{...api.rows.schedule_events[0],id:'second',title:'Otro bloque'}];
+  await Promise.all([api.invoke(),api.invoke()]);await api.invoke();
+  assert.equal(api.sent.length,2);assert.equal(api.logs.length,2);
+  assert.deepEqual(new Set(api.sent.map(item=>item.payload.url)),new Set(['/o/club/c/camp/program#event-meeting','/o/club/c/camp/program#event-second']));
+  assert.equal(new Set(api.sent.map(item=>item.payload.tag)).size,2);
+});
+test('long Unicode descriptions keep program push payloads bounded without splitting emoji',async()=>{
+  const api=await reminder();api.rows.schedule_events[0].description='🏕'.repeat(2000);
+  await api.invoke();assert.equal(api.sent.length,1);
+  const payload=api.sent[0].payload;
+  assert.ok(Array.from(payload.body).length<=800);
+  assert.match(payload.body,/🏕…$/);
+  assert.ok(Buffer.byteLength(JSON.stringify(payload),'utf8')<3800);
 });
 test('repeated or concurrent cron calls do not duplicate an activity notification',async()=>{
   const api=await reminder();await Promise.all([api.invoke(),api.invoke()]);await api.invoke();

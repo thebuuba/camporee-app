@@ -15,14 +15,21 @@ funcionan las reuniones de preparación. Los trabajos ya creados pueden
 reintentarse hasta su vencimiento: máximo 30 minutos desde el inicio,
 acotado por la hora de fin. Cambiar el inicio genera una nueva clave de aviso.
 
+Cada aviso incluye el nombre, la hora local del camporee, el lugar si está
+definido y los contenidos de su descripción. Los contenidos de un bloque del
+programa comparten un solo aviso a la hora publicada. El texto se limita a
+800 caracteres Unicode; al tocarlo se abre `Programa` en el detalle del evento
+mediante `#event-<id>`. No se añaden avisos anticipados.
+
 Solo reciben avisos miembros activos con una suscripción al camporee.
 Los trabajos se conservan en `system_push_reminder_log`; usan leases UUID,
 reintentos limitados y confirmación por dispositivo. Un worker interrumpido
 puede recuperarse al vencer su lease. Puede haber reentrega si el proveedor
 aceptó un push antes de que se registrara su confirmación.
 
-Inicio y Programa conservan la zona horaria del camporee. Sin fin explícito,
-una actividad se muestra en curso durante una hora.
+Inicio y Programa conservan la zona horaria del camporee. En Inicio, una
+actividad sin fin explícito se muestra en curso durante una hora. Programa
+solo indica «En curso» cuando la actividad tiene una hora final explícita.
 
 Para publicar se necesitan las migraciones anteriores, incluyendo
 `20261012012045_schedule_activity_start_reminders.sql`, y
