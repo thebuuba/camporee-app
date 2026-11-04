@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, Printer } from 'lucide-react';
 import BottomSheet from '@/app/components/bottom-sheet';
 import { buildMealMenuDocument, type MenuMeal } from '@/lib/meal-menu';
@@ -10,11 +10,13 @@ export default function MealMenuPrint({ meals, camporeeName }: {
   meals: readonly MenuMeal[]; camporeeName: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [loadedDocument, setLoadedDocument] = useState<string | null>(null);
   const [error, setError] = useState('');
   const frame = useRef<HTMLIFrameElement>(null);
   const documentHtml = useMemo(() => buildMealMenuDocument(meals, camporeeName), [meals, camporeeName]);
   const ready = loadedDocument === documentHtml;
+  useEffect(() => { setMounted(true); }, []);
 
   function printMenu() {
     const target = frame.current?.contentWindow;
@@ -34,12 +36,13 @@ export default function MealMenuPrint({ meals, camporeeName }: {
       </button>
     </div>
     {error ? <p className="auth-alert error" role="alert">{error}</p> : null}
-    {/* Preload the complete menu so the print dialog opens in the original click.
+    {/* Mount after hydration so onLoad cannot fire before React attaches it.
+        Preload the full menu for a synchronous user-initiated print call.
         It is not display:none: Safari must lay out the printable document. */}
-    <iframe key={documentHtml} ref={frame} className={styles.printFrame} title="Documento de impresión del menú" aria-hidden="true" tabIndex={-1}
+    {mounted ? <iframe key={documentHtml} ref={frame} className={styles.printFrame} title="Documento de impresión del menú" aria-hidden="true" tabIndex={-1}
       srcDoc={documentHtml} sandbox="allow-same-origin allow-modals"
       onLoad={() => setLoadedDocument(documentHtml)}
-      onError={() => { setLoadedDocument(null); setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.'); }}/>
+      onError={() => { setLoadedDocument(null); setError('No se pudo preparar el menú. Recarga la página e inténtalo de nuevo.'); }}/> : null}
     <BottomSheet open={open} onClose={() => setOpen(false)} title="Vista previa del menú"
       description="Todos los días, en vertical y sin tachaduras."
       footer={<div className={styles.actions}>
