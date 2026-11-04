@@ -46,6 +46,7 @@ export default function PwaRegister() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
     if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/auth/')) {
+      try { localStorage.removeItem('camporee-offline-identity-v1'); } catch { /* A blocked store is already inaccessible offline. */ }
       sessionEpoch.current++;
       for (const job of jobs.current) job.abort();
       jobs.current.clear();

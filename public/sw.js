@@ -1,4 +1,4 @@
-const CACHE='camporee-shell-v21';
+const CACHE='camporee-shell-v22';
 const PAGES='camporee-pages-v1';
 const ASSETS='camporee-assets-v1';
 const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11'];

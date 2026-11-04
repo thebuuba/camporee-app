@@ -24,3 +24,4 @@
 .program-page .empty>p{margin:0 0 12px}
 @media(max-width:520px){.program-page .program-row .program-actions{flex-direction:column;gap:4px!important}}
 @media(prefers-reduced-motion:reduce){.program-notifications summary>svg:last-child{transition:none}}
+.program-calendar-hint{margin:0 16px 16px;color:var(--muted);font-size:12px;line-height:1.5}

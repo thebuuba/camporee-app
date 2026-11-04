@@ -24,5 +24,9 @@ export default function TenantLink(props: ComponentProps<typeof Link>) {
   const searchParams = useSearchParams();
   const destination = retainHomeOrigin(props.href, props.className, searchParams?.get('from') === 'home');
   const href = context && typeof destination === 'string' ? tenantPath(context, destination) : destination;
-  return <Link {...props} href={href} />;
+  return <Link {...props} href={href} onClick={event=>{
+    props.onClick?.(event);
+    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    if(!navigator.onLine){event.preventDefault();window.location.assign(event.currentTarget.href);}
+  }} />;
 }

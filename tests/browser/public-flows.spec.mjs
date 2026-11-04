@@ -72,3 +72,52 @@ test('the installed app opens its styled offline fallback after losing connectio
     await context.setOffline(false);
   }
 });
+
+test('offline panels show only the prepared account and queue a task change', async ({ page, context }) => {
+  await page.goto('/login');
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await page.evaluate(async () => {
+    const owner='10000000-0000-4000-8000-000000000001';
+    const organization='50000000-0000-4000-8000-000000000001';
+    const camporee='60000000-0000-4000-8000-000000000001';
+    localStorage.setItem('camporee-offline-identity-v1',owner);
+    const db=await new Promise((resolve,reject)=>{
+      const request=indexedDB.open('camporee-snapshots-v1',1);
+      request.onupgradeneeded=()=>request.result.createObjectStore('snapshots',{keyPath:'key'});
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error);
+    });
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('snapshots','readwrite');
+      tx.objectStore('snapshots').put({key:`${owner}:${organization}:${camporee}`,ownerId:owner,organizationId:organization,camporeeId:camporee,camporeeName:'Legado',timeZone:'America/Santo_Domingo',savedAt:Date.now(),canEditTasks:true,canEditLists:true,
+        program:[{id:'70000000-0000-4000-8000-000000000001',title:'Apertura',starts_at:'2026-11-06T12:00:00Z',ends_at:null,description:null,location:null}],
+        meals:[{id:'80000000-0000-4000-8000-000000000001',meal_date:'2026-11-06',meal_type:'breakfast',meal_time:'08:00:00',menu:'Arroz de prueba',notes:null}],
+        tasks:[{id:'90000000-0000-4000-8000-000000000001',title:'Preparar carpas',description:null,status:'pending',due_at:null,phase:null}],
+        lists:[{id:'a0000000-0000-4000-8000-000000000001',title:'Equipaje',category:null,list_items:[{id:'b0000000-0000-4000-8000-000000000001',label:'Linterna',is_done:false,quantity:null,unit:null}]}]});
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+    });
+    db.close();
+  });
+  await context.setOffline(true);
+  try {
+    await page.goto('/tasks',{waitUntil:'domcontentloaded'});
+    await expect(page.getByRole('heading',{name:'Legado'})).toBeVisible();
+    await page.getByRole('button',{name:'Comidas'}).click();
+    await expect(page.getByText('Arroz de prueba')).toBeVisible();
+    await page.getByRole('button',{name:'Tareas'}).click();
+    await page.getByRole('checkbox').first().check();
+    await expect(page.getByRole('checkbox').first()).toBeChecked();
+    const queued=await page.evaluate(async()=>{
+      const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('camporee-offline',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+      const rows=await new Promise((resolve,reject)=>{const request=db.transaction('requests').objectStore('requests').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+      db.close();return rows;
+    });
+    expect(queued).toHaveLength(1);
+    expect(queued[0].ownerId).toBe('10000000-0000-4000-8000-000000000001');
+    expect(queued[0].body).toBe('{"status":"done"}');
+    await page.evaluate(()=>localStorage.setItem('camporee-offline-identity-v1','10000000-0000-4000-8000-000000000002'));
+    await page.reload({waitUntil:'domcontentloaded'});
+    await expect(page.getByRole('heading',{name:'Sin copia disponible'})).toBeVisible();
+    await expect(page.getByText('Preparar carpas')).toHaveCount(0);
+  } finally {await context.setOffline(false);}
+});
