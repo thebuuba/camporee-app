@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camporeeMidnightEpoch,formatCamporeeMoney,formatCamporeeDate } from '../lib/camporee-locale.ts';
+import { camporeeMidnightEpoch,formatCamporeeMoney,formatCamporeeDate,formatCamporeeTime,formatCamporeeDateTime } from '../lib/camporee-locale.ts';
 
 test('inicio de camporee utiliza la medianoche de cada zona horaria',()=>{
   assert.equal(new Date(camporeeMidnightEpoch('2027-07-01','America/Santo_Domingo')).toISOString(),'2027-07-01T04:00:00.000Z');
@@ -13,4 +13,13 @@ test('el formato de presupuesto cambia con la moneda elegida, sin conversiones f
   assert.notEqual(formatCamporeeMoney(1200,'DOP'),formatCamporeeMoney(1200,'BOB'));
   assert.notEqual(formatCamporeeMoney(1200,'DOP'),formatCamporeeMoney(1200,'USD'));
   assert.match(formatCamporeeDate('2027-01-01'),/enero/);
+});
+
+
+test('los paneles muestran hora local de 12 horas con am y pm',()=>{
+  assert.equal(formatCamporeeTime('2026-11-07T04:00:00Z','America/Santo_Domingo'),'12:00 am');
+  assert.equal(formatCamporeeTime('2026-11-07T16:00:00Z','America/Santo_Domingo'),'12:00 pm');
+  assert.equal(formatCamporeeTime('2026-11-07T23:05:00Z','America/Santo_Domingo'),'7:05 pm');
+  assert.equal(formatCamporeeTime('2026-11-07T04:00:00Z','America/New_York'),'11:00 pm');
+  assert.match(formatCamporeeDateTime('2026-11-07T23:05:00Z','America/Santo_Domingo'),/7:05 pm$/);
 });

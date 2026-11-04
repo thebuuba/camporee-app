@@ -12,6 +12,21 @@ export function formatCamporeeMoney(value: number, currency = 'DOP', maximumFrac
   }).format(value);
 }
 
+// Visible times use the camporee zone and a consistent 12-hour am/pm notation.
+export function formatCamporeeTime(value: string | number | Date, timeZone: string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone, hour:'2-digit', minute:'2-digit', hourCycle:'h23',
+  }).formatToParts(date).map(part => [part.type, part.value]));
+  const hour = Number(parts.hour);
+  return `${hour % 12 || 12}:${parts.minute} ${hour < 12 ? 'am' : 'pm'}`;
+}
+
+export function formatCamporeeDateTime(value: string, timeZone: string, dateStyle: 'short' | 'medium' = 'medium'): string {
+  const date = new Date(value);
+  return `${new Intl.DateTimeFormat('es-DO', { dateStyle, timeZone }).format(date)}, ${formatCamporeeTime(date, timeZone)}`;
+}
+
 // Converts midnight of a civil date in an IANA timezone to a UTC timestamp.
 // Iterate against local parts to handle both UTC offsets and daylight saving.
 export function camporeeMidnightEpoch(date: string, timeZone = 'America/Santo_Domingo'): number {

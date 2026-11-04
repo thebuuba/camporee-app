@@ -5,7 +5,7 @@ import BottomNav from "./components/bottom-nav";
 import NotificationControls from "./components/notification-controls";
 import CamporeeCard from "./components/camporee-card/camporee-card";
 import ClosingCard from "./components/closing-card";
-import {formatCamporeeMoney} from '@/lib/camporee-locale';
+import {formatCamporeeMoney,formatCamporeeTime} from '@/lib/camporee-locale';
 import {tenantPath} from '@/lib/tenant-context';
 import type {CamporeeCardData} from '@/lib/camporee-card';
 
@@ -25,7 +25,7 @@ export default function HomeDashboard({ organizationId, userId, firstName, avata
   const active = phase === "during";
   const after = phase === "after";
   const formatMoney = (value:number) => formatCamporeeMoney(value,camporee.currency);
-  const formatTime = (value:string) => new Date(value).toLocaleTimeString("es-DO", { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:camporee.time_zone });
+  const formatTime = (value:string) => formatCamporeeTime(value,camporee.time_zone);
   const summary = [
     { href:"/tasks", label:"Tareas", value:`${completedTasks}/${totalTasks}`, detail:"completadas", icon:ListChecks, tone:"peach", percent:progress },
     { href:"/more/participants", label:"Participantes", value:presentParticipants, detail:`presentes de ${participants}`, icon:Users, tone:"sage", percent:participants ? Math.round(presentParticipants / participants * 100) : 0 },

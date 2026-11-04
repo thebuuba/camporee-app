@@ -18,7 +18,7 @@ export function formatMealTime(value: string): string {
   const time = normalizeMealTime(value);
   if (!time) return 'Sin hora';
   const hour = Number(time.slice(0, 2));
-  return `${hour % 12 || 12}:${time.slice(3)} ${hour < 12 ? 'a. m.' : 'p. m.'}`;
+  return `${hour % 12 || 12}:${time.slice(3)} ${hour < 12 ? 'am' : 'pm'}`;
 }
 export function camporeeLocalClock(now: Date, timeZone = DEFAULT_MEAL_TIME_ZONE): string | null {
   if (!Number.isFinite(now.getTime())) return null;

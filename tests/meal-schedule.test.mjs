@@ -42,10 +42,10 @@ test('invalid dates and hydration have no false expired state', () => {
   assert.equal(camporeeLocalClock(new Date('invalid')), null);
 });
 test('times display in Spanish, including noon and midnight', () => {
-  assert.equal(formatMealTime('08:00'), '8:00 a. m.');
-  assert.equal(formatMealTime('12:30:00'), '12:30 p. m.');
-  assert.equal(formatMealTime('00:00'), '12:00 a. m.');
-  assert.equal(formatMealTime('19:00'), '7:00 p. m.');
+  assert.equal(formatMealTime('08:00'), '8:00 am');
+  assert.equal(formatMealTime('12:30:00'), '12:30 pm');
+  assert.equal(formatMealTime('00:00'), '12:00 am');
+  assert.equal(formatMealTime('19:00'), '7:00 pm');
 });
 test('print keeps all days, correct order and no strike-through state', () => {
   const entries = [meal('dinner', '2026-11-06'), ...['dinner','snack_pm','lunch','breakfast'].map(t => meal(t)), meal('lunch','2026-11-09')];

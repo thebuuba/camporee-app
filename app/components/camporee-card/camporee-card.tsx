@@ -7,7 +7,7 @@ import Link from '@/app/components/tenant-link';
 import {createClient} from '@/lib/supabase/client';
 import {mutationNotice,mutationProblem} from '@/lib/mutation-result';
 import {reportMutationError,reportMutationSuccess} from '@/lib/client-ui';
-import {camporeeMidnightEpoch,formatCamporeeDate} from '@/lib/camporee-locale';
+import {camporeeMidnightEpoch,formatCamporeeDate,formatCamporeeTime} from '@/lib/camporee-locale';
 import {camporeeClock,camporeeDayWindow,liveSchedule,sabbathState,splitDuration,type CamporeeCardData} from '@/lib/camporee-card';
 import {CamporeeScene} from './camporee-scene';
 import {CountdownUnit} from './countdown-unit';
@@ -54,7 +54,7 @@ export default function CamporeeCard({camporee,phase,initialNow,firstName,partic
   const done=Math.min(preparation.total,preparation.completed+localDone);
   const pct=preparation.total?Math.round(done/preparation.total*100):0;
   const headline=pct===0?'¡Vamos a prepararnos!':pct<50?'¡Buen comienzo!':pct<100?'¡Ya casi estamos!':'¡Listos para acampar!';
-  const formatTime=(date:string|number)=>new Intl.DateTimeFormat('es-DO',{timeZone:zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(date));
+  const formatTime=(date:string|number)=>formatCamporeeTime(date,zone);
   const dates=camporee.starts_on===camporee.ends_on?formatCamporeeDate(camporee.starts_on):camporee.starts_on.slice(0,7)===camporee.ends_on.slice(0,7)?`${Number(camporee.starts_on.slice(-2))} – ${formatCamporeeDate(camporee.ends_on)}`:`${formatCamporeeDate(camporee.starts_on)} – ${formatCamporeeDate(camporee.ends_on)}`;
 
   async function completeTask(id:string){
