@@ -13,6 +13,21 @@ const luminance = hex => {
 };
 const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
 
+test('el naranja original y los textos pequeños de los paneles cumplen contraste', async () => {
+  const base = await readFile(new URL('../app/polymet-theme.css', import.meta.url), 'utf8');
+  const fixes = await readFile(new URL('../app/panel-contrast.css', import.meta.url), 'utf8');
+  const accent = base.match(/--pm-orange:(#[\da-f]{6})/i)?.[1];
+  const foreground = fixes.match(/--theme-on-accent:(#[\da-f]{6})/i)?.[1];
+  const muted = fixes.match(/--pm-muted:(#[\da-f]{6})/i)?.[1];
+  assert.ok(accent && foreground && muted);
+  for (const [label, text, background] of [
+    ['botones naranja', foreground, accent],
+    ['texto secundario en tarjetas', muted, '#ffffff'],
+    ['texto secundario en el panel', muted, '#fdf8f5'],
+    ['texto secundario sobre hora', muted, '#f7f0eb'],
+  ]) assert.ok(contrast(text, background) >= 4.5, `${label}: contraste ${contrast(text, background).toFixed(2)}`);
+});
+
 test('los textos de la paleta oscura mantienen contraste legible', async () => {
   const css = await readFile(new URL('../app/dark-theme.css', import.meta.url), 'utf8');
   const palette = block => Object.fromEntries([...block.matchAll(/(--dark-[\w-]+):(#\w{6})/g)].map(match => [match[1], match[2]]));

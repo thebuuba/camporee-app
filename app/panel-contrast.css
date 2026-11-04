@@ -1,0 +1,90 @@
+/* Shared contrast tokens, applied after the panel and theme stylesheets. */
+:root[data-theme="light"][data-palette="original"]{
+  --pm-muted:#625850;
+  --theme-on-accent:#241507;
+  --pm-accent-ink:#8d390b;
+}
+:root[data-theme="light"][data-palette="original"] :is(.polymet-panel,.users-app,.home-phase-before,.home-phase-after){--pm-muted:#625850}
+
+/* Some panel shells define their own palette, which otherwise overrides the user's choice. */
+:root:is([data-theme="dark"],[data-palette]:not([data-palette="original"])) :is(.polymet-panel,.users-app,.home-phase-before,.home-phase-after){
+  --pm-bg:var(--dark-bg);
+  --pm-ink:var(--dark-text);
+  --pm-muted:var(--dark-muted);
+  --pm-orange:var(--dark-orange);
+}
+
+/* Orange controls in the original light theme need dark lettering. Other palettes
+   choose a darker accent and keep their existing light lettering. */
+:root[data-theme] :is(.primary-btn,.panel-add,.pm-fab,.pm-pack-btn,.polymet-search-icon,.pm-search>span,.polymet-search>span,.polymet-search>button,.polymet-day-badge,.polymet-phase-options label.selected,.polymet-pending-actions button:last-child){
+  color:var(--theme-on-accent,var(--dark-text))!important;
+}
+:root[data-theme] .polymet-home-hero,
+:root[data-theme] .polymet-home-hero :is(h2,small,p,.polymet-hero-top,.polymet-hero-times){
+  color:var(--theme-on-accent,var(--dark-text))!important;
+}
+:root[data-theme] .program-row.is-ongoing,
+:root[data-theme] .program-row.is-ongoing :is(.panel-row-copy strong,.panel-row-copy small,.polymet-event-time,.polymet-event-time small,.polymet-event-tags span,.row-icon-btn){
+  color:var(--theme-on-accent,var(--dark-text))!important;
+}
+:root[data-theme="light"][data-palette="original"] .program-row.is-ongoing :is(.polymet-event-time,.polymet-event-tags span){background:rgb(36 21 7 / .12)!important}
+:root[data-theme="light"][data-palette="original"] .polymet-home-hero :is(.polymet-hero-top>span:first-child,.polymet-hero-progress){background:rgb(36 21 7 / .16)}
+:root[data-theme="light"][data-palette="original"] .polymet-hero-progress i{background:#241507}
+:root[data-theme="light"][data-palette="original"] .nav.nav-reference>a.active,
+:root[data-theme="light"][data-palette="original"] .nav.nav-reference>a.active svg,
+:root[data-theme="light"][data-palette="original"] :is(.preparation-countdown strong,.closing-scene span,.closing-checklist h2>svg,.closing-checklist a>svg:first-child,.pm-required,.pm-list-detail-summary .pm-detail-summary-count,.pm-list-detail-summary .pm-detail-summary-icon,.pm-list-card-status.is-opening){color:var(--pm-accent-ink)!important}
+
+/* The common card and form text is used throughout Programa, Tareas, Más,
+   Listas, Comidas, Participantes, Usuarios, Ajustes and Perfil. */
+:root[data-theme="light"][data-palette="original"] :is(.app,.users-app) :is(.panel-row-copy small,.polymet-subtitle,.subpage-top small,.pm-person-copy small,.pm-list-copy small,.pm-meal-copy small,.pm-inventory-copy small,.polymet-profile-preferences small){color:var(--pm-muted)!important}
+:root[data-theme="light"][data-palette="original"] :is(.panel-form,.pm-sheet,.polymet-profile-form) :is(input,textarea)::placeholder{color:#675d56!important;opacity:1}
+:root[data-theme="light"][data-palette="original"] :is(.panel-form,.polymet-profile-form,.polymet-settings-card) label{color:#5e554e!important}
+
+/* Programa and Tareas: timestamps and badges must remain readable at small sizes. */
+:root[data-theme="light"][data-palette="original"] .polymet-event-time small{color:#625850!important}
+:root[data-theme="light"][data-palette="original"] .polymet-event-tags span{color:#775023}
+:root[data-theme="light"][data-palette="original"] .polymet-task-tags :is(span,.polymet-task-priority){color:#5f544c}
+:root[data-theme="light"][data-palette="original"] .polymet-task-tags .polymet-task-priority.high,
+:root[data-theme="light"][data-palette="original"] .polymet-task-tags .polymet-task-priority.urgent{color:#9a3037}
+:root[data-theme="light"][data-palette="original"] .polymet-task-tags .polymet-task-priority.low{color:#365e30}
+:root[data-theme="light"][data-palette="original"] .polymet-task-tags .polymet-task-checks{color:#235b7b}
+:root[data-theme="light"][data-palette="original"] .polymet-task-progress :is(strong,b){color:#783a20!important}
+
+/* Competencias and Avisos. */
+:root[data-theme="light"][data-palette="original"] .polymet-activities :is(.activity-detail,.activity-materials,.activity-result){color:#615850!important}
+:root[data-theme="light"][data-palette="original"] .polymet-activities .activity-card .status-btn{color:#79501c!important}
+:root[data-theme="light"][data-palette="original"] .polymet-activities .activity-card.is-done .status-btn{color:#355c2f!important}
+:root[data-theme="light"][data-palette="original"] .polymet-activities .activity-card.is-done .activity-type{color:#355c2f}
+:root[data-theme="light"][data-palette="original"] .polymet-announcements .announcement-row .announcement-date{color:#625850!important}
+:root[data-theme="light"][data-palette="original"] .polymet-announcements .announcement-row .announcement-message{color:#514840!important}
+:root[data-theme="light"][data-palette="original"] .polymet-announcements .announcement-row .row-icon-btn{opacity:1}
+
+/* Asistencia, Documentos, Notas and Emergencias. */
+:root[data-theme="light"][data-palette="original"] .polymet-attendance .attendance-live-head span{color:#4f6046}
+:root[data-theme="light"][data-palette="original"] .polymet-filter-scroll button{color:#5e554e}
+:root[data-theme="light"][data-palette="original"] .polymet-document-row .row-icon-btn.danger{opacity:1}
+:root[data-theme="light"][data-palette="original"] :is(.polymet-note-meta,.polymet-note-tag){color:#60564e}
+:root[data-theme="light"][data-palette="original"] .polymet-note>button{color:#804a3a}
+:root[data-theme="light"][data-palette="original"] .polymet-911{background:#b72828}
+:root[data-theme="light"][data-palette="original"] .polymet-911 a{color:#a42c27}
+:root[data-theme="light"][data-palette="original"] .polymet-contact-heading{color:#a52d28}
+:root[data-theme="light"][data-palette="original"] .polymet-contact-row a{background:#3b6935}
+:root[data-theme="light"][data-palette="original"] .polymet-contact-row .contact-delete{color:#854935}
+
+/* Listas, Comidas, Inventario and Participantes. */
+:root[data-theme="light"][data-palette="original"] .pm-person-delete{color:#854935;opacity:1}
+:root[data-theme="light"][data-palette="original"] .pm-status.invited{color:#755016}
+:root[data-theme="light"][data-palette="original"] :is(.pm-meal-pills .pm-missing,.pm-missing){color:#963542}
+:root[data-theme="light"][data-palette="original"] .pm-inventory-stats small{color:#60564e}
+:root[data-theme="light"][data-palette="original"] .pm-segment button{color:#60564e}
+:root[data-theme="light"][data-palette="original"] .pm-pack-btn.packed{color:#385a2f!important}
+
+/* Presupuesto, Usuarios, Ajustes and Perfil. */
+:root[data-theme="light"][data-palette="original"] .budget-summary .budget-balance span,
+:root[data-theme="light"][data-palette="original"] .budget-summary .polymet-budget-usage small,
+:root[data-theme="light"][data-palette="original"] .budget-summary .budget-mini :is(span,svg){color:#e4d9d2!important}
+:root[data-theme="light"][data-palette="original"] .users-app .polymet-pending-actions button:last-child{color:#241507!important}
+:root[data-theme="light"][data-palette="original"] .polymet-settings-card .polymet-phase-options label.selected :is(strong,small){color:#241507!important}
+:root[data-theme="light"][data-palette="original"] .polymet-profile-hero>span{color:#75452f}
+:root[data-theme="light"][data-palette="original"] .polymet-profile-signout button{color:#82452d}
+
