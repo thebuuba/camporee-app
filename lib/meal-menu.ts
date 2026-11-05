@@ -145,7 +145,7 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
     .event { margin: 0; color: #6c625b; font-size: 13px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
     .hero-icon { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 50%; display: grid; place-items: center; background: var(--pm-peach); color: #a14f23; }
     .hero-icon svg { width: 27px; height: 27px; }
-    .event-logo { display: block; width: 108px; height: 106px; flex: 0 0 108px; object-fit: contain; border-radius: 12px; }
+    .event-logo { display: block; width: 108px; height: 106px; flex: 0 0 108px; object-fit: contain; }
     .date-range { display: inline-flex; align-items: center; gap: 7px; margin: 13px 0 0; padding: 5px 11px; background: #fff; border: 1px solid #f1e5dc; border-radius: 999px; color: #6c625b; font-size: 10px; line-height: 1.5; }
     .date-range svg { width: 13px; height: 13px; color: #a14f23; }
     .day { margin: 0 0 12px; padding: 0 16px 3px; border: 1px solid var(--pm-line); border-radius: 22px; background: #fff; break-inside: avoid; page-break-inside: avoid; box-shadow: 0 3px 12px rgba(84,56,39,.035); }
