@@ -20,3 +20,12 @@ test('la copia muestra cambios pendientes de programa, comidas, tareas y listas'
   assert.equal(result.lists[0].list_items[0].is_done,true);
   assert.equal(snapshot.tasks[0].status,'pending','la copia confirmada permanece intacta');
 });
+
+test('las reglas pendientes se reflejan en la copia sin conexión',()=>{
+  const snapshot={key:'owner:org:camp',ownerId:'owner',organizationId:'org',camporeeId:'camp',
+    camporeeName:'Legado',timeZone:'America/Santo_Domingo',savedAt:1,canEditTasks:false,canEditLists:false,
+    program:[],meals:[],tasks:[],lists:[],rules:['Regla original']};
+  const current=applyOfflineMutations(snapshot,[{table:'camporee_rule_sets',method:'PATCH',id:null,payload:{rules:['Regla editada','Regla agregada']}}]);
+  assert.deepEqual(current.rules,['Regla editada','Regla agregada']);
+  assert.deepEqual(snapshot.rules,['Regla original']);
+});

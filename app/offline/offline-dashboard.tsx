@@ -6,12 +6,13 @@ import {createClient} from '@/lib/supabase/client';
 import {formatCamporeeTime} from '@/lib/camporee-locale';
 import {dateKeyInTimeZone} from '@/lib/date';
 import {parseTenantPath,tenantPath} from '@/lib/tenant-context';
-import {queueOfflineCheck,readLocalMutations} from '@/lib/offline-fetch';
+import {queueOfflineCheck,queueOfflineRules,readLocalMutations} from '@/lib/offline-fetch';
 import {downloadProgramCalendar} from '@/lib/program-calendar';
 import {applyOfflineMutations,currentOfflineIdentity,listOfflineSnapshots,updateOfflineSnapshot,type OfflineSnapshot} from '@/lib/offline-snapshot';
 import styles from './offline-dashboard.module.css';
 import type {} from '@/lib/launch-bootstrap';
 import RulesScreen from '@/app/more/rules/rules-screen';
+import {CAMPOREE_RULES} from '@/lib/camporee-rules';
 
 type Panel='program'|'meals'|'tasks'|'lists'|'rules';
 const panels:{id:Panel;label:string;path:string}[]=[
@@ -94,9 +95,20 @@ export default function OfflineDashboard() {
     finally{setBusy('');}
   }
 
+  async function saveRules(rules:string[]) {
+    if(!snapshot||online||!snapshot.canEditRules||currentOfflineIdentity()!==snapshot.ownerId)throw new Error('Esta copia no permite editar las reglas.');
+    const updated={...snapshot,rules};
+    await queueOfflineRules(snapshot,rules);
+    setCopies(rows=>rows.map(row=>row.key===updated.key?updated:row));
+    // The pending write is durable even if this optional display copy fails.
+    await updateOfflineSnapshot(updated).catch(()=>{});
+  }
+
   if(loading)return <p className={styles.message}>Abriendo la copia guardada…</p>;
   if(!snapshot)return <section className={styles.empty}><CloudOff size={28}/><h2>Sin copia disponible</h2><p>{error||'Abre Camporee con internet y entra a tu camporee una vez para preparar Programa, Comidas, Tareas y Listas en este dispositivo.'}</p><a href="/" className="primary-btn auth-link-btn">Intentar de nuevo</a></section>;
-  if(panel==='rules')return <RulesScreen camporeeName={snapshot.camporeeName} onClose={()=>setPanel('program')}/>;
+  if(panel==='rules')return <RulesScreen key={snapshot.key} camporeeName={snapshot.camporeeName}
+    initialRules={snapshot.rules??CAMPOREE_RULES} canEdit={!online&&Boolean(snapshot.canEditRules)}
+    onSave={saveRules} onClose={()=>setPanel('program')}/>;
   const target=tenantPath(snapshot,panels.find(item=>item.id===panel)!.path);
   return <div className={styles.dashboard}>
     <header className={styles.header}><span className="auth-kicker"><CloudOff size={13}/> COPIA EN ESTE DISPOSITIVO</span><h1>{snapshot.camporeeName}</h1><p>Guardada el {new Intl.DateTimeFormat('es-DO',{dateStyle:'medium',timeStyle:'short',timeZone:snapshot.timeZone}).format(snapshot.savedAt)}. Los cambios nuevos de otras personas aparecerán cuando tengas conexión.</p></header>

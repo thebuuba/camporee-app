@@ -101,7 +101,7 @@ export async function readLocalMutations(scope:{ownerId:string;organizationId:st
     try {
       const url=new URL(row.url);
       const table=tableFromUrl(url);
-      if(!['tasks','schedule_events','meals','lists','list_items'].includes(table))continue;
+      if(!['tasks','schedule_events','meals','lists','list_items','camporee_rule_sets'].includes(table))continue;
       const payload=row.body?JSON.parse(row.body):null;
       if(payload!==null&&(typeof payload!=='object'||Array.isArray(payload)))continue;
       changes.push({table,method:row.method,id:extractEqId(url)??payload?.id??null,payload});
@@ -127,6 +127,22 @@ export async function queueOfflineCheck(scope:{ownerId:string;organizationId:str
     camporeeId:scope.camporeeId,url:url.href,method:'PATCH',
     headers:[['apikey',apiKey],['content-type','application/json'],['prefer','return=representation']],
     body:JSON.stringify(table==='tasks'?{status:value?'done':'pending'}:{is_done:value}),createdAt:Date.now()});
+}
+
+export async function queueOfflineRules(scope:{ownerId:string;organizationId:string;camporeeId:string},rules:string[]):Promise<void> {
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(navigator.onLine||![scope.ownerId,scope.organizationId,scope.camporeeId].every(value=>uuid.test(value))||
+      rules.length<1||rules.length>60||rules.some(rule=>!rule.trim()||rule.length>500))
+    throw new Error('No se pudo guardar esta regla en la copia sin conexión.');
+  const base=process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apiKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if(!base||!apiKey)throw new Error('Falta la configuración de sincronización.');
+  const url=new URL('/rest/v1/camporee_rule_sets',base);
+  url.searchParams.set('camporee_id',`eq.${scope.camporeeId}`);
+  await putQueued({id:crypto.randomUUID(),ownerId:scope.ownerId,organizationId:scope.organizationId,
+    camporeeId:scope.camporeeId,url:url.href,method:'PATCH',
+    headers:[['apikey',apiKey],['content-type','application/json'],['prefer','return=representation']],
+    body:JSON.stringify({rules}),createdAt:Date.now()});
 }
 
 async function deleteQueued(id: string) {
