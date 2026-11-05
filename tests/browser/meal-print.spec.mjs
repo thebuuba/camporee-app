@@ -10,6 +10,29 @@ const meals = [
   { meal_date: '2026-11-07', meal_type: 'breakfast', menu: 'Avena con pan' },
 ];
 const html = buildMealPrintPage(buildMealMenuDocument(meals, 'Legado'), back, '1234567890abcdef1234567890abcdef');
+const completeMeals = [
+  { meal_date: '2026-11-06', meal_type: 'dinner', menu: 'Víveres, queso y/o huevo' },
+  ...meals,
+  { meal_date: '2026-11-08', meal_type: 'breakfast', menu: 'Mangú con queso y cebollita' },
+  { meal_date: '2026-11-08', meal_type: 'lunch', menu: 'Moro de habichuelas negras, ensalada y pechuga a la crema' },
+  { meal_date: '2026-11-08', meal_type: 'snack_pm', menu: 'Pan con aderezo, arepita y jugo' },
+  { meal_date: '2026-11-08', meal_type: 'dinner', menu: 'Espaguetis con plátanos fritos' },
+  { meal_date: '2026-11-09', meal_type: 'breakfast', menu: 'Chocolate con tostadas' },
+  { meal_date: '2026-11-09', meal_type: 'lunch', menu: 'Moro de guandules con huevo revuelto y ensalada verde' },
+];
+
+test('all four days and eleven meals fit one portrait Letter page at full scale', async ({ page }) => {
+  await page.route('https://fonts.googleapis.com/**', route => route.abort());
+  await page.setContent(buildMealPrintPage(buildMealMenuDocument(completeMeals, 'Bi-Campore Legado'), back, '1234567890abcdef1234567890abcdef'));
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.day')).toHaveCount(4);
+  await expect(page.locator('dd')).toHaveCount(11);
+  await expect(page.locator('footer')).toContainText('11 comidas planificadas');
+  const pdf = await page.pdf({ preferCSSPageSize: true, scale: 1, printBackground: true, displayHeaderFooter: false });
+  const output = pdf.toString('latin1');
+  expect(output.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
+  expect(output).toMatch(/\/MediaBox\s*\[0 0 612 792\]/);
+});
 
 async function openDocument(page) {
   await page.route('https://fonts.googleapis.com/**', route => route.abort());

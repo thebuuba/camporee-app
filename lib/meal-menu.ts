@@ -181,16 +181,25 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
       dd { font-size: 11px; }
       .meal-icon { width: 24px; height: 24px; flex-basis: 24px; }
     }
-    @page { size: auto; margin: 12mm; }
+    @page { size: letter portrait; margin: 10mm; }
     @media print {
       html, body { background: #fff; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .menu { width: 100%; max-width: none; margin: 0; padding: 0; border-radius: 0; }
-      .masthead { padding: 16px 20px; margin-bottom: 12px; break-after: avoid; page-break-after: avoid; }
-      .day { margin-bottom: 10px; box-shadow: none; }
-      .day-heading { padding: 9px 0 8px; }
-      .meal { padding: 7px 0; }
-      footer { break-inside: avoid; }
+      /* Leave room for all four days and eleven meals on Letter at 100%.
+         Keep text readable; compact the decorative space, never clip content. */
+      .masthead { padding: 12px 16px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
+      .brand-row { margin-bottom: 8px; }
+      h1 { font-size: 26px; }
+      .hero-icon { width: 44px; height: 44px; flex-basis: 44px; }
+      .date-range { margin-top: 8px; padding: 3px 9px; }
+      .day { margin-bottom: 8px; padding: 0 14px 2px; box-shadow: none; }
+      .day-heading { padding: 7px 0 6px; }
+      .day-icon { width: 28px; height: 28px; flex-basis: 28px; }
+      .meal { padding: 5px 0; }
+      .meal-icon { width: 24px; height: 24px; flex-basis: 24px; }
+      dd { line-height: 1.5; }
+      footer { margin-top: 8px; break-inside: avoid; }
     }
   </style>
 </head>
