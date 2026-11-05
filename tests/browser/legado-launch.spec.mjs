@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-test('Legado starts from the installed app offline, loads its cached emblem and dismisses once', async ({ page, context }) => {
+test('Legado starts during preparation offline, loads its cached emblem and dismisses once', async ({ page, context }) => {
   await page.goto('/login');
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.waitForFunction(async () => Boolean(await caches.match('/legado-emblem-v1.png')));
   await page.evaluate(() => {
     const scope = '50000000-0000-4000-8000-000000000001:60000000-0000-4000-8000-000000000001';
     localStorage.setItem('camporee:launch:last-scope', scope);
-    localStorage.setItem(`camporee:launch:${scope}`, JSON.stringify({ legado: true, status: 'active', startsOn: '2026-11-06', endsOn: '2026-11-09', timeZone: 'America/Santo_Domingo' }));
+    localStorage.setItem(`camporee:launch:${scope}`, JSON.stringify({ legado: true, status: 'planning', startsOn: '2026-11-06', endsOn: '2026-11-09', timeZone: 'America/Santo_Domingo' }));
   });
   const launch = await context.newPage();
-  await launch.clock.install({ time: new Date('2026-11-06T12:00:00Z') });
+  await launch.clock.install({ time: new Date('2026-11-05T12:00:00Z') });
   await launch.emulateMedia({ reducedMotion: 'no-preference' });
   await launch.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
   await context.setOffline(true);

@@ -9,10 +9,11 @@ export function launchSchedule(event: LaunchCamporee): LaunchSchedule {
     startsOn: event.starts_on, endsOn: event.ends_on, timeZone: event.time_zone };
 }
 export function isLegadoLaunch(event: LaunchSchedule | null, now: number): boolean {
-  if (!event?.legado || event.status !== 'active' || !/^\d{4}-\d{2}-\d{2}$/.test(event.startsOn) || !/^\d{4}-\d{2}-\d{2}$/.test(event.endsOn)) return false;
+  // Branding is available during preparation too, without changing event mode.
+  if (!event?.legado || !['planning', 'active'].includes(event.status) || !/^\d{4}-\d{2}-\d{2}$/.test(event.startsOn) || !/^\d{4}-\d{2}-\d{2}$/.test(event.endsOn)) return false;
   try {
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: event.timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-    return date >= event.startsOn && date <= event.endsOn;
+    return date <= event.endsOn;
   } catch { return false; }
 }
 export function launchScope(pathname: string, search = ''): string | null {

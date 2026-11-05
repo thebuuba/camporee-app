@@ -144,11 +144,24 @@ test('cached active branding can launch offline, with reduced motion and no repe
  const internal=await splash(false,scopedPath+'/program',{camporee:event,scope,now:during,referrer:'https://camporee.test'+scopedPath});
  assert.equal(internal.start(),null);
 });
-test('no Legado screen before the start, after the last local day, for another camporee or missing offline branding',async()=>{
- for(const options of [{now:Date.parse('2026-11-06T03:59:59Z')},{now:Date.parse('2026-11-10T04:00:00Z')},{camporee:{...event,theme:'Otro'}},{camporee:{...event,status:'finished'}}]){
+test('no Legado screen after the last local day, for another camporee or missing offline branding',async()=>{
+ for(const options of [{now:Date.parse('2026-11-10T04:00:00Z')},{camporee:{...event,theme:'Otro'}},{camporee:{...event,status:'finished'}},{camporee:{...event,status:'archived'}}]){
   const ui=await splash(false,scopedPath,{camporee:event,scope,standalone:true,now:during,...options});assert.equal(ui.start(),null);
  }
  const root=await splash(false,scopedPath,{now:during});assert.equal(root.start(),null);
+});
+test('Legado appears now during preparation and on the first reload without changing the event status',async()=>{
+ const planning={...event,status:'planning'};
+ const now=Date.parse('2026-11-05T12:00:00Z');
+ for(const status of ['planning','active']){
+  const ui=await splash(false,scopedPath,{camporee:{...event,status},scope,standalone:true,now});
+  assert.equal(ui.start().type,'legado-screen');
+ }
+ const storage=new Map();
+ const options={camporee:planning,scope,standalone:true,now,navigationType:'reload',storage};
+ const first=await splash(false,scopedPath,options);assert.equal(first.start().type,'legado-screen');
+ const repeat=await splash(false,scopedPath,options);assert.equal(repeat.start(),null);
+ assert.equal(planning.status,'planning');
 });
 test('offline startup at / uses the last event but never overrides another explicit event',async()=>{
  const local=new Map([['camporee:launch:last-scope',scope],[`camporee:launch:${scope}`,JSON.stringify(launch.launchSchedule(event))]]);
