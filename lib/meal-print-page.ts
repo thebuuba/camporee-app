@@ -1,7 +1,7 @@
 /** A top-level print document, never a hidden/sandboxed print frame. */
 export function mealPrintPolicy(nonce: string): string {
   if (!/^[a-f0-9]{32}$/.test(nonce)) throw new Error('Invalid print nonce');
-  return `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'`;
+  return `default-src 'none'; img-src data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'`;
 }
 
 // Fixed application code only. Never interpolate meals, names, URLs or other

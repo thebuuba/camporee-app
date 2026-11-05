@@ -8,12 +8,12 @@ import { buildMealMenuDocument, type MenuMeal } from '@/lib/meal-menu';
 import { prepareMealMenuFonts } from '@/lib/meal-menu-fonts';
 import styles from './meal-menu-print.module.css';
 
-export default function MealMenuPrint({ meals, camporeeName }: {
-  meals: readonly MenuMeal[]; camporeeName: string;
+export default function MealMenuPrint({ meals, camporeeName, camporeeTheme = '' }: {
+  meals: readonly MenuMeal[]; camporeeName: string; camporeeTheme?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
-  const documentHtml = useMemo(() => buildMealMenuDocument(meals, camporeeName), [meals, camporeeName]);
+  const documentHtml = useMemo(() => buildMealMenuDocument(meals, camporeeName, camporeeTheme), [meals, camporeeName, camporeeTheme]);
 
   function checkConnection(event: MouseEvent<HTMLAnchorElement>) {
     if (!navigator.onLine) {

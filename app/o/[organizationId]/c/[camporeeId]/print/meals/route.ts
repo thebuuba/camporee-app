@@ -30,7 +30,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   const nonce = crypto.randomUUID().replace(/-/g, '');
   const backHref = `/o/${context.organizationId}/c/${context.camporeeId}/more/meals`;
   const html = buildMealPrintPage(
-    buildMealMenuDocument(meals ?? [], context.camporee.name),
+    buildMealMenuDocument(meals ?? [], context.camporee.name, context.camporee.theme ?? ''),
     backHref, nonce, Boolean(meals?.length),
   );
   return new Response(html, { headers: {

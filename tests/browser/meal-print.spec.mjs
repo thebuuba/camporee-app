@@ -28,6 +28,9 @@ test('all four days and eleven meals fit one portrait Letter page at full scale'
   await expect(page.locator('.day')).toHaveCount(4);
   await expect(page.locator('dd')).toHaveCount(11);
   await expect(page.locator('footer')).toContainText('11 comidas planificadas');
+  const logo = page.getByRole('img', { name: 'Logo oficial del II Bi-Camporee Legado' });
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
   const pdf = await page.pdf({ preferCSSPageSize: true, scale: 1, printBackground: true, displayHeaderFooter: false });
   const output = pdf.toString('latin1');
   expect(output.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
