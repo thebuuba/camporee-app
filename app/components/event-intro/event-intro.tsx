@@ -15,6 +15,13 @@ type Props={userId:string;organizationId:string;organizer:string;memberName:stri
 export default function EventIntros({userId,organizationId,organizer,memberName,camporee}:Props){
   const [now,setNow]=useState<number|null>(null);
   const [intro,setIntro]=useState<EventIntro|null>(null);
+  const [launchReady,setLaunchReady]=useState(false);
+  useEffect(()=>{
+    const update=()=>setLaunchReady(!document.documentElement.hasAttribute('data-camporee-launch'));
+    update();
+    window.addEventListener('camporee:launch-finished',update);
+    return()=>window.removeEventListener('camporee:launch-finished',update);
+  },[]);
   useEffect(()=>{
     const update=()=>setNow(Date.now());
     update();
@@ -32,6 +39,7 @@ export default function EventIntros({userId,organizationId,organizer,memberName,
   const candidateKeys=candidates.map(item=>item.key).join('|');
   const scope=`${userId}:${organizationId}:${camporee.id}`;
   useEffect(()=>{
+    if(!launchReady)return;
     if(intro){if(!candidates.some(item=>item.key===intro.key))setIntro(null);return;}
     let storage:Storage|null=null;
     try{storage=window.localStorage;}catch{/* Use the document guard when storage is unavailable. */}
@@ -39,7 +47,7 @@ export default function EventIntros({userId,organizationId,organizer,memberName,
     if(next)setIntro(next);
   // Candidate identities fully describe eligibility; avoid reopening on clock ticks.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[candidateKeys,scope,intro]);
+  },[candidateKeys,scope,intro,launchReady]);
   const dismiss=useCallback(()=>setIntro(null),[]);
   if(!intro)return null;
   const day=camporeeDayWindow(camporee.starts_on,camporee.ends_on,clock.date);

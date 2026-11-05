@@ -53,7 +53,7 @@ test('seen intros survive reopening, are isolated by person and event, and block
   assert.equal(claimEventIntro(blocked,'blocked:org:camp','camporee:2026-11-06'),false);
 });
 
-async function controller(instant,{sunset=null,storage=new Map(),userId='controller-user'}={}){
+async function controller(instant,{sunset=null,storage=new Map(),userId='controller-user',launching=false}={}){
   const {loadBindings,transform}=createRequire(import.meta.url)('next/dist/build/swc');
   await loadBindings();
   const {code}=await transform(await readFile(new URL('../app/components/event-intro/event-intro.tsx',import.meta.url),'utf8'),{filename:'event-intro.tsx',jsc:{parser:{syntax:'typescript',tsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
@@ -69,11 +69,11 @@ async function controller(instant,{sunset=null,storage=new Map(),userId='control
   };
   const module={exports:{}};
   class Clock extends Date{static now(){return now;}}
-  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date:Clock,window:{localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},setInterval:()=>1,clearInterval(){},addEventListener:(name,handler)=>listeners.set(name,handler),removeEventListener:name=>listeners.delete(name)},document:{body:{},addEventListener:(name,handler)=>listeners.set(name,handler),removeEventListener:name=>listeners.delete(name)}});
+  vm.runInNewContext(code,{module,exports:module.exports,require:name=>modules[name],Date:Clock,window:{localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},setInterval:()=>1,clearInterval(){},addEventListener:(name,handler)=>listeners.set(name,handler),removeEventListener:name=>listeners.delete(name)},document:{documentElement:{hasAttribute:()=>launching},body:{},addEventListener:(name,handler)=>listeners.set(name,handler),removeEventListener:name=>listeners.delete(name)}});
   const props={userId,organizationId:'org',organizer:'Club real',memberName:'Ana',camporee:{...event,id:'controller-event',name:'Camporee real',theme:null,location:'Santiago'}};
   const render=()=>{cursor=0;return module.exports.default(props);};
   function settle(){let tree;for(let i=0;i<8;i++){changed=false;tree=render();pending.splice(0).forEach(effect=>effect());if(!changed)return tree;}throw Error('render loop');}
-  return {render,settle,cleanup(){cleanups.forEach(cleanup=>cleanup?.());},focus(instant){now=at(instant);listeners.get('focus')?.();return settle();}};
+  return {render,settle,finishLaunch(){launching=false;listeners.get('camporee:launch-finished')?.();return settle();},cleanup(){cleanups.forEach(cleanup=>cleanup?.());},focus(instant){now=at(instant);listeners.get('focus')?.();return settle();}};
 }
 
 test('the controller starts hidden, opens each intro once in order and does not replay on focus or remount',async()=>{
@@ -95,4 +95,10 @@ test('the Sabbath overlay expires at the Saturday sunset',async()=>{
   const ui=await controller('2026-11-07T14:00:00Z',{sunset,userId:'saturday-user'});
   assert.equal(ui.settle().props.children.type,'sabbath-intro');
   assert.equal(ui.focus('2026-11-07T22:08:20Z'),null);ui.cleanup();
+});
+
+test('event intros wait until the branded launch finishes without consuming their seen marker',async()=>{
+ const storage=new Map();const ui=await controller('2026-11-06T12:00:00Z',{userId:'launch-test',storage,launching:true});
+ assert.equal(ui.settle(),null);assert.equal(storage.size,0);
+ assert.equal(ui.finishLaunch().props.children.type,'camporee-intro');ui.cleanup();
 });

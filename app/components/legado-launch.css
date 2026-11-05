@@ -1,0 +1,29 @@
+.legado-launch{position:fixed;inset:0;z-index:99999;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;isolation:isolate;pointer-events:none;color:#ffe9b5;background:#100c09;font-family:Poppins,system-ui,sans-serif;animation:legado-exit .25s ease 2.05s forwards}
+.legado-launch-atmosphere{position:absolute;inset:-20%;z-index:-1;background:radial-gradient(ellipse at 50% 48%,#9a4d16a6,transparent 44%),radial-gradient(ellipse at 12% 70%,#d779184d,transparent 31%),radial-gradient(ellipse at 88% 32%,#b56b1940,transparent 33%);animation:legado-atmosphere 2.3s ease-out both}
+.legado-launch-content{width:100%;max-width:540px;padding:24px;text-align:center}
+.legado-launch-eyebrow{margin:0 0 28px;font-size:10px;letter-spacing:.34em;font-weight:600;color:#eacb8c;animation:legado-caption .6s ease .2s both}
+.legado-launch-stage{position:relative;perspective:850px;width:min(74vw,310px);aspect-ratio:432/422;margin:0 auto}
+.legado-launch-halo{position:absolute;inset:6%;border-radius:50%;background:radial-gradient(ellipse,#ffd47770,#e68c2429 40%,transparent 70%);box-shadow:0 0 85px #e9962529;animation:legado-halo 1.9s ease both}
+.legado-launch-emblem{position:relative;width:100%;height:100%;transform-style:preserve-3d;will-change:transform;animation:legado-reveal 1.8s cubic-bezier(.16,.76,.25,1) both}
+.legado-launch-emblem img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 12px 12px #0009)}
+.legado-launch-shine{position:absolute;inset:0;mask:url('/legado-emblem-v1.png') center/contain no-repeat;-webkit-mask:url('/legado-emblem-v1.png') center/contain no-repeat;background:linear-gradient(112deg,transparent 38%,#ffec9d66 45%,#fff3c2c9 49%,transparent 58%) -180% 0/250% 100%;mix-blend-mode:screen;animation:legado-shine 1.15s ease .6s both}
+.legado-launch-torch{position:absolute;left:42%;top:40%;width:8%;height:11%;border-radius:50%;background:radial-gradient(ellipse,#fff7b7b3,#ffb72a66 35%,transparent 70%);mix-blend-mode:screen;animation:legado-flame .75s ease-in-out .6s 3 alternate}
+.legado-launch-caption{margin:28px 0 0;color:#ffe4aa;font-size:clamp(15px,4vw,19px);font-weight:500;letter-spacing:.035em;animation:legado-caption .6s ease .85s both}
+.legado-launch-loading{width:160px;margin:30px auto 0}
+.legado-launch-loading>span{display:block;height:2px;background:linear-gradient(90deg,transparent,#e3a746,#fff0bc,#e3a746,transparent);transform-origin:left;animation:legado-progress 1.65s ease-out both}
+.legado-launch-loading small{display:block;min-height:18px;margin-top:13px;color:#c7b499;font-size:10px;letter-spacing:.03em}
+.legado-launch-footer{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));margin:0;font-size:8px;letter-spacing:.18em;color:#ac956f}
+.legado-launch-footer span{padding:0 9px;color:#e4aa4c}
+.legado-launch-embers{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1}
+.legado-launch-embers i{position:absolute;left:var(--x);top:80%;width:2px;height:3px;border-radius:50%;background:#f7ca6d;box-shadow:0 0 8px #efa72b;opacity:0;animation:legado-ember var(--duration) ease-out var(--delay) 3}
+@keyframes legado-reveal{0%{opacity:0;transform:translate3d(18%,8%,150px) rotateY(-52deg) rotateZ(-7deg) scale(1.25)}18%{opacity:1}65%{transform:translate3d(-1%,0,0) rotateY(6deg) rotateZ(1deg) scale(.98)}100%{opacity:1;transform:translateZ(0) rotateY(0) rotateZ(0) scale(1)}}
+@keyframes legado-atmosphere{from{opacity:.4;transform:scale(1.16) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes legado-halo{0%{opacity:0;transform:scale(.55)}40%{opacity:1;transform:scale(1.14)}100%{opacity:.65;transform:scale(1)}}
+@keyframes legado-shine{from{background-position:180% 0}to{background-position:-80% 0}}
+@keyframes legado-flame{from{opacity:.4;transform:scale(.9) rotate(-7deg)}to{opacity:1;transform:scale(1.18) rotate(5deg)}}
+@keyframes legado-caption{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes legado-progress{from{transform:scaleX(.08)}to{transform:scaleX(1)}}
+@keyframes legado-ember{0%{opacity:0;transform:translate(0,0)}15%{opacity:.75}100%{opacity:0;transform:translate(var(--drift),-55vh)}}
+@keyframes legado-exit{to{opacity:0;visibility:hidden}}
+@media(max-height:560px){.legado-launch-stage{width:min(35vh,230px)}.legado-launch-eyebrow{margin-bottom:12px}.legado-launch-caption{margin-top:12px}.legado-launch-loading{margin-top:14px}.legado-launch-footer{bottom:max(12px,env(safe-area-inset-bottom))}}
+@media(prefers-reduced-motion:reduce){.legado-launch{animation:legado-exit .01s linear .17s forwards}.legado-launch *{animation:none!important}.legado-launch-embers,.legado-launch-shine,.legado-launch-torch{display:none}.legado-launch-emblem{will-change:auto}}
