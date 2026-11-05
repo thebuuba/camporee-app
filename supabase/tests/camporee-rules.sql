@@ -11,7 +11,6 @@ select throws_ok($$update public.camporee_rule_sets set rules='{}' where campore
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
 select is((select count(*) from public.camporee_rule_sets),0::bigint,'inactive member cannot read rules');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
-select diag('rule scope: uid='||auth.uid()||', member='||private.is_camporee_member('20000000-0000-4000-8000-000000000001')||', can_edit='||private.can_edit_camporee('20000000-0000-4000-8000-000000000001','notes'));
 with changed as (update public.camporee_rule_sets set rules=array['Intrusión'] where camporee_id='20000000-0000-4000-8000-000000000001' returning id)
-select is(count(*),0::bigint,'another organization cannot edit rules');
+select is(count(*),0::bigint,'another organization cannot edit rules') from changed;
 reset role;
