@@ -1,7 +1,7 @@
-const CACHE='camporee-shell-v25';
+const CACHE='camporee-shell-v26';
 const PAGES='camporee-pages-v1';
 const ASSETS='camporee-assets-v1';
-const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11','/legado-emblem-v1.png'];
+const STATIC=['/offline','/manifest.webmanifest?v=14','/camporee-logo-v8.png?v=11','/apple-touch-icon.png?v=11','/legado-emblem-v1.png','/legado-rules-logo.png'];
 const PRIVATE_NAV_PREFIXES=['/','/program','/tasks','/more','/search','/profile','/organizations','/invitations'];
 const isPrivatePage=path=>PRIVATE_NAV_PREFIXES.some(prefix=>path===prefix||path.startsWith(prefix+'/'))||/^\/o\/[0-9a-f-]{36}(\/|$)/i.test(path);
 let privateEpoch=0;
