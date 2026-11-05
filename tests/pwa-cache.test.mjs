@@ -209,7 +209,7 @@ test('un icono fallido no impide preparar la pantalla offline y sus archivos', a
   worker.listeners.get('install')({ waitUntil(value) { installation = value; } });
   await installation;
   assert.equal(worker.skippedWaiting, true);
-  assert.deepEqual(worker.precached, ['/offline', '/_next/static/css/offline.css', '/_next/static/chunks/offline.js', '/manifest.webmanifest?v=14', '/camporee-logo-v8.png?v=11']);
+  assert.deepEqual(worker.precached, ['/offline', '/_next/static/css/offline.css', '/_next/static/chunks/offline.js', '/manifest.webmanifest?v=14', '/camporee-logo-v8.png?v=11', '/legado-emblem-v1.png']);
 });
 
 test('un icono servido por red se muestra incluso con la caché llena', async () => {
@@ -232,7 +232,7 @@ test('una actualización recupera la pantalla offline de la versión anterior si
   worker.listeners.get('activate')({ waitUntil(value) { activation = value; } });
   await activation;
   assert.equal(worker.writes.length, 1);
-  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v22');
+  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v23');
   assert.equal(await worker.writes[0].response.text(), 'Pantalla offline anterior');
 });
 
