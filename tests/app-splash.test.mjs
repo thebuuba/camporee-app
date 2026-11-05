@@ -1,175 +1,72 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import * as launch from '../lib/legado-launch.ts';
-const { loadBindings, transform } = createRequire(import.meta.url)('next/dist/build/swc');
+import { launchInitScript } from '../lib/launch-bootstrap.ts';
+import { isLegadoLaunch } from '../lib/legado-launch.ts';
 
-async function splash(reduced = false, pathname = '/', {online=true,storage=new Map(),storageBlocked=false,standalone=false,iosStandalone=false,navigationType='navigate',referrer='',camporee,scope,now=Date.now(),search='',local=new Map()}={}) {
-  await loadBindings();
-  const { code } = await transform(await readFile(new URL('../app/components/app-splash.tsx', import.meta.url), 'utf8'), {
-    filename: 'app-splash.tsx', jsc: { parser: { syntax: 'typescript', tsx: true }, target: 'es2022', transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' },
-  });
-  const states = [], effects = [], timers = [], cleared = [], refs=[];
-  let cursor = 0;
-  const jsx = (type, props) => ({ type, props });
-  const modules = {
-    'next/navigation': { usePathname: () => pathname },
-    '@/lib/legado-launch': launch, './legado-launch': 'legado-screen',
-    react: { useState(initial) { const index = cursor++; if (!(index in states)) states[index] = initial; return [states[index], value => { states[index] = value; }]; }, useRef(initial){const index=cursor++;return refs[index]??= {current:initial}}, useEffect: callback => effects.push(callback) },
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'lucide-react': { Tent: 'tent', TentTree: 'tent-tree' },
-  };
-  const module = { exports: {} };
-  class Clock extends Date { static now(){return now} }
-  const attrs=new Map();
-  vm.runInNewContext(code, { Date:Clock, Event, module, exports: module.exports, require: name => modules[name], URL, document:{referrer,documentElement:{setAttribute:(key,value)=>attrs.set(key,value),removeAttribute:key=>attrs.delete(key)}}, navigator:{onLine:online,standalone:iosStandalone}, window: { location:{origin:'https://camporee.test',search},localStorage:{getItem:key=>local.get(key)??null,setItem:(key,value)=>local.set(key,value)},dispatchEvent(){}, performance:{getEntriesByType:()=>[{type:navigationType}]}, sessionStorage:{getItem(key){if(storageBlocked)throw new Error('blocked');return storage.get(key)??null},setItem(key,value){if(storageBlocked)throw new Error('blocked');storage.set(key,value)}}, matchMedia: query => ({ matches: query==='(display-mode: standalone)'?standalone:reduced }), setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; }, clearTimeout: id => cleared.push(id) } });
-  const render=()=>{cursor=0;effects.length=0;return module.exports.default({camporee,scope})};
-  return { render, start(){render();effects.forEach(effect=>effect());return render()}, navigate(next){pathname=next;return render()}, remount(){states.length=0;refs.length=0;return this.start()}, effects, timers, cleared };
+const scope='50000000-0000-4000-8000-000000000001:60000000-0000-4000-8000-000000000001';
+const path='/o/'+scope.replace(':','/c/');
+const schedule={legado:true,status:'planning',startsOn:'2026-11-06',endsOn:'2026-11-09',timeZone:'America/Santo_Domingo'};
+const localBrand=()=>new Map([['camporee:launch:last-scope',scope],[`camporee:launch:${scope}`,JSON.stringify(schedule)]]);
+function boot({pathname=path,search='',online=true,referrer='',navigationType='navigate',local=localBrand(),session=new Map(),storageBlocked=false,reduced=false,imageFails=false,instant='2026-11-05T12:00:00Z'}={}){
+ let now=0,id=0,queries=0;const timers=new Map(),attrs=new Map(),events=[],listeners=new Map();
+ const setTimeout=(callback,delay=0)=>{timers.set(++id,{callback,at:now+delay});return id;};
+ const storage=rows=>({getItem:key=>{if(storageBlocked)throw Error('blocked');return rows.get(key)??null;},setItem:(key,value)=>{if(storageBlocked)throw Error('blocked');rows.set(key,value);}});
+ const dataset=new Proxy({}, {get:(_,key)=>attrs.get('data-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())),set:(_,key,value)=>{attrs.set('data-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),value);return true;}});
+ const root={dataset,removeAttribute:key=>attrs.delete(key)};
+ const window={matchMedia:()=>({matches:reduced}),addEventListener:(name,cb)=>listeners.set(name,cb),dispatchEvent:event=>events.push(event.type)};
+ class Clock extends Date {static now(){return Date.parse(instant)+now;}}
+ const context=vm.createContext({window,document:{documentElement:root,referrer,querySelector(){queries++;return{decode:()=>imageFails?Promise.reject(Error('image')):Promise.resolve()};}},location:{pathname,search,origin:'https://camporee.test'},navigator:{onLine:online},localStorage:storage(local),sessionStorage:storage(session),performance:{now:()=>now,getEntriesByType:()=>[{type:navigationType}]},Date:Clock,URL,URLSearchParams,Event,setTimeout,clearTimeout:id=>timers.delete(id),requestAnimationFrame:callback=>setTimeout(callback,16)});
+ vm.runInContext(launchInitScript,context);
+ async function advance(ms){const target=now+ms;for(;;){await new Promise(resolve=>setImmediate(resolve));const next=[...timers].sort((a,b)=>a[1].at-b[1].at).find(([,timer])=>timer.at<=target);if(!next)break;now=next[1].at;timers.delete(next[0]);next[1].callback();}now=target;await new Promise(resolve=>setImmediate(resolve));}
+ return {attrs,events,session,window,advance,get queries(){return queries},ready:()=>window.__camporeeLaunch.ready(),event:(value=schedule,selected=scope)=>window.__camporeeLaunch.event(value,selected),pagehide:()=>listeners.get('pagehide')?.()};
 }
 
-test('la bienvenida usa el paisaje y los textos de Polymet sin botón de comenzar', async () => {
-  const ui = await splash();
-  const tree = JSON.stringify(ui.start());
-  assert.match(tree, /Organiza tu camporee antes, durante y después del evento/);
-  assert.match(tree, /polymet-camp-preparation.svg/);
-  assert.match(tree, /Club de Conquistadores/);
-  assert.doesNotMatch(tree, /Comenzar|"type":"button"|"type":"a"/);
+test('the head selects branding before touching body markup or waiting for hydration',()=>{
+ const ui=boot();assert.equal(ui.attrs.get('data-camporee-launch'),'legado');assert.equal(ui.attrs.get('data-camporee-launch-stage'),'loading');assert.equal(ui.queries,0);
 });
-
-test('el registro y su confirmación entran directamente sin repetir la bienvenida', async () => {
-  const ui = await splash(false, '/signup');
-  assert.equal(ui.render(), null);
-  ui.effects.forEach(effect => effect());
-  assert.equal(ui.timers.length, 0);
+test('slow hydration keeps the loader until real readiness, then blends before releasing intros',async()=>{
+ const ui=boot();await ui.advance(5000);assert.equal(ui.attrs.get('data-camporee-launch-stage'),'loading');assert.deepEqual(ui.events,[]);
+ ui.ready();await ui.advance(100);assert.equal(ui.attrs.get('data-camporee-launch-stage'),'leaving');assert.deepEqual(ui.events,[]);
+ await ui.advance(420);assert.equal(ui.attrs.has('data-camporee-launch'),false);assert.deepEqual(ui.events,['camporee:launch-finished']);
+ ui.event();ui.ready();assert.equal(ui.attrs.size,0);
 });
-
-test('la pantalla pasa a lista y se retira sola sin cambiar la ruta de la sesión', async () => {
-  const ui = await splash(); ui.start();
-  const cleanup = ui.effects.at(-1)();
-  assert.equal(ui.timers.length, 2);
-  assert.ok(ui.timers.every(timer => timer.delay <= 1800));
-  ui.timers[0].callback();
-  assert.match(JSON.stringify(ui.render()), /¡Todo listo!/);
-  ui.timers[1].callback();
-  assert.equal(ui.render(), null);
-  cleanup();
-  assert.equal(ui.cleared.length, 2);
+test('fast startup has a short anti-flicker hold, not a fixed 2.3 second intro',async()=>{
+ const ui=boot();ui.ready();await ui.advance(300);assert.equal(ui.attrs.get('data-camporee-launch-stage'),'loading');await ui.advance(100);assert.equal(ui.attrs.get('data-camporee-launch-stage'),'leaving');await ui.advance(420);assert.equal(ui.attrs.size,0);
 });
-
-test('con movimiento reducido entra sin una espera larga', async () => {
-  const ui = await splash(true); ui.start(); ui.effects.at(-1)();
-  assert.ok(ui.timers.every(timer => timer.delay <= 200));
-  ui.timers.forEach(timer => timer.callback());
-  assert.equal(ui.render(), null);
+test('reduced motion still waits for the actual content and then releases promptly',async()=>{
+ const ui=boot({reduced:true});await ui.advance(2500);assert.equal(ui.attrs.get('data-camporee-launch-stage'),'loading');ui.ready();await ui.advance(150);assert.equal(ui.attrs.size,0);
 });
-
-test('offline navigation never shows the launch screen or starts its loading timers',async()=>{
- for(const pathname of ['/offline','/tasks','/more','/o/50000000-0000-4000-8000-000000000001/c/60000000-0000-4000-8000-000000000001/program']){
-  const ui=await splash(false,pathname,{online:false});
-  assert.equal(ui.render(),null);assert.equal(ui.start(),null);
-  ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
+test('first visit uses the app surface and may resolve branding before revealing the page',async()=>{
+ const ui=boot({local:new Map()});assert.equal(ui.attrs.get('data-camporee-launch'),'generic');ui.event();assert.equal(ui.attrs.get('data-camporee-launch'),'legado');ui.ready();await ui.advance(850);assert.equal(ui.attrs.size,0);
+});
+test('same-session reloads, internal navigation, auth and history never create a late cover',async()=>{
+ const session=new Map();boot({session});
+ for(const options of [{session,navigationType:'reload'},{navigationType:'back_forward'},{referrer:'https://camporee.test/tasks'},{pathname:'/login'},{pathname:'/signup'},{pathname:'/auth/callback'},{pathname:path+'/created'},{pathname:path+'/print/meals'}]){
+  const ui=boot(options);assert.equal(ui.attrs.size,0);ui.event();ui.ready();await ui.advance(1000);assert.equal(ui.attrs.size,0);
  }
 });
-
-test('native navigation in the same tab does not repeat the launch screen',async()=>{
- const storage=new Map();const first=await splash(false,'/',{storage});
- assert.notEqual(first.start(),null);
- for(const pathname of ['/tasks','/more']){
-  const next=await splash(false,pathname,{storage});
-  assert.equal(next.render(),null);assert.equal(next.start(),null);
-  next.effects.forEach(effect=>effect());assert.equal(next.timers.length,0);
+test('the first reload can show updated branding once and blocked storage cannot trap the page',async()=>{
+ const ui=boot({navigationType:'reload'});assert.equal(ui.attrs.get('data-camporee-launch'),'legado');
+ const blocked=boot({storageBlocked:true});assert.equal(blocked.attrs.get('data-camporee-launch'),'generic');blocked.event();blocked.ready();await blocked.advance(850);assert.equal(blocked.attrs.size,0);
+ assert.equal(boot({storageBlocked:true,navigationType:'reload'}).attrs.size,0);
+});
+test('offline startup honors the selected event and / uses only the last saved public branding',async()=>{
+ for(const search of ['?from=%2F','?from='+encodeURIComponent(path)]){
+  const ui=boot({pathname:'/offline',search,online:false});assert.equal(ui.attrs.get('data-camporee-launch'),'legado');ui.ready();await ui.advance(850);assert.equal(ui.attrs.size,0);
+ }
+ const other=path.replace('60000000','70000000');
+ for(const options of [{search:'?from='+encodeURIComponent(other)},{local:new Map()},{storageBlocked:true}])assert.equal(boot({pathname:'/offline',online:false,...options}).attrs.size,0);
+});
+test('cached eligibility agrees with current branding rules and never reuses another event',()=>{
+ for(const value of [schedule,{...schedule,status:'active'},{...schedule,status:'finished'},{...schedule,status:'archived'},{...schedule,legado:false},{...schedule,timeZone:'invalid'},{...schedule,endsOn:'2026-11-04'}]){
+  const local=new Map([[`camporee:launch:${scope}`,JSON.stringify(value)]]);const ui=boot({local});assert.equal(ui.attrs.get('data-camporee-launch')==='legado',isLegadoLaunch(value,Date.parse('2026-11-05T12:00:00Z')));
  }
 });
-
-test('blocked session storage does not prevent dismissal or restart splash on effect replay',async()=>{
- const ui=await splash(false,'/',{storageBlocked:true});assert.notEqual(ui.start(),null);
- ui.effects.forEach(effect=>effect());ui.timers.forEach(timer=>timer.callback());
- assert.equal(ui.render(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.render(),null);
+test('failed images and missing hydration fail open, and late chunks cannot re-cover the app',async()=>{
+ const image=boot({imageFails:true});image.ready();await image.advance(850);assert.equal(image.attrs.size,0);
+ const stalled=boot();await stalled.advance(12000);assert.equal(stalled.attrs.size,0);stalled.event();stalled.ready();await stalled.advance(1000);assert.equal(stalled.attrs.size,0);assert.equal(stalled.events.length,1);
 });
-
-test('installed PWA does not show another launch cover on Android or iOS',async()=>{
- for(const options of [{standalone:true},{iosStandalone:true}]){
-  const ui=await splash(false,'/',options);
-  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
- }
-});
-
-test('reload and history restoration never replay the welcome even without a session marker',async()=>{
- for(const navigationType of ['reload','back_forward']){
-  const ui=await splash(false,'/',{navigationType});
-  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
- }
-});
-
-test('internal full-page navigation does not replay the launch when session storage is blocked or cleared',async()=>{
- for(const storageBlocked of [false,true]){
-  const ui=await splash(false,'/tasks',{referrer:'https://camporee.test/program',storageBlocked});
-  assert.equal(ui.start(),null);ui.effects.forEach(effect=>effect());assert.equal(ui.timers.length,0);
- }
-});
-
-test('component remount in the same document cannot repeat the welcome with blocked storage',async()=>{
- const ui=await splash(false,'/',{storageBlocked:true});assert.notEqual(ui.start(),null);
- ui.effects.forEach(effect=>effect());ui.timers.forEach(timer=>timer.callback());assert.equal(ui.render(),null);
- assert.equal(ui.remount(),null);
-});
-
-test('changing route dismisses the startup cover immediately and returning does not restore it',async()=>{
- const ui=await splash();assert.notEqual(ui.start(),null);
- assert.equal(ui.navigate('/tasks'),null);ui.effects.forEach(effect=>effect());
- assert.equal(ui.navigate('/'),null);
-});
-
-test('a fresh browser visit from an external site may still show the welcome once',async()=>{
- const ui=await splash(false,'/',{referrer:'https://example.com/'});
- assert.notEqual(ui.start(),null);
-});
-
-const event={name:'Bi-Camporee',theme:'Legado',status:'active',starts_on:'2026-11-06',ends_on:'2026-11-09',time_zone:'America/Santo_Domingo'};
-const scope='00000000-0000-4000-8000-000000000001:57ad4342-8b3f-4735-a467-7e04c318a705';
-const scopedPath='/o/'+scope.replace(':','/c/');
-const during=Date.parse('2026-11-06T12:00:00Z');
-test('active Legado launches animate in installed apps and dismiss within 2.3 seconds',async()=>{
- const ui=await splash(false,scopedPath,{camporee:event,scope,standalone:true,now:during});
- assert.equal(ui.start().type,'legado-screen');ui.effects.at(-1)();
- assert.equal(Math.max(...ui.timers.map(t=>t.delay)),2300);
- ui.timers.forEach(t=>t.callback());assert.equal(ui.render(),null);
-});
-test('cached active branding can launch offline, with reduced motion and no repeated internal navigation',async()=>{
- const local=new Map([[`camporee:launch:${scope}`,JSON.stringify(launch.launchSchedule(event))]]);
- const ui=await splash(true,'/offline',{online:false,standalone:true,local,search:'?from='+encodeURIComponent(scopedPath),now:during});
- assert.equal(ui.start().type,'legado-screen');ui.effects.at(-1)();
- assert.ok(ui.timers.every(t=>t.delay<=200));
- const internal=await splash(false,scopedPath+'/program',{camporee:event,scope,now:during,referrer:'https://camporee.test'+scopedPath});
- assert.equal(internal.start(),null);
-});
-test('no Legado screen after the last local day, for another camporee or missing offline branding',async()=>{
- for(const options of [{now:Date.parse('2026-11-10T04:00:00Z')},{camporee:{...event,theme:'Otro'}},{camporee:{...event,status:'finished'}},{camporee:{...event,status:'archived'}}]){
-  const ui=await splash(false,scopedPath,{camporee:event,scope,standalone:true,now:during,...options});assert.equal(ui.start(),null);
- }
- const root=await splash(false,scopedPath,{now:during});assert.equal(root.start(),null);
-});
-test('Legado appears now during preparation and on the first reload without changing the event status',async()=>{
- const planning={...event,status:'planning'};
- const now=Date.parse('2026-11-05T12:00:00Z');
- for(const status of ['planning','active']){
-  const ui=await splash(false,scopedPath,{camporee:{...event,status},scope,standalone:true,now});
-  assert.equal(ui.start().type,'legado-screen');
- }
- const storage=new Map();
- const options={camporee:planning,scope,standalone:true,now,navigationType:'reload',storage};
- const first=await splash(false,scopedPath,options);assert.equal(first.start().type,'legado-screen');
- const repeat=await splash(false,scopedPath,options);assert.equal(repeat.start(),null);
- assert.equal(planning.status,'planning');
-});
-test('offline startup at / uses the last event but never overrides another explicit event',async()=>{
- const local=new Map([['camporee:launch:last-scope',scope],[`camporee:launch:${scope}`,JSON.stringify(launch.launchSchedule(event))]]);
- const ui=await splash(false,'/offline',{online:false,standalone:true,local,search:'?from=%2F',now:during});
- assert.equal(ui.start().type,'legado-screen');
- const other=scopedPath.replace('57ad4342','77ad4342');
- const unprepared=await splash(false,'/offline',{online:false,local,search:'?from='+encodeURIComponent(other),now:during});
- assert.equal(unprepared.start(),null);
- const invalid=await splash(false,'/offline',{online:false,local:new Map([['camporee:launch:last-scope','invalid']]),now:during});
- assert.equal(invalid.start(),null);
+test('a page placed in the history cache is never restored behind its startup cover',()=>{
+ const ui=boot();ui.pagehide();assert.equal(ui.attrs.size,0);ui.event();ui.ready();assert.equal(ui.attrs.size,0);
 });
