@@ -42,7 +42,7 @@ test('print is readable, unstruck and supports pagination, with no remote resour
   assert.ok(html.includes("default-src 'none'"));
   assert.ok(html.includes('break-inside: avoid'));
   assert.ok(html.includes('overflow-wrap: anywhere'));
-  assert.ok(html.includes('@page { size: auto; margin: 12mm; }'));
+  assert.ok(html.includes('@page { size: letter portrait; margin: 10mm; }'));
 });
 
 test('unknown meal types and malicious names cannot inject attributes or SVG', () => {
