@@ -11,16 +11,16 @@ test('Legado branding uses the supplied image in a self-contained document, incl
     const html = buildMealMenuDocument([meal('2026-11-06', 'dinner')], name, theme);
     assert.ok(html.includes(`src="${LEGADO_MENU_LOGO}"`));
     assert.ok(html.includes('alt="Logo oficial del II Bi-Camporee Legado"'));
-    assert.ok(html.includes('img-src data:'));
+    assert.ok(html.includes("img-src 'self' data:"));
     assert.ok(!html.includes('class="hero-icon"'));
   }
   const generic = buildMealMenuDocument([], 'Otro camporee');
   assert.ok(!generic.includes(LEGADO_MENU_LOGO));
 });
 
-test('print uses the app Polymet palette, typography, round cards and inline icons', () => {
+test('print follows the Legado schedule style with dark day bars, gold labels and a quiet emblem', () => {
   const html = buildMealMenuDocument([meal('2026-11-06', 'dinner')], 'Legado');
-  for (const token of ['#fdf8f5', '#2b211c', '#fa8943', '#fde9dd', '#e2ebd6', 'font-family: Poppins', 'border-radius: 22px', 'data-design="camporee-polymet"']) {
+  for (const token of ['#161310', '#ffbd05', 'font-family: Poppins', 'class="column-heading"', 'has-legado', "url('/legado-emblem-v1.png')", 'data-design="camporee-polymet"']) {
     assert.ok(html.includes(token), token);
   }
   assert.ok(html.includes('<svg '));
@@ -51,7 +51,7 @@ test('print is readable, unstruck and supports pagination, with no remote resour
   assert.ok(!html.includes('<script'));
   assert.ok(!html.includes('<link'));
   assert.ok(!html.includes('@import'));
-  assert.ok(!html.includes('url('));
+  assert.ok(html.includes("url('/legado-emblem-v1.png')"));
   assert.ok(html.includes("default-src 'none'"));
   assert.ok(html.includes('break-inside: avoid'));
   assert.ok(html.includes('overflow-wrap: anywhere'));
