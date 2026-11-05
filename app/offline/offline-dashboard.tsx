@@ -11,13 +11,15 @@ import {downloadProgramCalendar} from '@/lib/program-calendar';
 import {applyOfflineMutations,currentOfflineIdentity,listOfflineSnapshots,updateOfflineSnapshot,type OfflineSnapshot} from '@/lib/offline-snapshot';
 import styles from './offline-dashboard.module.css';
 import type {} from '@/lib/launch-bootstrap';
+import RulesScreen from '@/app/more/rules/rules-screen';
 
-type Panel='program'|'meals'|'tasks'|'lists';
+type Panel='program'|'meals'|'tasks'|'lists'|'rules';
 const panels:{id:Panel;label:string;path:string}[]=[
   {id:'program',label:'Programa',path:'/program'},
   {id:'meals',label:'Comidas',path:'/more/meals'},
   {id:'tasks',label:'Tareas',path:'/tasks'},
   {id:'lists',label:'Listas',path:'/more/lists'},
+  {id:'rules',label:'Reglas',path:'/more/rules'},
 ];
 const formatDay=(value:string)=>new Intl.DateTimeFormat('es-DO',{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'}).format(new Date(`${value.slice(0,10)}T12:00:00Z`));
 const mealLabel=(value:string)=>({breakfast:'Desayuno',lunch:'Almuerzo',snack:'Merienda',dinner:'Cena'}[value]??value);
@@ -94,6 +96,7 @@ export default function OfflineDashboard() {
 
   if(loading)return <p className={styles.message}>Abriendo la copia guardada…</p>;
   if(!snapshot)return <section className={styles.empty}><CloudOff size={28}/><h2>Sin copia disponible</h2><p>{error||'Abre Camporee con internet y entra a tu camporee una vez para preparar Programa, Comidas, Tareas y Listas en este dispositivo.'}</p><a href="/" className="primary-btn auth-link-btn">Intentar de nuevo</a></section>;
+  if(panel==='rules')return <RulesScreen camporeeName={snapshot.camporeeName} onClose={()=>setPanel('program')}/>;
   const target=tenantPath(snapshot,panels.find(item=>item.id===panel)!.path);
   return <div className={styles.dashboard}>
     <header className={styles.header}><span className="auth-kicker"><CloudOff size={13}/> COPIA EN ESTE DISPOSITIVO</span><h1>{snapshot.camporeeName}</h1><p>Guardada el {new Intl.DateTimeFormat('es-DO',{dateStyle:'medium',timeStyle:'short',timeZone:snapshot.timeZone}).format(snapshot.savedAt)}. Los cambios nuevos de otras personas aparecerán cuando tengas conexión.</p></header>

@@ -15,6 +15,7 @@ import DocumentsPage from '@/app/more/documents/page';
 import EmergencyPage from '@/app/more/emergency/page';
 import InventoryPage from '@/app/more/inventory/page';
 import HistoryPage from '@/app/more/history/page';
+import RulesPage from '@/app/more/rules/page';
 import ListsPage from '@/app/more/lists/page';
 import ListDetailPage from '@/app/more/lists/[listId]/page';
 import ListDetailLoading from '@/app/more/lists/[listId]/list-detail-loading';
@@ -32,7 +33,7 @@ const screens={
   'more/activities':ActivitiesPage,'more/announcements':AnnouncementsPage,'more/attendance':AttendancePage,
   'more/budget':BudgetPage,'more/documents':DocumentsPage,'more/emergency':EmergencyPage,'more/inventory':InventoryPage,'more/history':HistoryPage,
   'more/lists':ListsPage,'more/meals':MealsPage,'more/notes':NotesPage,'more/participants':ParticipantsPage,
-  'more/settings':SettingsPage,'more/songs':SongsPage,
+  'more/settings':SettingsPage,'more/songs':SongsPage,'more/rules':RulesPage,
 };
 type RouteParams={organizationId:string;camporeeId:string;panel?:string[]};
 export default async function CamporeePage({params,searchParams}:{params:Promise<RouteParams>;searchParams:Promise<Record<string,string|string[]|undefined>>}) {
@@ -56,6 +57,6 @@ export default async function CamporeePage({params,searchParams}:{params:Promise
     : Screen ? <><Screen params={params} searchParams={Promise.resolve(query)}/>{ready}</> : notFound();
   return <NavigationPanelsProvider panels={context.camporee.navigation_panels}><div key={`${context.userId}:${context.organizationId}:${context.camporeeId}`}>
     <EventIntros userId={context.userId} organizationId={context.organizationId} organizer={context.organization.name} memberName={context.user.user_metadata?.full_name?.split(' ')[0]||'Conquistador'} camporee={context.camporee}/>
-    {panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
+    {panel==='more/rules'?content:panel==='more'||panel.startsWith('more/')?<MoreLayout>{content}</MoreLayout>:content}
   </div></NavigationPanelsProvider>;
 }

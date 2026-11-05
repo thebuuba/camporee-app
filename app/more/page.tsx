@@ -8,6 +8,7 @@ import {signedAvatar} from '@/lib/avatars';
 
 const modules = [
   [CalendarClock, "Programa", "Horarios y actividades", "/program", "sky"],
+  [ShieldCheck, "Reglas del camporee", "14 acuerdos de convivencia", "/more/rules", "sage"],
   [Music2, "Canciones del club", "Himnos y camporee", "/more/songs", "yellow"],
   [Megaphone, "Avisos", "Mensajes al equipo", "/more/announcements", "peach"],
   [ClipboardCheck, "Pases de lista", "Asistencia y conteos", "/more/attendance", "sage"],
