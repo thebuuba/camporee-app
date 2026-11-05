@@ -2,8 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMealMenuDocument } from '../lib/meal-menu.ts';
 import { prepareMealMenuFonts } from '../lib/meal-menu-fonts.ts';
+import { LEGADO_MENU_LOGO } from '../lib/legado-menu-logo.mjs';
 
 const meal = (meal_date, meal_type, menu = meal_type) => ({ meal_date, meal_type, menu });
+
+test('Legado branding uses the supplied image in a self-contained document, including theme-based events', () => {
+  for (const [name, theme] of [['Bi-Camporee Legado', ''], ['Bi-Camporee 2026', 'Legado']]) {
+    const html = buildMealMenuDocument([meal('2026-11-06', 'dinner')], name, theme);
+    assert.ok(html.includes(`src="${LEGADO_MENU_LOGO}"`));
+    assert.ok(html.includes('alt="Logo oficial del II Bi-Camporee Legado"'));
+    assert.ok(html.includes('img-src data:'));
+    assert.ok(!html.includes('class="hero-icon"'));
+  }
+  const generic = buildMealMenuDocument([], 'Otro camporee');
+  assert.ok(!generic.includes(LEGADO_MENU_LOGO));
+});
 
 test('print uses the app Polymet palette, typography, round cards and inline icons', () => {
   const html = buildMealMenuDocument([meal('2026-11-06', 'dinner')], 'Legado');

@@ -1,3 +1,5 @@
+import { LEGADO_MENU_LOGO } from './legado-menu-logo.mjs';
+
 /** Primary choices match the menu; legacy morning snacks remain supported. */
 export const MEAL_TYPES = [
   ['breakfast', 'Desayuno'],
@@ -94,9 +96,10 @@ function menuDateRange(days: readonly { date: string }[]): string {
  * The client shares the app's already loaded Poppins faces before enabling print.
  * Never copy the live cards: their elapsed/strike-through state is screen-only.
  */
-export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: string): string {
+export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: string, camporeeTheme = ''): string {
   const days = groupMealsForMenu(meals);
   const name = escapeHtml(camporeeName.trim() || 'Camporee');
+  const isLegado = /\blegado\b/i.test(`${camporeeName} ${camporeeTheme}`);
   const sections = days.map(({ date, meals: entries }) => `
     <section class="day" aria-label="${escapeHtml(formatMenuDate(date, { weekday: 'long', day: 'numeric', month: 'long' }))}">
       <header class="day-heading">
@@ -121,7 +124,7 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <title>Menú — ${name}</title>
   <style>
     /* Match app/polymet-theme.css and app/polymet-panels-b.css, not the legacy green theme. */
@@ -142,6 +145,7 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
     .event { margin: 0; color: #6c625b; font-size: 13px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
     .hero-icon { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 50%; display: grid; place-items: center; background: var(--pm-peach); color: #a14f23; }
     .hero-icon svg { width: 27px; height: 27px; }
+    .event-logo { display: block; width: 108px; height: 106px; flex: 0 0 108px; object-fit: contain; border-radius: 12px; }
     .date-range { display: inline-flex; align-items: center; gap: 7px; margin: 13px 0 0; padding: 5px 11px; background: #fff; border: 1px solid #f1e5dc; border-radius: 999px; color: #6c625b; font-size: 10px; line-height: 1.5; }
     .date-range svg { width: 13px; height: 13px; color: #a14f23; }
     .day { margin: 0 0 12px; padding: 0 16px 3px; border: 1px solid var(--pm-line); border-radius: 22px; background: #fff; break-inside: avoid; page-break-inside: avoid; box-shadow: 0 3px 12px rgba(84,56,39,.035); }
@@ -172,6 +176,7 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
       h1 { font-size: 25px; }
       .hero-icon { width: 43px; height: 43px; flex-basis: 43px; }
       .hero-icon svg { width: 22px; height: 22px; }
+      .event-logo { width: 88px; height: 86px; flex-basis: 88px; }
       .title-row { gap: 10px; }
       .event { font-size: 11px; }
       .kicker { font-size: 9px; }
@@ -206,8 +211,8 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
 <body>
   <main class="menu" data-design="camporee-polymet">
     <header class="masthead">
-      <div class="brand-row"><span class="brand">${menuIcon('camp')}Camporee</span><span class="kicker">Plan de alimentación</span></div>
-      <div class="title-row"><div class="title-copy"><h1>Menú del camporee</h1><p class="event">${name}</p></div><span class="hero-icon">${menuIcon('utensils')}</span></div>
+      <div class="brand-row"><span class="brand">${isLegado ? 'II Bi-Camporee' : `${menuIcon('camp')}Camporee`}</span><span class="kicker">Plan de alimentación</span></div>
+      <div class="title-row"><div class="title-copy"><h1>Menú del camporee</h1><p class="event">${name}</p></div>${isLegado ? `<img class="event-logo" src="${LEGADO_MENU_LOGO}" alt="Logo oficial del II Bi-Camporee Legado" width="108" height="106">` : `<span class="hero-icon">${menuIcon('utensils')}</span>`}</div>
       <p class="date-range">${menuIcon('calendar')}<span>${escapeHtml(menuDateRange(days))}</span></p>
     </header>
     ${sections || '<p class="empty">Todavía no hay comidas planificadas.</p>'}

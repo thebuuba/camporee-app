@@ -13,8 +13,8 @@ import { PackageCheck, Pencil, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { confirmRemoval, reportMutationError, reportMutationSuccess } from '@/lib/client-ui';
 
-export default function MealManager({ camporeeId, camporeeName = 'Camporee', timeZone = DEFAULT_MEAL_TIME_ZONE, canEdit, canEditLists, initialMeals, inventory, initialLists }: {
-  camporeeId: string; camporeeName?: string; timeZone?: string; canEdit: boolean; canEditLists: boolean;
+export default function MealManager({ camporeeId, camporeeName = 'Camporee', camporeeTheme = '', timeZone = DEFAULT_MEAL_TIME_ZONE, canEdit, canEditLists, initialMeals, inventory, initialLists }: {
+  camporeeId: string; camporeeName?: string; camporeeTheme?: string; timeZone?: string; canEdit: boolean; canEditLists: boolean;
   initialMeals: any[]; inventory: any[]; initialLists: any[];
 }) {
   const [meals, setMeals] = useState(initialMeals);
@@ -117,7 +117,7 @@ export default function MealManager({ camporeeId, camporeeName = 'Camporee', tim
   }
 
   return <>
-    <MealMenuPrint meals={meals} camporeeName={camporeeName}/>
+    <MealMenuPrint meals={meals} camporeeName={camporeeName} camporeeTheme={camporeeTheme}/>
     <MealTimeline meals={meals} timeZone={timeZone} onSelect={setSelectedMeal}
       missingCount={meal => (meals.find(item => item.id === meal.id)?.meal_ingredients || []).filter((ingredient: any) => shortage(ingredient) > 0).length}/>
 
