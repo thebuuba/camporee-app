@@ -6,14 +6,19 @@ export type OfflineList = { id:string; title:string; category:string|null; list_
 export type OfflineSnapshot = {
   key:string; ownerId:string; organizationId:string; camporeeId:string;
   camporeeName:string; timeZone:string; savedAt:number;
-  canEditTasks:boolean; canEditLists:boolean;
-  program:OfflineEvent[]; meals:OfflineMeal[]; tasks:OfflineTask[]; lists:OfflineList[];
+  canEditTasks:boolean; canEditLists:boolean; canEditRules?:boolean;
+  program:OfflineEvent[]; meals:OfflineMeal[]; tasks:OfflineTask[]; lists:OfflineList[]; rules?:string[];
 };
 
 export type OfflineMutation={table:string;method:string;id:string|null;payload:Record<string,unknown>|null};
 export function applyOfflineMutations(snapshot:OfflineSnapshot,mutations:OfflineMutation[]):OfflineSnapshot {
   let result=snapshot;
   for(const change of mutations){
+    if(change.table==='camporee_rule_sets'&&change.method==='PATCH'&&Array.isArray(change.payload?.rules)
+      &&change.payload.rules.every(rule=>typeof rule==='string')){
+      result={...result,rules:change.payload.rules as string[]};
+      continue;
+    }
     const key=({schedule_events:'program',meals:'meals',tasks:'tasks',lists:'lists'} as Record<string,'program'|'meals'|'tasks'|'lists'>)[change.table];
     if(change.table==='list_items'){
       const id=change.id;

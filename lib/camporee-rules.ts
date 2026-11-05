@@ -1,4 +1,4 @@
-/** Read-only camporee guidance, shared with the offline shell. */
+/** Published defaults for every new camporee and older offline copies. */
 export const CAMPOREE_RULES = [
   'Respetar a los directores, consejeros, dirigentes y compañeros.',
   'No decir palabras obscenas.',
@@ -15,3 +15,14 @@ export const CAMPOREE_RULES = [
   'Respetar las opiniones de los demás.',
   'Respetar el toque de queda.',
 ] as const;
+
+export const MAX_CAMPOREE_RULES = 60;
+export const MAX_RULE_LENGTH = 500;
+
+export function cleanCamporeeRule(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+export function formatCamporeeRulesForShare(camporeeName: string, rules: readonly string[]): string {
+  return `*Reglas del camporee · ${camporeeName}*\n\n${rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n')}\n\nCaro y Juan Daniel`;
+}

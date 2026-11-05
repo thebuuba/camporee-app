@@ -34,9 +34,9 @@ const sql = [
   `] : []),
   ...(process.argv.includes('--legacy') ? [] : tenant.map(name => read(`supabase/migrations/${name}`))),
   read('supabase/tests/multi-tenant.sql').replace(/select finish\(\);\s*$/, ''),
-  read('supabase/tests/data-contracts.sql'), read('supabase/tests/durable-delivery.sql'), read('supabase/tests/navigation.sql'), read('supabase/tests/activity-history.sql'), 'select finish();', 'rollback;',
+  read('supabase/tests/data-contracts.sql'), read('supabase/tests/durable-delivery.sql'), read('supabase/tests/navigation.sql'), read('supabase/tests/activity-history.sql'), read('supabase/tests/camporee-rules.sql'), 'select finish();', 'rollback;',
 ].join('\n');
 const result = spawnSync('docker', ['exec', '-i', '-e', 'PGPASSWORD=camporee-local-test', container, 'psql', '-U', 'supabase_admin', '-d', 'postgres', '-X', '-v', 'ON_ERROR_STOP=1'], { input: sql, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
 const output = result.stdout + result.stderr;
-console.log(output.split('\n').filter(line => /(^ok |^not ok |^1\.\.|ERROR|DETAIL|CONTEXT|Looks like)/.test(line.trim())).join('\n'));
+console.log(output.split('\n').filter(line => /(^ok |^not ok |^1\.\.|^# |ERROR|DETAIL|CONTEXT|Looks like)/.test(line.trim())).join('\n'));
 if (result.status || /not ok |Looks like you failed/.test(output)) process.exit(1);

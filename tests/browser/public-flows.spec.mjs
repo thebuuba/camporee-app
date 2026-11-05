@@ -90,7 +90,7 @@ test('offline panels show only the prepared account and queue a task change', as
     });
     await new Promise((resolve,reject)=>{
       const tx=db.transaction('snapshots','readwrite');
-      tx.objectStore('snapshots').put({key:`${owner}:${organization}:${camporee}`,ownerId:owner,organizationId:organization,camporeeId:camporee,camporeeName:'Legado',timeZone:'America/Santo_Domingo',savedAt:Date.now(),canEditTasks:true,canEditLists:true,
+      tx.objectStore('snapshots').put({key:`${owner}:${organization}:${camporee}`,ownerId:owner,organizationId:organization,camporeeId:camporee,camporeeName:'Legado',timeZone:'America/Santo_Domingo',savedAt:Date.now(),canEditTasks:true,canEditLists:true,canEditRules:true,rules:['Respetar al equipo.'],
         program:[{id:'70000000-0000-4000-8000-000000000001',title:'Apertura',starts_at:'2026-11-06T12:00:00Z',ends_at:null,description:null,location:null}],
         meals:[{id:'80000000-0000-4000-8000-000000000001',meal_date:'2026-11-06',meal_type:'breakfast',meal_time:'08:00:00',menu:'Arroz de prueba',notes:null}],
         tasks:[{id:'90000000-0000-4000-8000-000000000001',title:'Preparar carpas',description:null,status:'pending',due_at:null,phase:null}],
@@ -117,6 +117,25 @@ test('offline panels show only the prepared account and queue a task change', as
     expect(queued).toHaveLength(1);
     expect(queued[0].ownerId).toBe('10000000-0000-4000-8000-000000000001');
     expect(queued[0].body).toBe('{"status":"done"}');
+    await page.getByRole('button',{name:'Reglas'}).click();
+    await expect(page.getByRole('link',{name:'Compartir por WhatsApp'})).toHaveAttribute('href',/wa\.me\/\?text=.*Respetar%20al%20equipo/);
+    await page.getByRole('button',{name:'Agregar regla'}).click();
+    await page.getByRole('textbox',{name:'Texto de la regla'}).fill('Cuidar el agua.');
+    await page.getByRole('button',{name:'Guardar regla'}).click();
+    await expect(page.getByRole('list',{name:'Reglas del camporee'}).getByText('Cuidar el agua.')).toBeVisible();
+    await page.getByRole('button',{name:'Editar reglas'}).click();
+    await page.getByRole('textbox',{name:'Texto de la regla'}).fill('Respetar a todos.');
+    await page.getByRole('button',{name:'Guardar regla'}).click();
+    await expect(page.getByRole('list',{name:'Reglas del camporee'}).getByText('Respetar a todos.')).toBeVisible();
+    await expect(page.getByRole('link',{name:'Compartir por WhatsApp'})).toHaveAttribute('href',/Respetar%20a%20todos/);
+    const saved=await page.evaluate(async()=>{
+      const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('camporee-offline',1);request.onsuccess=()=>resolve(request.result);request.onerror=reject;});
+      const rows=await new Promise((resolve,reject)=>{const request=db.transaction('requests').objectStore('requests').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=reject;});
+      db.close();return rows;
+    });
+    expect(saved).toHaveLength(3);
+    expect(saved.filter(row=>row.url.includes('camporee_rule_sets')).map(row=>JSON.parse(row.body).rules)).toEqual(expect.arrayContaining([
+      ['Respetar al equipo.','Cuidar el agua.'],['Respetar a todos.','Cuidar el agua.']]));
     await page.evaluate(()=>localStorage.setItem('camporee-offline-identity-v1','10000000-0000-4000-8000-000000000002'));
     await page.reload({waitUntil:'domcontentloaded'});
     await expect(page.getByRole('heading',{name:'Sin copia disponible'})).toBeVisible();
