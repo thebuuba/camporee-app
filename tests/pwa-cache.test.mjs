@@ -232,7 +232,7 @@ test('una actualización recupera la pantalla offline de la versión anterior si
   worker.listeners.get('activate')({ waitUntil(value) { activation = value; } });
   await activation;
   assert.equal(worker.writes.length, 1);
-  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v24');
+  assert.equal(worker.writes[0].cacheName, 'camporee-shell-v25');
   assert.equal(await worker.writes[0].response.text(), 'Pantalla offline anterior');
 });
 

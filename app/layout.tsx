@@ -50,6 +50,7 @@ import "./home-shortcuts.css";
 import "./panel-contrast.css";
 import ThemeProvider from "./components/theme-provider";
 import { themeInitScript } from "@/lib/theme";
+import { launchInitScript } from "@/lib/launch-bootstrap";
 
 const appBackground = "#fdf8f5";
 
@@ -72,5 +73,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="es" suppressHydrationWarning><head><meta name="theme-color" content={appBackground} /><meta name="color-scheme" content="light" /><script dangerouslySetInnerHTML={{ __html: themeInitScript }} /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=11" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=11" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=11" /></head><body><ThemeProvider><AppSplash/><PwaRegister /><ConnectionStatus /><DataFreshness /><OfflinePrimer /><MusicPlayer>{children}</MusicPlayer></ThemeProvider></body></html>;
+  return <html lang="es" suppressHydrationWarning><head><meta name="theme-color" content={appBackground} /><meta name="color-scheme" content="light" /><script dangerouslySetInnerHTML={{ __html: themeInitScript }} /><script dangerouslySetInnerHTML={{ __html: launchInitScript }} /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=11" /><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png?v=11" /><link rel="icon" type="image/png" sizes="512x512" href="/camporee-logo-v8.png?v=11" /></head><body><ThemeProvider><AppSplash/><div id="camporee-app"><PwaRegister /><ConnectionStatus /><DataFreshness /><OfflinePrimer /><MusicPlayer>{children}</MusicPlayer></div></ThemeProvider></body></html>;
 }

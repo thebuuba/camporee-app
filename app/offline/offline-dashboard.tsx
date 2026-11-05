@@ -10,6 +10,7 @@ import {queueOfflineCheck,readLocalMutations} from '@/lib/offline-fetch';
 import {downloadProgramCalendar} from '@/lib/program-calendar';
 import {applyOfflineMutations,currentOfflineIdentity,listOfflineSnapshots,updateOfflineSnapshot,type OfflineSnapshot} from '@/lib/offline-snapshot';
 import styles from './offline-dashboard.module.css';
+import type {} from '@/lib/launch-bootstrap';
 
 type Panel='program'|'meals'|'tasks'|'lists';
 const panels:{id:Panel;label:string;path:string}[]=[
@@ -31,6 +32,7 @@ export default function OfflineDashboard() {
   const [busy,setBusy]=useState('');
   const [online,setOnline]=useState(false);
   const snapshot=copies.find(row=>row.key===selected);
+  useEffect(()=>{if(!loading)window.__camporeeLaunch?.ready();},[loading]);
 
   useEffect(()=>{
     let active=true;
