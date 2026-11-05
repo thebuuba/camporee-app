@@ -14,6 +14,11 @@
 .actions{display:grid;gap:9px;margin-top:20px}
 .share,.editActions button,.formActions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border-radius:15px;border:0;font:inherit;font-size:12px;font-weight:650;cursor:pointer;text-decoration:none}
 .share{width:100%;background:var(--pm-sage,#e2ebd6);color:var(--pm-ink,#2b211c)}
+.shareOptions{display:grid;gap:6px;padding:8px;border:1px solid var(--pm-line,#f0e9e3);border-radius:18px;background:var(--pm-bg,#fdf8f5)}
+.shareOptions :is(a,button){display:flex;align-items:center;gap:13px;min-height:57px;width:100%;padding:9px 12px;border:0;border-radius:13px;background:var(--dark-surface,#fff);color:var(--pm-ink,#2b211c);font:inherit;text-align:left;text-decoration:none;cursor:pointer}
+.shareOptions :is(a,button)>svg{flex:none;color:var(--pm-orange,#a14f23)}
+.shareOptions span{display:grid;gap:2px}.shareOptions strong{font-size:13px;font-weight:650}.shareOptions small{font-size:11px;color:var(--pm-muted,#827973)}
+.shareOptions button:disabled{opacity:.5;cursor:wait}.shareOptions p{margin:2px 8px 5px;font-size:11px;color:var(--pm-muted,#827973)}
 .editActions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .editActions button{padding:8px 6px;background:var(--pm-peach,#fde9dd);color:var(--pm-ink,#2b211c)}
 .editActions button:last-child{background:var(--pm-bg,#fdf8f5)}

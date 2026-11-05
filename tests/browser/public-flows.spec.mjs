@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {writeFile} from 'node:fs/promises';
 
 async function observeLaunches(page, installed = false) {
   await page.addInitScript(({ installed }) => {
@@ -74,7 +75,7 @@ test('the installed app opens its styled offline fallback after losing connectio
   }
 });
 
-test('offline panels show only the prepared account and queue a task change', async ({ page, context }) => {
+test('offline panels show only the prepared account and queue a task change', async ({ page, context }, info) => {
   await page.goto('/login');
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.evaluate(async () => {
@@ -118,7 +119,8 @@ test('offline panels show only the prepared account and queue a task change', as
     expect(queued[0].ownerId).toBe('10000000-0000-4000-8000-000000000001');
     expect(queued[0].body).toBe('{"status":"done"}');
     await page.getByRole('button',{name:'Reglas'}).click();
-    await expect(page.getByRole('link',{name:'Compartir por WhatsApp'})).toHaveAttribute('href',/wa\.me\/\?text=.*Respetar%20al%20equipo/);
+    await page.getByRole('button',{name:'Compartir',exact:true}).click();
+    await expect(page.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href',/wa\.me\/\?text=.*Respetar%20al%20equipo/);
     await page.getByRole('button',{name:'Agregar regla'}).click();
     await page.getByRole('textbox',{name:'Texto de la regla'}).fill('Cuidar el agua.');
     await page.getByRole('button',{name:'Guardar regla'}).click();
@@ -127,7 +129,33 @@ test('offline panels show only the prepared account and queue a task change', as
     await page.getByRole('textbox',{name:'Texto de la regla'}).fill('Respetar a todos.');
     await page.getByRole('button',{name:'Guardar regla'}).click();
     await expect(page.getByRole('list',{name:'Reglas del camporee'}).getByText('Respetar a todos.')).toBeVisible();
-    await expect(page.getByRole('link',{name:'Compartir por WhatsApp'})).toHaveAttribute('href',/Respetar%20a%20todos/);
+    await expect(page.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href',/Respetar%20a%20todos/);
+    await page.evaluate(()=>{
+      window.__ruleShares=[];
+      Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});
+      Object.defineProperty(navigator,'share',{configurable:true,value:async ({files})=>{
+        (window.__ruleExportFiles??={})[files[0].type]=files[0];
+        window.__ruleShares.push(await Promise.all(files.map(async file=>({name:file.name,type:file.type,size:file.size,header:[...new Uint8Array(await file.slice(0,8).arrayBuffer())]}))));
+      }});
+    });
+    await expect(page.getByRole('button',{name:/Imagen/})).toBeEnabled();
+    await page.screenshot({path:info.outputPath('compartir.png')});
+    await page.getByRole('button',{name:/Imagen/}).click();
+    await page.getByRole('button',{name:/PDF/}).click();
+    await expect.poll(()=>page.evaluate(()=>window.__ruleShares.length)).toBe(2);
+    const exports=await page.evaluate(()=>window.__ruleShares);
+    expect(exports[0][0]).toMatchObject({type:'image/png',header:[137,80,78,71,13,10,26,10]});
+    expect(exports[1][0]).toMatchObject({type:'application/pdf',header:[37,80,68,70,45,49,46,52]});
+    expect(exports[0][0].size).toBeGreaterThan(10000);
+    expect(exports[1][0].size).toBeGreaterThan(10000);
+    const generated=await page.evaluate(async()=>{
+      const files=window.__ruleExportFiles;
+      return Promise.all(['image/png','application/pdf'].map(type=>new Promise(resolve=>{
+        const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.readAsDataURL(files[type]);
+      })));
+    });
+    await writeFile(info.outputPath('reglas.png'),Buffer.from(generated[0],'base64'));
+    await writeFile(info.outputPath('reglas.pdf'),Buffer.from(generated[1],'base64'));
     const saved=await page.evaluate(async()=>{
       const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('camporee-offline',1);request.onsuccess=()=>resolve(request.result);request.onerror=reject;});
       const rows=await new Promise((resolve,reject)=>{const request=db.transaction('requests').objectStore('requests').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=reject;});

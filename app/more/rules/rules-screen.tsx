@@ -2,12 +2,13 @@
 
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {useRouter} from 'next/navigation';
-import {ArrowLeft,MessageCircle,Plus,Pencil,ShieldCheck} from 'lucide-react';
+import {ArrowLeft,FileText,Image as ImageIcon,MessageCircle,Plus,Pencil,Share2,ShieldCheck} from 'lucide-react';
 import Link from '@/app/components/tenant-link';
 import {createClient} from '@/lib/supabase/client';
 import {mutationProblem,mutationNotice} from '@/lib/mutation-result';
 import {reportMutationError,reportMutationSuccess} from '@/lib/client-ui';
 import {CAMPOREE_RULES,MAX_CAMPOREE_RULES,MAX_RULE_LENGTH,cleanCamporeeRule,formatCamporeeRulesForShare} from '@/lib/camporee-rules';
+import {createCamporeeRulesFiles} from '@/lib/camporee-rules-export';
 import styles from './rules.module.css';
 
 type Props={camporeeName:string;camporeeId?:string;initialRules?:readonly string[];canEdit?:boolean;onClose?:()=>void;onSave?:(rules:string[])=>Promise<void>};
@@ -20,9 +21,39 @@ export default function RulesScreen({camporeeName,camporeeId,initialRules=CAMPOR
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [shareOpen,setShareOpen]=useState(false);
+  const [shareFiles,setShareFiles]=useState<Awaited<ReturnType<typeof createCamporeeRulesFiles>>|null>(null);
+  const [shareProblem,setShareProblem]=useState('');
   const input=useRef<HTMLTextAreaElement>(null);
   const router=useRouter();
   useEffect(()=>{setRules([...initialRules]);},[initialRules]);
+  useEffect(()=>{
+    if(!shareOpen)return;
+    let active=true;
+    createCamporeeRulesFiles(camporeeName,rules).then(files=>{
+      if(active){setShareFiles(files);setShareProblem('');}
+    }).catch(()=>{if(active)setShareProblem('No se pudieron preparar los archivos en este dispositivo.');});
+    return()=>{active=false;};
+  },[shareOpen,camporeeName,rules]);
+
+  function download(files:File[]){
+    for(const file of files){
+      const url=URL.createObjectURL(file);
+      const anchor=document.createElement('a');anchor.href=url;anchor.download=file.name;
+      document.body.append(anchor);anchor.click();anchor.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }
+    setNotice(files.length>1?'Imágenes descargadas. Puedes enviarlas desde tus archivos.':'Archivo descargado. Puedes enviarlo desde tus archivos.');
+  }
+
+  function shareDocuments(files:File[]){
+    if(typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare({files}))){
+      void navigator.share({files,title:`Reglas del camporee · ${camporeeName}`}).catch(cause=>{
+        if(cause instanceof Error&&cause.name==='AbortError')return;
+        download(files);
+      });
+    }else download(files);
+  }
 
   function openEditor(next:'add'|'edit') {
     setError('');setNotice('');setMode(next);
@@ -49,7 +80,7 @@ export default function RulesScreen({camporeeName,camporeeId,initialRules=CAMPOR
         reportMutationSuccess(mutationNotice(result.status,'Reglas guardadas.'));
         if(result.status!==202)router.refresh();
       }
-      setRules(next);setMode(null);
+      setShareFiles(null);setRules(next);setMode(null);
       setNotice(onSave?'Guardado en este dispositivo. Se sincronizará al volver a conectarte.':'Reglas guardadas.');
     }catch(cause){setError(reportMutationError(cause,'No se pudo guardar la regla.'));}
     finally{setSaving(false);}
@@ -71,7 +102,14 @@ export default function RulesScreen({camporeeName,camporeeId,initialRules=CAMPOR
         <p>{camporeeName}</p>
         <span className={styles.credit}>Caro y Juan Daniel</span>
         <div className={styles.actions}>
-          <a href={share} target="_blank" rel="noopener noreferrer" className={styles.share}><MessageCircle size={18}/> Compartir por WhatsApp</a>
+          <button type="button" className={styles.share} aria-expanded={shareOpen} aria-controls="rule-share-options" onClick={()=>{setShareOpen(open=>!open);setShareFiles(null);setShareProblem('');}}><Share2 size={18}/> Compartir</button>
+          {shareOpen?<div id="rule-share-options" className={styles.shareOptions} aria-label="Opciones para compartir">
+            <a href={share} target="_blank" rel="noopener noreferrer"><MessageCircle size={19}/><span><strong>WhatsApp</strong><small>Enviar las reglas como mensaje</small></span></a>
+            <button type="button" disabled={!shareFiles} onClick={()=>shareFiles&&shareDocuments(shareFiles.images)}><ImageIcon size={19}/><span><strong>Imagen</strong><small>Compartir en PNG</small></span></button>
+            <button type="button" disabled={!shareFiles} onClick={()=>shareFiles&&shareDocuments([shareFiles.pdf])}><FileText size={19}/><span><strong>PDF</strong><small>Documento tamaño carta</small></span></button>
+            {!shareFiles&&!shareProblem?<p role="status">Preparando imagen y PDF…</p>:null}
+            {shareProblem?<p role="alert">{shareProblem}</p>:null}
+          </div>:null}
           {canEdit?<div className={styles.editActions}>
             <button type="button" onClick={()=>openEditor('add')} disabled={saving||rules.length>=MAX_CAMPOREE_RULES}><Plus size={17}/> Agregar regla</button>
             <button type="button" onClick={()=>openEditor('edit')} disabled={saving}><Pencil size={16}/> Editar reglas</button>
