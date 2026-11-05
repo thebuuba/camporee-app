@@ -49,12 +49,13 @@ export default function AppSplash({ camporee, scope }: { camporee?: LaunchCampor
     if (branded) legadoChecked.add(key); else launchChecked = true;
     if (pathname === '/signup' || pathname.startsWith('/auth/') || (!branded && (pathname === '/offline' || !navigator.onLine))) return;
     // Installed apps skip the generic welcome, but retain the event branding.
-    // Reloads, history and same-origin document navigation are not fresh launches.
+    // A first reload may reveal newly enabled branding; its session marker then
+    // prevents repeats. History and same-origin navigation still skip the cover.
     const installed = window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone;
     const navigation = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
     const internal = document.referrer && new URL(document.referrer).origin === window.location.origin;
-    if ((!branded && installed) || internal || (navigation && navigation.type !== 'navigate')) return;
+    if ((!branded && installed) || internal || (navigation && navigation.type !== 'navigate' && !(branded && navigation.type === 'reload'))) return;
     try {
       if (window.sessionStorage.getItem(key) === 'yes') return;
       window.sessionStorage.setItem(key, 'yes');
