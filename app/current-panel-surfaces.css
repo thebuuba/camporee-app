@@ -1,0 +1,16 @@
+/* The three reading/operational screens share the current More panel surface.
+   Scope these over the older outdoor overrides without affecting other panels. */
+.program-page.app,.polymet-meals.app{background:var(--pm-bg)!important;color:var(--pm-ink)!important}
+.program-page .program-row.ios-card:not(.is-ongoing){background:var(--dark-surface,#fff)!important;border:0!important;border-radius:24px!important;box-shadow:var(--pm-shadow)!important}
+.program-page .program-row:not(.is-ongoing) .polymet-event-time{background:var(--pm-peach)!important;color:var(--pm-ink)!important}
+.program-page .program-row:not(.is-ongoing) .polymet-event-time small{color:var(--pm-muted)!important}
+.program-page .program-day-head>div strong{color:var(--pm-ink)!important}
+.program-page .program-day-head>div span{color:var(--pm-muted)!important}
+.program-page .program-date-picker button{border:1px solid var(--pm-line)!important;background:var(--dark-surface,#fff)!important;color:var(--pm-ink)!important;box-shadow:var(--pm-shadow)!important}
+.program-page .program-date-picker button.active{background:var(--pm-peach)!important;border-color:var(--pm-orange)!important;color:var(--pm-ink)!important}
+.program-page .program-notifications summary{border:0!important;background:var(--dark-surface,#fff)!important;color:var(--pm-ink)!important;box-shadow:var(--pm-shadow)!important}
+.program-page .panel-search{background:var(--dark-surface,#fff)!important;border:0!important;box-shadow:var(--pm-shadow)!important;opacity:1!important}
+.program-page .panel-add,.polymet-meals .primary-btn{background:var(--pm-orange)!important;border:0!important;color:var(--pm-ink)!important;box-shadow:var(--pm-shadow)!important;border-radius:16px!important}
+.program-page .secondary-btn,.polymet-meals .secondary-btn{background:var(--dark-surface,#fff)!important;border:1px solid var(--pm-line)!important;color:var(--pm-ink)!important;box-shadow:var(--pm-shadow)!important}
+.polymet-meals .back-btn{background:var(--dark-surface,#fff)!important;border:0!important;border-radius:16px!important;color:var(--pm-ink)!important;box-shadow:var(--pm-shadow)!important}
+.polymet-meals .subpage-top small{color:var(--pm-muted)!important}
