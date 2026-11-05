@@ -1,7 +1,7 @@
 /** A top-level print document, never a hidden/sandboxed print frame. */
 export function mealPrintPolicy(nonce: string): string {
   if (!/^[a-f0-9]{32}$/.test(nonce)) throw new Error('Invalid print nonce');
-  return `default-src 'none'; img-src data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'`;
+  return `default-src 'none'; img-src 'self' data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'`;
 }
 
 // Fixed application code only. Never interpolate meals, names, URLs or other
@@ -89,7 +89,7 @@ export function buildMealPrintPage(menuDocument: string, backHref: string, nonce
       <a href="${backHref}">Volver a Comidas</a>
       <button id="menu-copy-link" type="button">Copiar enlace</button>
     </nav>
-    <p class="print-help">Usa papel Carta, orientación vertical y escala 100 %. Desactiva los encabezados y pies de página del navegador. En iPhone, también puedes usar Compartir → Imprimir desde Safari.</p>
+    <p class="print-help">Usa papel Carta, orientación vertical y escala 100 %. En iPhone, también puedes usar Compartir → Imprimir desde Safari.</p>
     <p id="menu-print-status" class="print-status" role="status" aria-live="polite" hidden></p>
     <input id="menu-print-address" class="print-address" aria-label="Enlace del menú" readonly hidden>
     <noscript><p class="print-help">Usa la opción Imprimir de tu navegador, Ctrl+P o ⌘P.</p></noscript>

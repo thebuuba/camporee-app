@@ -124,7 +124,7 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <title>Menú — ${name}</title>
   <style>
     /* Match app/polymet-theme.css and app/polymet-panels-b.css, not the legacy green theme. */
@@ -133,7 +133,8 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
     html { color-scheme: light; }
     body { margin: 0; background: var(--pm-bg); color: var(--pm-ink); font-family: Poppins, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
     svg { display: block; flex-shrink: 0; }
-    .menu { max-width: 186mm; margin: 24px auto; padding: 24px; background: #fff; border-radius: 28px; }
+    .menu { position: relative; max-width: 186mm; margin: 24px auto; padding: 24px; background: #f8f5ef; border-radius: 28px; isolation: isolate; }
+    .menu.has-legado::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: url('/legado-emblem-v1.png') center 48% / 75% auto no-repeat; opacity: .12; }
     .masthead { padding: 18px 22px; margin-bottom: 16px; background: var(--pm-bg); border: 1px solid var(--pm-line); border-radius: 24px; break-inside: avoid; }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
     .brand { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; }
@@ -148,25 +149,29 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
     .event-logo { display: block; width: 108px; height: 106px; flex: 0 0 108px; object-fit: contain; }
     .date-range { display: inline-flex; align-items: center; gap: 7px; margin: 13px 0 0; padding: 5px 11px; background: #fff; border: 1px solid #f1e5dc; border-radius: 999px; color: #6c625b; font-size: 10px; line-height: 1.5; }
     .date-range svg { width: 13px; height: 13px; color: #a14f23; }
-    .day { margin: 0 0 12px; padding: 0 16px 3px; border: 1px solid var(--pm-line); border-radius: 22px; background: #fff; break-inside: avoid; page-break-inside: avoid; box-shadow: 0 3px 12px rgba(84,56,39,.035); }
-    .day-heading { display: flex; align-items: center; gap: 10px; padding: 11px 0 10px; border-bottom: 1px solid var(--pm-line); break-after: avoid; }
+    .column-heading { display: grid; grid-template-columns: 115px minmax(0,1fr); gap: 8px; padding: 0 8px 6px; color: #dd6b1c; font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; }
+    .column-heading span:first-child { text-align: center; }
+    .column-heading span:last-child { padding-left: 10px; }
+    .day { margin: 0 0 10px; border: 0; background: transparent; break-inside: avoid; page-break-inside: avoid; }
+    .day-heading { display: flex; align-items: center; justify-content: center; min-height: 36px; padding: 6px 10px; background: #161310; color: #fff; break-after: avoid; }
     .day-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; background: var(--pm-peach); color: #a14f23; border-radius: 50%; }
+    .day-icon, .day-count { display: none; }
     .day-icon svg { width: 17px; height: 17px; }
     .day-copy { min-width: 0; flex: 1; }
-    h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; letter-spacing: -.025em; text-transform: capitalize; overflow-wrap: anywhere; }
+    h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; letter-spacing: .14em; text-transform: uppercase; overflow-wrap: anywhere; }
     .day-copy p { margin: 2px 0 0; color: var(--pm-muted); font-size: 10px; line-height: 1.4; }
     .day-count { padding: 4px 9px; border-radius: 999px; background: #f6f2ee; color: #6c625b; font-size: 9px; white-space: nowrap; }
-    .meals { margin: 0; padding: 0; }
-    .meal { display: grid; grid-template-columns: 115px minmax(0, 1fr); align-items: center; gap: 12px; padding: 9px 0; break-inside: avoid; page-break-inside: avoid; }
-    .meal + .meal { border-top: 1px solid #f5f0ec; }
-    dt { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 10.5px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+    .meals { margin: 0; padding: 4px 0 0; }
+    .meal { display: grid; grid-template-columns: 115px minmax(0, 1fr); align-items: stretch; gap: 8px; margin-bottom: 4px; break-inside: avoid; page-break-inside: avoid; }
+    dt { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 32px; padding: 5px 8px; background: #ffbd05; color: #1b160f; text-align: center; font-size: 10.5px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
     .meal-icon { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; display: grid; place-items: center; }
     .meal-icon svg { width: 15px; height: 15px; }
     .tone-peach { background: var(--pm-peach); color: #a14f23; }
     .tone-sage { background: var(--pm-sage); color: #39543b; }
     .tone-yellow { background: #fff3c5; color: #a96b20; }
     .tone-pink { background: #fde7e9; color: #d53558; }
-    dd { margin: 0; min-width: 0; font-size: 12px; line-height: 1.6; font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+    dd { display: flex; align-items: center; margin: 0; min-width: 0; min-height: 32px; padding: 5px 10px; background: rgba(255,255,255,.93); font-size: 12px; line-height: 1.5; font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .meal-icon { display: none; }
     footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-top: 14px; padding: 0 3px; color: var(--pm-muted); font-size: 9px; line-height: 1.5; }
     .empty { padding: 24px; border: 1px dashed var(--pm-line); border-radius: 22px; color: var(--pm-muted); font-size: 12px; text-align: center; }
     @media screen and (max-width: 540px) {
@@ -180,41 +185,51 @@ export function buildMealMenuDocument(meals: readonly MenuMeal[], camporeeName: 
       .title-row { gap: 10px; }
       .event { font-size: 11px; }
       .kicker { font-size: 9px; }
-      .day { padding-right: 12px; padding-left: 12px; }
-      .meal { grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
+      .column-heading, .meal { grid-template-columns: 96px minmax(0, 1fr); }
       dt { font-size: 10px; gap: 6px; }
       dd { font-size: 11px; }
-      .meal-icon { width: 24px; height: 24px; flex-basis: 24px; }
+      dd { padding: 6px 9px; }
     }
     @page { size: letter portrait; margin: 10mm; }
     @media print {
-      html, body { background: #fff; }
+      html, body { background: #fff; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .menu { width: 100%; max-width: none; margin: 0; padding: 0; border-radius: 0; }
-      /* Leave room for all four days and eleven meals on Letter at 100%.
-         Keep text readable; compact the decorative space, never clip content. */
-      .masthead { padding: 12px 16px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
-      .brand-row { margin-bottom: 8px; }
-      h1 { font-size: 26px; }
-      .hero-icon { width: 44px; height: 44px; flex-basis: 44px; }
-      .date-range { margin-top: 8px; padding: 3px 9px; }
-      .day { margin-bottom: 8px; padding: 0 14px 2px; box-shadow: none; }
-      .day-heading { padding: 7px 0 6px; }
-      .day-icon { width: 28px; height: 28px; flex-basis: 28px; }
-      .meal { padding: 5px 0; }
-      .meal-icon { width: 24px; height: 24px; flex-basis: 24px; }
+      /* A physical width prevents the phone viewport from determining wrapping
+         and AirPrint's shrink-to-fit scale. Leave ample room for browser footers.
+         No fixed height or clipping: longer future menus can still paginate. */
+      .menu { width: 7.25in; max-width: none; margin: 0 auto; padding: 0; border-radius: 0; }
+      .masthead { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 4px 16px; padding: 10px 14px; margin-bottom: 8px; break-after: avoid; page-break-after: avoid; }
+      .brand-row { grid-column: 1; margin: 0; line-height: 1.4; }
+      .title-row { display: contents; }
+      .title-copy { grid-column: 1; grid-row: 2; }
+      h1 { font-size: 24px; margin-bottom: 2px; }
+      .event { font-size: 12px; line-height: 1.4; }
+      .event-logo, .hero-icon { grid-column: 2; grid-row: 1 / 4; align-self: center; justify-self: center; }
+      .event-logo { width: 80px; height: 79px; }
+      .hero-icon { width: 40px; height: 40px; }
+      .date-range { grid-column: 1; grid-row: 3; justify-self: start; margin: 0; padding: 2px 8px; }
+      .column-heading { padding-bottom: 4px; }
+      .day { margin-bottom: 5px; }
+      .day-heading { min-height: 30px; padding: 4px 8px; }
+      h2 { font-size: 14px; }
+      .day-copy { display: flex; align-items: center; justify-content: center; flex: none; gap: 10px; }
+      .day-copy p { margin: 0; color: #e8dfd6; }
+      .meals { padding-top: 3px; }
+      .meal { margin-bottom: 3px; }
+      dt, dd { min-height: 29px; padding-top: 4px; padding-bottom: 4px; }
       dd { line-height: 1.5; }
-      footer { margin-top: 8px; break-inside: avoid; }
+      footer { margin-top: 6px; break-inside: avoid; }
     }
   </style>
 </head>
 <body>
-  <main class="menu" data-design="camporee-polymet">
+  <main class="menu${isLegado ? ' has-legado' : ''}" data-design="camporee-polymet">
     <header class="masthead">
       <div class="brand-row"><span class="brand">${isLegado ? 'II Bi-Camporee' : `${menuIcon('camp')}Camporee`}</span><span class="kicker">Plan de alimentación</span></div>
       <div class="title-row"><div class="title-copy"><h1>Menú del camporee</h1><p class="event">${name}</p></div>${isLegado ? `<img class="event-logo" src="${LEGADO_MENU_LOGO}" alt="Logo oficial del II Bi-Camporee Legado" width="108" height="106">` : `<span class="hero-icon">${menuIcon('utensils')}</span>`}</div>
       <p class="date-range">${menuIcon('calendar')}<span>${escapeHtml(menuDateRange(days))}</span></p>
     </header>
+    <div class="column-heading" aria-hidden="true"><span>Comida</span><span>Menú</span></div>
     ${sections || '<p class="empty">Todavía no hay comidas planificadas.</p>'}
     <footer><span>${days.length} ${days.length === 1 ? 'día' : 'días'} de camporee</span><span>${meals.length} ${meals.length === 1 ? 'comida planificada' : 'comidas planificadas'}</span></footer>
   </main>
