@@ -48,6 +48,7 @@ import "./camporee-card.generated.css";
 import "./lists.css";
 import "./home-shortcuts.css";
 import "./panel-contrast.css";
+import "./current-panel-surfaces.css";
 import ThemeProvider from "./components/theme-provider";
 import { themeInitScript } from "@/lib/theme";
 import { launchInitScript } from "@/lib/launch-bootstrap";
